@@ -1,0 +1,392 @@
+/*
+ * TOOTHLOGY APPLICATION LAYOUT STYLES
+ *
+ * Shell, forms and page furniture. Component primitives live in styles.css;
+ * this file is the layer above them — the arrangements those primitives sit in.
+ *
+ * Every value resolves to a token. Logical properties throughout, so RTL
+ * mirrors from the `dir` attribute alone.
+ */
+
+/* --- Layout scaffold ------------------------------------------------------ */
+
+.tl-layout {
+  display: flex;
+  flex-direction: column;
+  /* Keeps the footer at the bottom on short pages without absolute positioning. */
+  min-height: 100dvh;
+}
+
+.tl-layout__main {
+  flex: 1;
+}
+
+.tl-page {
+  padding-block: var(--tl-space-6) var(--tl-space-8);
+  display: grid;
+  gap: var(--tl-space-5);
+}
+
+.tl-page__header h1 {
+  margin: 0 0 var(--tl-space-2);
+  font-size: var(--tl-text-2xl);
+  line-height: var(--tl-leading-tight);
+}
+
+.tl-page__lead {
+  margin: 0;
+  color: var(--tl-color-text-muted);
+}
+
+.tl-muted {
+  color: var(--tl-color-text-muted);
+}
+
+/* --- Header --------------------------------------------------------------- */
+
+.tl-header {
+  border-block-end: 1px solid var(--tl-color-border);
+  background: var(--tl-color-surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tl-header__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-4);
+  min-height: 4rem;
+  flex-wrap: wrap;
+}
+
+.tl-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-text);
+  text-decoration: none;
+}
+
+.tl-header__mark {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--tl-radius-md);
+  background: var(--tl-color-brand);
+  color: var(--tl-color-on-brand);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-header__nav {
+  display: flex;
+  gap: var(--tl-space-4);
+  /* Pushes the actions to the far edge without a spacer element. */
+  margin-inline-end: auto;
+}
+
+.tl-header__nav a {
+  color: var(--tl-color-text-muted);
+  text-decoration: none;
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-medium);
+}
+
+.tl-header__nav a:hover {
+  color: var(--tl-color-text);
+}
+
+.tl-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+}
+
+/*
+ * Below 48rem the nav wraps to its own full-width row rather than being hidden
+ * behind a menu button. At three links, a drawer is more taps for no benefit.
+ */
+@media (max-width: 48rem) {
+  .tl-header__nav {
+    order: 3;
+    width: 100%;
+    margin-inline-end: 0;
+    padding-block-end: var(--tl-space-2);
+    overflow-x: auto;
+  }
+}
+
+/* --- Footer --------------------------------------------------------------- */
+
+.tl-footer {
+  border-block-start: 1px solid var(--tl-color-border);
+  background: var(--tl-color-surface-sunken);
+  padding-block: var(--tl-space-6);
+  margin-block-start: var(--tl-space-8);
+}
+
+.tl-footer__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--tl-space-5);
+}
+
+.tl-footer__heading {
+  margin: 0 0 var(--tl-space-2);
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-footer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--tl-space-1);
+}
+
+.tl-footer__list a {
+  color: var(--tl-color-text-muted);
+  text-decoration: none;
+  font-size: var(--tl-text-sm);
+}
+
+.tl-footer__list a:hover {
+  color: var(--tl-color-text);
+  text-decoration: underline;
+}
+
+.tl-footer__note {
+  margin-block-start: var(--tl-space-5);
+  padding-block-start: var(--tl-space-4);
+  border-block-start: 1px solid var(--tl-color-border);
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-subtle);
+  max-width: 68ch;
+}
+
+/* --- Auth pages ----------------------------------------------------------- */
+
+.tl-auth {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--tl-space-4);
+  background: var(--tl-color-background);
+}
+
+.tl-auth__panel {
+  width: 100%;
+  max-width: 28rem;
+  background: var(--tl-color-surface);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-lg);
+  box-shadow: var(--tl-shadow-md);
+  padding: var(--tl-space-6);
+}
+
+.tl-auth__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+  margin-block-end: var(--tl-space-5);
+  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-text);
+  text-decoration: none;
+}
+
+.tl-auth__title {
+  margin: 0 0 var(--tl-space-1);
+  font-size: var(--tl-text-2xl);
+}
+
+.tl-auth__subtitle {
+  margin: 0 0 var(--tl-space-5);
+  color: var(--tl-color-text-muted);
+}
+
+/* --- Forms ---------------------------------------------------------------- */
+
+.tl-form {
+  display: grid;
+  gap: var(--tl-space-4);
+}
+
+.tl-form__aside {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+  text-align: center;
+}
+
+.tl-form__reference {
+  display: inline-block;
+  font-family: var(--tl-font-mono);
+  font-size: var(--tl-text-xs);
+}
+
+.tl-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tl-fieldset__legend {
+  padding: 0;
+  margin-block-end: var(--tl-space-2);
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-medium);
+}
+
+.tl-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--tl-space-2);
+}
+
+/*
+ * The radio input stays in the DOM and is only visually hidden, so keyboard
+ * navigation and screen-reader semantics are the browser's native ones. A
+ * div-based fake radio group would have to reimplement both, badly.
+ */
+.tl-choice {
+  position: relative;
+  display: grid;
+  gap: 0.125rem;
+  padding: var(--tl-space-3);
+  border: 1px solid var(--tl-color-border-strong);
+  border-radius: var(--tl-radius-md);
+  cursor: pointer;
+  background: var(--tl-color-surface);
+}
+
+.tl-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tl-choice--selected {
+  border-color: var(--tl-color-brand);
+  background: var(--tl-color-brand-subtle);
+}
+
+/* The focus ring must follow the hidden input to its visible label. */
+.tl-choice:focus-within {
+  box-shadow: var(--tl-focus-ring);
+}
+
+.tl-choice__label {
+  font-weight: var(--tl-weight-medium);
+  font-size: var(--tl-text-sm);
+}
+
+.tl-choice__hint {
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tl-space-2);
+  font-size: var(--tl-text-sm);
+}
+
+.tl-checkbox input {
+  /* Aligns the box with the first line of a wrapping label. */
+  margin-block-start: 0.2rem;
+  width: 1rem;
+  height: 1rem;
+}
+
+/* --- Cards and lists ------------------------------------------------------ */
+
+.tl-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--tl-space-4);
+  align-items: start;
+}
+
+.tl-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tl-space-3);
+  flex-wrap: wrap;
+}
+
+.tl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--tl-space-3);
+}
+
+.tl-list li {
+  display: grid;
+  gap: 0.125rem;
+  padding-block-end: var(--tl-space-3);
+  border-block-end: 1px solid var(--tl-color-border);
+}
+
+.tl-list li:last-child {
+  padding-block-end: 0;
+  border-block-end: none;
+}
+
+.tl-list__meta {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}
+
+/*
+ * Unread is marked by a leading bar AND bolder text, never by colour alone.
+ */
+.tl-list__item--unread {
+  padding-inline-start: var(--tl-space-3);
+  border-inline-start: 3px solid var(--tl-color-brand);
+  font-weight: var(--tl-weight-medium);
+}
+
+/* --- Breadcrumb ----------------------------------------------------------- */
+
+.tl-breadcrumb {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-breadcrumb a {
+  color: var(--tl-color-text-muted);
+}
+
+/* --- Home page ------------------------------------------------------------ */
+
+.tl-hero {
+  padding-block: var(--tl-space-8);
+  display: grid;
+  gap: var(--tl-space-4);
+  max-width: 46rem;
+}
+
+.tl-hero h1 {
+  margin: 0;
+  font-size: var(--tl-text-3xl);
+  line-height: var(--tl-leading-tight);
+}
+
+.tl-hero__lead {
+  margin: 0;
+  font-size: var(--tl-text-lg);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-hero__actions {
+  display: flex;
+  gap: var(--tl-space-3);
+  flex-wrap: wrap;
+}

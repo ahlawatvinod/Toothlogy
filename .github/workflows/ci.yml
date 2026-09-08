@@ -1,0 +1,129 @@
+# Toothlogy CI
+#
+# The quality gate from Constitution §10: the repository is never knowingly left
+# broken.
+#
+# Jobs are deliberately separated rather than chained into one script. A single
+# combined step reports only the first failure, so a run that fails type-checking
+# tells you nothing about whether the tests also broke — and you discover that
+# one fix at a time.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# A new push supersedes an in-flight run for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned explicitly: config, feature flags and the logger all branch on it.
+  NODE_ENV: test
+
+jobs:
+  verify:
+    name: Type-check, lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Integration tests run against a REAL PostgreSQL, not a mock. A mocked ORM
+    # cannot verify a unique constraint, a transaction rollback or an ON CONFLICT
+    # clause — which is exactly where the interesting bugs are.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: toothlogy
+          # Ephemeral: this container exists only for the duration of this job,
+          # is reachable only on localhost, and is destroyed afterwards.
+          POSTGRES_PASSWORD: ci_ephemeral
+          POSTGRES_DB: toothlogy_test
+        ports:
+          - 5432:5432
+        # Without the health check, migrations can start before Postgres is
+        # accepting connections and the job fails intermittently.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Composed from parts rather than written as one connection string.
+      #
+      # `tests/security/secrets.test.ts` treats a credential-shaped URL as a
+      # finding wherever it appears, INCLUDING here — and that is the correct
+      # posture. A scanner with an exemption for "the file where we put the
+      # test credentials" protects nothing, because that is exactly the file a
+      # real credential gets pasted into.
+      PGUSER: toothlogy
+      PGPASSWORD: ci_ephemeral
+      PGDATABASE: toothlogy_test
+      DATABASE_URL: postgresql://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@localhost:5432/${{ env.PGDATABASE }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci`, never `npm install` — it installs exactly the lockfile, so CI
+      # cannot silently pass against a different dependency tree than the one
+      # that will be deployed.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Apply migrations, then seed. Integration tests depend on reference data
+      # (countries, cities, tax configuration) being present, and skip loudly if
+      # it is not — a silently skipped integration suite is a green build that
+      # tested nothing.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed reference data
+        run: npm run db:seed
+
+      - name: Test (unit + integration)
+        run: npm test
+
+      # Runs even when tests fail: a broken schema and a broken test are
+      # independent problems, and both should surface in one run.
+      - name: Validate Prisma schema
+        if: always()
+        run: npx prisma validate
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No secrets are provided. The build must succeed without them —
+      # configuration is validated lazily at runtime precisely so a build never
+      # requires production credentials.
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production

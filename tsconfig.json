@@ -1,7 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
+    "noUncheckedIndexedAccess": true,
+    // Node runs scripts/*.mts via --experimental-strip-types, which requires
+    // explicit .ts import specifiers. Safe here because noEmit is set.
+    "allowImportingTsExtensions": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,

@@ -1,0 +1,695 @@
+/*
+ * TOOTHLOGY DESIGN SYSTEM — COMPONENT STYLES
+ *
+ * Every value here resolves to a token from globals.css. There are no literal
+ * colours, spacings or radii in this file — that is what makes theming,
+ * palette-switching and Prime's premium identity possible without forking a
+ * single component.
+ *
+ * Direction-neutral properties are used throughout (`padding-inline`,
+ * `inset-inline-start`, `margin-inline`) rather than left/right, so RTL layouts
+ * mirror from the `dir` attribute alone (Constitution §4).
+ */
+
+/* --- Layout --------------------------------------------------------------- */
+
+.tl-container {
+  width: 100%;
+  max-width: var(--tl-container-max);
+  margin-inline: auto;
+  padding-inline: var(--tl-space-4);
+}
+
+@media (min-width: 48rem) {
+  .tl-container {
+    padding-inline: var(--tl-space-5);
+  }
+}
+
+.tl-stack > * + * {
+  margin-block-start: var(--tl-space-4);
+}
+
+/* --- Button --------------------------------------------------------------- */
+
+.tl-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tl-space-2);
+  min-height: var(--tl-touch-target);
+  border: 1px solid transparent;
+  border-radius: var(--tl-radius-md);
+  font-family: inherit;
+  font-weight: var(--tl-weight-medium);
+  line-height: var(--tl-leading-tight);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color var(--tl-duration-fast) var(--tl-ease),
+    border-color var(--tl-duration-fast) var(--tl-ease),
+    color var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-button--sm {
+  min-height: 2.25rem;
+  padding-inline: var(--tl-space-3);
+  font-size: var(--tl-text-sm);
+}
+
+.tl-button--md {
+  padding-inline: var(--tl-space-4);
+  font-size: var(--tl-text-base);
+}
+
+.tl-button--lg {
+  min-height: 3.25rem;
+  padding-inline: var(--tl-space-5);
+  font-size: var(--tl-text-lg);
+}
+
+.tl-button--full {
+  width: 100%;
+}
+
+.tl-button--primary {
+  background: var(--tl-color-brand);
+  color: var(--tl-color-on-brand);
+}
+
+.tl-button--primary:hover:not(:disabled):not([aria-busy='true']) {
+  background: var(--tl-color-brand-strong);
+}
+
+.tl-button--secondary {
+  background: var(--tl-color-surface);
+  color: var(--tl-color-text);
+  border-color: var(--tl-color-border-strong);
+}
+
+.tl-button--secondary:hover:not(:disabled):not([aria-busy='true']) {
+  background: var(--tl-color-surface-sunken);
+}
+
+.tl-button--ghost {
+  background: transparent;
+  color: var(--tl-color-brand);
+}
+
+.tl-button--ghost:hover:not(:disabled):not([aria-busy='true']) {
+  background: var(--tl-color-brand-subtle);
+}
+
+.tl-button--danger {
+  background: var(--tl-color-danger);
+  color: #ffffff;
+}
+
+/*
+ * A disabled button is dimmed AND shows a not-allowed cursor. Opacity alone can
+ * still read as "enabled but low contrast" — a second signal removes the doubt.
+ */
+.tl-button:disabled,
+.tl-button[aria-busy='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tl-button__spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid currentColor;
+  border-block-start-color: transparent;
+  border-radius: var(--tl-radius-full);
+  animation: tl-spin 0.7s linear infinite;
+}
+
+@keyframes tl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Field and input ------------------------------------------------------ */
+
+.tl-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tl-space-1);
+}
+
+.tl-field__label {
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-medium);
+  color: var(--tl-color-text);
+}
+
+.tl-field__required {
+  color: var(--tl-color-danger);
+}
+
+.tl-field__hint {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-field__error {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-medium);
+  color: var(--tl-color-danger);
+}
+
+.tl-input {
+  width: 100%;
+  min-height: var(--tl-touch-target);
+  padding: var(--tl-space-2) var(--tl-space-3);
+  background: var(--tl-color-surface);
+  color: var(--tl-color-text);
+  border: 1px solid var(--tl-color-border-strong);
+  border-radius: var(--tl-radius-md);
+  font-family: inherit;
+  /*
+   * 16px minimum on mobile. Below it, iOS Safari zooms the viewport on focus
+   * and does not zoom back out, leaving the user stranded mid-form.
+   */
+  font-size: var(--tl-text-base);
+}
+
+.tl-input::placeholder {
+  color: var(--tl-color-text-subtle);
+}
+
+/* Invalid state is signalled by border AND the associated error text. */
+.tl-input[aria-invalid='true'] {
+  border-color: var(--tl-color-danger);
+}
+
+.tl-input:disabled {
+  background: var(--tl-color-surface-sunken);
+  cursor: not-allowed;
+}
+
+/* --- Badge ---------------------------------------------------------------- */
+
+.tl-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem var(--tl-space-2);
+  border-radius: var(--tl-radius-full);
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-medium);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.tl-badge--neutral {
+  background: var(--tl-color-surface-sunken);
+  color: var(--tl-color-text-muted);
+}
+.tl-badge--brand {
+  background: var(--tl-color-brand-subtle);
+  color: var(--tl-color-brand-strong);
+}
+.tl-badge--success {
+  background: var(--tl-color-success-subtle);
+  color: var(--tl-color-success);
+}
+.tl-badge--warning {
+  background: var(--tl-color-warning-subtle);
+  color: var(--tl-color-warning);
+}
+.tl-badge--danger {
+  background: var(--tl-color-danger-subtle);
+  color: var(--tl-color-danger);
+}
+.tl-badge--info {
+  background: var(--tl-color-info-subtle);
+  color: var(--tl-color-info);
+}
+
+/* --- Alert ---------------------------------------------------------------- */
+
+.tl-alert {
+  display: flex;
+  gap: var(--tl-space-3);
+  padding: var(--tl-space-3) var(--tl-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--tl-radius-md);
+  font-size: var(--tl-text-sm);
+}
+
+.tl-alert__title {
+  margin: 0 0 var(--tl-space-1);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-alert__body {
+  margin: 0;
+}
+
+.tl-alert--info {
+  background: var(--tl-color-info-subtle);
+  border-color: var(--tl-color-info);
+  color: var(--tl-color-text);
+}
+.tl-alert--success {
+  background: var(--tl-color-success-subtle);
+  border-color: var(--tl-color-success);
+  color: var(--tl-color-text);
+}
+.tl-alert--warning {
+  background: var(--tl-color-warning-subtle);
+  border-color: var(--tl-color-warning);
+  color: var(--tl-color-text);
+}
+.tl-alert--danger {
+  background: var(--tl-color-danger-subtle);
+  border-color: var(--tl-color-danger);
+  color: var(--tl-color-text);
+}
+
+/* --- Spinner and skeleton ------------------------------------------------- */
+
+.tl-spinner {
+  display: inline-flex;
+}
+
+.tl-spinner__ring {
+  display: block;
+  border: 2px solid var(--tl-color-border-strong);
+  border-block-start-color: var(--tl-color-brand);
+  border-radius: var(--tl-radius-full);
+  animation: tl-spin 0.7s linear infinite;
+}
+
+.tl-spinner--sm .tl-spinner__ring {
+  width: 1rem;
+  height: 1rem;
+}
+
+.tl-spinner--md .tl-spinner__ring {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.tl-skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--tl-color-surface-sunken) 25%,
+    var(--tl-color-border) 37%,
+    var(--tl-color-surface-sunken) 63%
+  );
+  background-size: 400% 100%;
+  border-radius: var(--tl-radius-sm);
+  animation: tl-shimmer 1.4s ease infinite;
+}
+
+@keyframes tl-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/*
+ * Reduced motion: the shimmer becomes a static block. The loading affordance
+ * is preserved without the animation that causes discomfort.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .tl-skeleton {
+    animation: none;
+    background: var(--tl-color-surface-sunken);
+  }
+
+  .tl-spinner__ring,
+  .tl-button__spinner {
+    animation-duration: 2s;
+  }
+}
+
+/* --- States --------------------------------------------------------------- */
+
+.tl-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tl-space-2);
+  padding: var(--tl-space-7) var(--tl-space-4);
+  text-align: center;
+  border: 1px dashed var(--tl-color-border);
+  border-radius: var(--tl-radius-lg);
+}
+
+.tl-state__title {
+  margin: 0;
+  font-size: var(--tl-text-lg);
+  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-text);
+}
+
+.tl-state__description {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--tl-color-text-muted);
+}
+
+.tl-state__meta {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-state__action {
+  margin-block-start: var(--tl-space-2);
+}
+
+.tl-state--error {
+  border-style: solid;
+  border-color: var(--tl-color-danger);
+  background: var(--tl-color-danger-subtle);
+}
+
+/* --- Card ----------------------------------------------------------------- */
+
+.tl-card {
+  background: var(--tl-color-surface);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-lg);
+  box-shadow: var(--tl-shadow-sm);
+  overflow: hidden;
+}
+
+.tl-card__header {
+  padding: var(--tl-space-4);
+  border-block-end: 1px solid var(--tl-color-border);
+}
+
+.tl-card__body {
+  padding: var(--tl-space-4);
+}
+
+.tl-card__footer {
+  padding: var(--tl-space-4);
+  border-block-start: 1px solid var(--tl-color-border);
+  background: var(--tl-color-surface-sunken);
+}
+
+/* --- Table ---------------------------------------------------------------- */
+
+/*
+ * The scroll container, not the page, handles overflow. Without this a wide
+ * table makes the whole document scroll sideways on mobile — one of the most
+ * common responsive failures.
+ */
+.tl-table__scroll {
+  overflow-x: auto;
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-lg);
+}
+
+.tl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--tl-text-sm);
+}
+
+.tl-table__caption {
+  padding: var(--tl-space-3) var(--tl-space-4);
+  text-align: start;
+  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-text);
+}
+
+.tl-table th,
+.tl-table td {
+  padding: var(--tl-space-3) var(--tl-space-4);
+  text-align: start;
+  border-block-start: 1px solid var(--tl-color-border);
+}
+
+.tl-table th {
+  background: var(--tl-color-surface-sunken);
+  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-text-muted);
+  white-space: nowrap;
+}
+
+/* --- Tabs ----------------------------------------------------------------- */
+
+.tl-tabs__list {
+  display: flex;
+  gap: var(--tl-space-1);
+  border-block-end: 1px solid var(--tl-color-border);
+  overflow-x: auto;
+}
+
+.tl-tabs__tab {
+  min-height: var(--tl-touch-target);
+  padding-inline: var(--tl-space-4);
+  background: transparent;
+  border: none;
+  border-block-end: 2px solid transparent;
+  color: var(--tl-color-text-muted);
+  font: inherit;
+  font-weight: var(--tl-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/*
+ * The selected tab is marked by colour AND a 2px underline, so the state
+ * survives a colour-vision deficiency and a monochrome display.
+ */
+.tl-tabs__tab--selected {
+  color: var(--tl-color-brand);
+  border-block-end-color: var(--tl-color-brand);
+}
+
+.tl-tabs__panel {
+  padding-block: var(--tl-space-4);
+}
+
+/* --- Dialog --------------------------------------------------------------- */
+
+.tl-dialog {
+  padding: 0;
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-lg);
+  background: var(--tl-color-surface);
+  color: var(--tl-color-text);
+  box-shadow: var(--tl-shadow-lg);
+  max-width: min(32rem, calc(100vw - 2rem));
+  width: 100%;
+}
+
+.tl-dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.tl-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tl-space-3);
+  padding: var(--tl-space-4);
+  border-block-end: 1px solid var(--tl-color-border);
+}
+
+.tl-dialog__title {
+  margin: 0;
+  font-size: var(--tl-text-lg);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-dialog__close {
+  min-width: var(--tl-touch-target);
+  min-height: var(--tl-touch-target);
+  background: transparent;
+  border: none;
+  color: var(--tl-color-text-muted);
+  font-size: var(--tl-text-xl);
+  cursor: pointer;
+  border-radius: var(--tl-radius-md);
+}
+
+.tl-dialog__body {
+  padding: var(--tl-space-4);
+}
+
+.tl-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--tl-space-2);
+  padding: var(--tl-space-4);
+  border-block-start: 1px solid var(--tl-color-border);
+  background: var(--tl-color-surface-sunken);
+}
+
+/* --- Theme toggle --------------------------------------------------------- */
+
+.tl-theme-toggle {
+  display: inline-flex;
+  padding: 0.125rem;
+  gap: 0.125rem;
+  background: var(--tl-color-surface-sunken);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-md);
+}
+
+.tl-theme-toggle__option {
+  padding: var(--tl-space-1) var(--tl-space-3);
+  min-height: 2rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--tl-radius-sm);
+  color: var(--tl-color-text-muted);
+  font: inherit;
+  font-size: var(--tl-text-sm);
+  cursor: pointer;
+}
+
+.tl-theme-toggle__option--active {
+  background: var(--tl-color-surface);
+  color: var(--tl-color-text);
+  box-shadow: var(--tl-shadow-sm);
+}
+
+/* --- Prose ---------------------------------------------------------------- */
+
+.tl-prose {
+  /*
+   * ~65 characters per line. Longer lines make the eye lose its place on the
+   * return sweep — a readability constraint that matters for the LEARN pillar.
+   */
+  max-width: 68ch;
+  line-height: var(--tl-leading-relaxed);
+}
+
+.tl-prose h1,
+.tl-prose h2,
+.tl-prose h3 {
+  line-height: var(--tl-leading-tight);
+  margin-block: var(--tl-space-6) var(--tl-space-3);
+}
+
+.tl-prose h1 {
+  font-size: var(--tl-text-3xl);
+}
+.tl-prose h2 {
+  font-size: var(--tl-text-2xl);
+}
+.tl-prose h3 {
+  font-size: var(--tl-text-xl);
+}
+
+.tl-prose p {
+  margin-block: 0 var(--tl-space-4);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-prose code {
+  padding: 0.1em 0.35em;
+  background: var(--tl-color-surface-sunken);
+  border-radius: var(--tl-radius-sm);
+  font-family: var(--tl-font-mono);
+  font-size: 0.9em;
+}
+
+/* --- Foundation status surfaces ------------------------------------------ */
+
+/*
+ * Auto-fitting grid rather than fixed columns: the layout adapts to the
+ * viewport without a media query per breakpoint, and never produces a column
+ * narrower than 8rem where numbers would wrap.
+ */
+.tl-registry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--tl-space-4);
+  margin: 0;
+}
+
+.tl-stat__label {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-stat__value {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-size: var(--tl-text-2xl);
+  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-text);
+  line-height: var(--tl-leading-tight);
+}
+
+.tl-stat__detail {
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-normal);
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-division-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--tl-space-2);
+}
+
+.tl-division-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-3);
+  padding: var(--tl-space-2) var(--tl-space-3);
+  background: var(--tl-color-surface);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-md);
+}
+
+.tl-division-list__number {
+  font-family: var(--tl-font-mono);
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-division-list__name {
+  flex: 1;
+  font-size: var(--tl-text-sm);
+}
+
+/* --- Design system reference page ---------------------------------------- */
+
+.tl-spec {
+  display: grid;
+  gap: var(--tl-space-5);
+}
+
+.tl-spec__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tl-space-3);
+}
+
+.tl-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tl-space-1);
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-swatch__chip {
+  width: 100%;
+  height: 3rem;
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-md);
+}

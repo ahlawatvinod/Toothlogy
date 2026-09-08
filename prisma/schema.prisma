@@ -1,0 +1,1530 @@
+// TOOTHLOGY DATA ARCHITECTURE — Phase 0/1 foundation
+//
+// Founding spec §11. Only the platform foundation is modelled here: identity,
+// organizations, profiles, location reference data, audit, consent, and the
+// platform mechanics that make events, idempotency and flags work.
+//
+// NO DOMAIN MODELS. There is no Appointment, DentalRecord, Product or Lead in
+// this schema. Modelling them now would freeze decisions that belong to Phases
+// 4–9, and a half-designed clinical schema is harder to correct than an absent
+// one (Constitution §11).
+//
+// CONVENTIONS APPLIED TO EVERY TABLE
+//
+// - `id` is a prefixed ULID string (`usr_01JF3…`), not an auto-increment
+//   integer. Sequential IDs in URLs are an enumeration vulnerability, and these
+//   IDs appear in URLs. See src/platform/kernel/ids.ts.
+// - `createdAt` / `updatedAt` on everything, so "when did this change?" is
+//   always answerable.
+// - `deletedAt` where an entity is soft-deleted, because something else
+//   references it. A hard delete of a user would orphan the audit trail and the
+//   clinical records that reference them.
+// - Sensitive columns are commented as such, so redaction and export tooling
+//   has a stated target.
+//
+// SOFT DELETE IS NOT UNIVERSAL. Reference data and append-only logs are
+// hard-deletable or not deletable at all. Applying soft delete everywhere adds
+// a `deletedAt IS NULL` clause to every query — one of which will eventually be
+// forgotten, silently exposing deleted data.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+// DIVISION 01 — CORE: identity
+// ===========================================================================
+
+/// A single human account.
+///
+/// Constituent type (patient, dentist, student, supplier) is expressed through
+/// Profile and RoleAssignment, never by separate user tables. A dentist who is
+/// also a patient is one User with two profiles — modelling them separately
+/// would make that person two accounts that cannot see each other's data.
+model User {
+  id String @id
+
+  /// Nullable because a user may register with a phone number alone, which is
+  /// the common path in the Indian market. Requiring email would exclude them.
+  email       String? @unique
+  /// E.164, e.g. +919876543210. Stored normalised so lookup is exact.
+  phone       String? @unique
+  displayName String?
+
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+
+  status UserStatus @default(ACTIVE)
+
+  /// Preferred locale, country and timezone. Nullable — an unset preference
+  /// means "negotiate from the request", which is different from a choice of
+  /// the default (Constitution §4).
+  locale      String?
+  countryCode String?
+  timezone    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  /// Soft delete: audit events and future clinical records reference this row.
+  deletedAt DateTime?
+
+  credentials             Credential[]
+  sessions                Session[]
+  roleAssignments         RoleAssignment[]
+  organizationMemberships OrganizationMember[]
+  profiles                Profile[]
+  consents                Consent[]
+  notificationPreferences NotificationPreference[]
+  files                   FileObject[]
+
+  // --- Phase 1 ---
+  verificationTokens     VerificationToken[]
+  dentistProfile         DentistProfile?
+  notificationRecords    NotificationRecord[]
+  inAppNotifications     InAppNotification[]
+  savedLocations         SavedLocation[]
+  accountDeletionRequest AccountDeletionRequest?
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  /// Suspended by an administrator. Sessions are revoked; data is retained.
+  SUSPENDED
+  /// Self-deactivated. Reversible by the user.
+  DEACTIVATED
+}
+
+/// An authentication factor.
+///
+/// Separate from User so one account can hold several — a password plus an OTP
+/// factor plus, later, a federated identity — without adding a nullable column
+/// per authentication method.
+model Credential {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type CredentialType
+
+  /// SENSITIVE. scrypt-encoded hash, or an HMAC of an OTP. Never returned by
+  /// any API, never logged, never reversible (Constitution §9).
+  secretHash String
+
+  /// For federated identities: the provider's subject identifier.
+  externalId String?
+  provider   String?
+
+  /// OTP attempt limiting (see src/platform/auth/otp.ts).
+  attemptsRemaining Int?
+  expiresAt         DateTime?
+
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, type, provider])
+  @@index([externalId])
+  @@map("credentials")
+}
+
+enum CredentialType {
+  PASSWORD
+  OTP_EMAIL
+  OTP_PHONE
+  TOTP
+  FEDERATED
+}
+
+/// An authenticated session.
+///
+/// Stores a *hash* of the session token, not the token. If the database leaks,
+/// the hashes are not usable as sessions — the same reasoning as passwords.
+model Session {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SENSITIVE. Hash of the session token.
+  tokenHash String @unique
+
+  /// Recorded so a user can recognise and revoke a session they do not
+  /// recognise — the "signed in on a device you don't own" case.
+  ipAddress String?
+  userAgent String?
+
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  createdAt      DateTime @default(now())
+  lastActiveAt   DateTime @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Grants a registry-defined role to a user.
+///
+/// Role *definitions* live in code (src/registry/roles.ts), not in a table.
+/// Roles are a security-critical part of the architecture: they belong in
+/// version control, in code review, and in the registry integrity test — not in
+/// a table an administrator can edit at 2am.
+model RoleAssignment {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Role key from the registry, e.g. `clinic_admin`.
+  roleKey String
+
+  /// Set for organization-scoped roles; null for global ones.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Optional expiry, for temporary elevation such as a locum or a support
+  /// engineer granted access for one incident.
+  expiresAt DateTime?
+
+  grantedByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, roleKey, organizationId])
+  @@index([organizationId])
+  @@map("role_assignments")
+}
+
+/// Any multi-person entity: clinic, hospital, college, supplier or employer.
+///
+/// One shape for all of them, so organization-scoped permissions, membership
+/// and verification are written once rather than five times. Type-specific
+/// detail is added by the owning division in its own phase.
+model Organization {
+  id   String           @id
+  type OrganizationType
+
+  name String
+  /// URL-safe identifier for public pages. Unique platform-wide, because it
+  /// appears in a URL that must resolve to exactly one organization.
+  slug String @unique
+
+  countryCode String
+  timezone    String
+  /// Default currency for pricing. Defaults to the country's, overridable.
+  currency    String
+
+  status OrganizationStatus @default(PENDING)
+
+  /// Verification is revocable and evidence-backed (Constitution P2). The
+  /// verification *record* lives in Division 26; these columns are the current
+  /// state for fast reads.
+  verifiedAt          DateTime?
+  verificationExpires DateTime?
+
+  addressId String?  @unique
+  address   Address? @relation(fields: [addressId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  members         OrganizationMember[]
+  roleAssignments RoleAssignment[]
+
+  // --- Phase 1 ---
+  invitations Invitation[]
+  locations   Location[]
+
+  @@index([type, status])
+  @@index([countryCode])
+  @@map("organizations")
+}
+
+enum OrganizationType {
+  CLINIC
+  HOSPITAL
+  COLLEGE
+  SUPPLIER
+  MANUFACTURER
+  DISTRIBUTOR
+  EMPLOYER
+  /// Toothlogy's own internal organization, for staff scoping.
+  PLATFORM
+}
+
+enum OrganizationStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+model OrganizationMember {
+  id String @id
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Role key scoped to this organization.
+  roleKey String
+
+  title     String?
+  isPrimary Boolean @default(false)
+
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  @@unique([userId, organizationId])
+  @@index([organizationId, leftAt])
+  @@map("organization_members")
+}
+
+// ===========================================================================
+// DIVISION 03 — USERS & PATIENTS
+// ===========================================================================
+
+/// A typed profile attached to a user.
+///
+/// One user may hold several — the same person can be a dentist, a patient and
+/// a student. Division-specific detail is added by that division in its phase;
+/// this table carries only what is common to all profile types.
+model Profile {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type ProfileType
+
+  /// Public-facing name, which may differ from the account's display name.
+  displayName String?
+  headline    String?
+  bio         String?
+
+  /// Public profile URL segment. Unique per type, so a dentist and a clinic
+  /// may share a slug without colliding.
+  slug String?
+
+  isPublic Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([userId, type])
+  @@unique([type, slug])
+  @@index([type, isPublic])
+  @@map("profiles")
+}
+
+enum ProfileType {
+  PATIENT
+  DENTIST
+  STUDENT
+  RESEARCHER
+  SUPPLIER
+  EMPLOYER
+  STAFF
+}
+
+/// A recorded, purpose-scoped, revocable consent grant.
+///
+/// Constitution P4 and §5: marketing contact, data sharing and any AI training
+/// use all require explicit consent. Consent is append-only — a revocation sets
+/// `revokedAt` rather than deleting the row, because proving that consent was
+/// held *at the time* is the entire point of recording it.
+model Consent {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose ConsentPurpose
+
+  grantedAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  /// Evidence: which policy version was agreed to, and from where.
+  policyVersion String
+  ipAddress     String?
+
+  @@index([userId, purpose])
+  @@map("consents")
+}
+
+enum ConsentPurpose {
+  MARKETING_EMAIL
+  MARKETING_SMS
+  MARKETING_WHATSAPP
+  /// Sharing clinical records with a named clinic.
+  CLINICAL_DATA_SHARING
+  /// Using the user's data to train or evaluate models (Constitution §5).
+  AI_TRAINING
+  ANALYTICS_TRACKING
+}
+
+// ===========================================================================
+// DIVISION 29 — LOCATION
+// ===========================================================================
+
+/// Country reference data, seeded from src/registry/globalization.ts.
+///
+/// Held in the database as well as the registry because the registry is a
+/// deliberately partial seed and this table becomes the full ISO set — and
+/// because `enabled` must be switchable without a deploy (Constitution §4).
+model Country {
+  code String @id @db.Char(2)
+
+  name            String
+  defaultCurrency String @db.Char(3)
+  defaultLocale   String
+  defaultTimezone String
+  callingCode     String
+  taxRegime       TaxRegime
+
+  enabled Boolean @default(false)
+
+  regions Region[]
+
+  @@map("countries")
+}
+
+enum TaxRegime {
+  GST
+  VAT
+  SALES_TAX
+  NONE
+}
+
+/// A first-level subdivision.
+///
+/// Named "Region", not "State": "state" is the Indian and American term, and
+/// other markets use province, prefecture, canton or county. A schema named for
+/// one market's vocabulary is the kind of assumption Constitution P5 forbids.
+model Region {
+  id String @id
+
+  countryCode String
+  country     Country @relation(fields: [countryCode], references: [code])
+
+  name String
+  code String?
+
+  cities City[]
+
+  @@unique([countryCode, name])
+  @@map("regions")
+}
+
+model City {
+  id String @id
+
+  regionId String
+  region   Region @relation(fields: [regionId], references: [id])
+
+  name String
+
+  /// Coordinates for radius search and distance ranking.
+  /// `Decimal` rather than `Float`: geographic coordinates need exact storage,
+  /// and float drift moves a clinic by metres per round trip.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  addresses Address[]
+
+  @@unique([regionId, name])
+  @@index([latitude, longitude])
+  @@map("cities")
+}
+
+/// A postal address.
+///
+/// Stored as ordered lines plus a country-specific `components` map rather than
+/// fixed columns (street1, street2, state, zip). Address shape genuinely differs
+/// by country — Japan orders it largest-unit-first, Ireland has no postcode in
+/// the usual sense — and a fixed schema silently excludes those markets.
+model Address {
+  id String @id
+
+  /// Ordered address lines as the local convention writes them.
+  lines String[]
+
+  cityId String?
+  city   City?   @relation(fields: [cityId], references: [id])
+
+  /// Free-text fallbacks for places not yet in the reference tables.
+  locality   String?
+  regionName String?
+
+  postalCode  String?
+  countryCode String  @db.Char(2)
+
+  /// Country-specific fields — landmark, district, PO box — keyed by name.
+  components Json?
+
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  organization Organization?
+
+  // --- Phase 1 ---
+  location      Location?
+  savedLocation SavedLocation?
+
+  @@index([countryCode, postalCode])
+  @@index([latitude, longitude])
+  @@map("addresses")
+}
+
+// ===========================================================================
+// DIVISION 33 — SECURITY & COMPLIANCE
+// ===========================================================================
+
+/// Append-only audit trail.
+///
+/// Constitution §8: never updated, never deleted, by any division. There is
+/// deliberately no `updatedAt` and no `deletedAt` — the absence of those
+/// columns is the schema stating the rule, so a future `prisma.auditEvent.update`
+/// has nothing to update.
+///
+/// `userId` is a plain string with no foreign key, on purpose: a cascade delete
+/// must never be able to remove audit history, and the record must survive the
+/// deletion of the account it describes.
+model AuditEvent {
+  id String @id
+
+  /// Operation or route ID, e.g. `TL-API-REGISTRY-001`.
+  action String
+  /// Actor: a user ID, or a named system actor.
+  actor  String
+  /// What was acted on: a record ID or resource path.
+  subject String
+
+  outcome AuditOutcome
+
+  requestId      String?
+  organizationId String?
+  ipAddress      String?
+  userAgent      String?
+
+  /// Structured context, passed through the logger's redactor before writing —
+  /// so a careless caller cannot put a secret into a permanent record.
+  detail Json?
+
+  occurredAt DateTime @default(now())
+
+  @@index([actor, occurredAt])
+  @@index([subject, occurredAt])
+  @@index([action, occurredAt])
+  @@index([occurredAt])
+  @@map("audit_events")
+}
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
+// ===========================================================================
+// PLATFORM MECHANICS
+// ===========================================================================
+
+/// Transactional outbox.
+///
+/// A domain event is written here in the same transaction as the state change
+/// it describes, and a relay publishes it afterwards. This is what makes it
+/// impossible to emit `APPOINTMENT_CONFIRMED` for a transaction that rolled
+/// back — the failure mode that sends confirmation emails for appointments
+/// that do not exist.
+model OutboxEvent {
+  id String @id
+
+  /// Registered event name, e.g. `APPOINTMENT_CONFIRMED`.
+  name    String
+  payload Json
+
+  requestId String?
+  actor     String?
+
+  occurredAt  DateTime  @default(now())
+  publishedAt DateTime?
+  attempts    Int       @default(0)
+  lastError   String?
+
+  /// Partial index on unpublished rows: the relay polls for `publishedAt IS
+  /// NULL`, and without this it would scan the entire event history each time.
+  @@index([publishedAt, occurredAt])
+  @@map("outbox_events")
+}
+
+/// Stores the result of a keyed mutation so a retry returns the original
+/// outcome instead of performing the action twice.
+///
+/// `fingerprint` is a hash of the request. A key reused with a *different* body
+/// is a client bug and must be rejected loudly, not answered with the wrong
+/// cached response (see src/platform/http/security.ts).
+model IdempotencyRecord {
+  id  String @id
+  key String @unique
+
+  fingerprint  String
+  statusCode   Int
+  responseBody Json
+
+  createdAt DateTime @default(now())
+  /// Records are pruned after expiry; keeping them forever grows without bound.
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("idempotency_records")
+}
+
+/// Runtime override of a registry-declared feature flag.
+///
+/// Lets a capability be switched off in production without a deploy — the kill
+/// switch that makes "merge early, ship deliberately" safe (Constitution §10).
+model FeatureFlagOverride {
+  id  String @id
+  key String @unique
+
+  state String
+
+  reason          String?
+  setByUserId     String?
+  expiresAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("feature_flag_overrides")
+}
+
+/// Metadata for a stored file. The bytes live with a storage provider.
+///
+/// `sensitivity` drives signed-URL lifetime and whether the object may ever be
+/// public. Prescriptions, records and X-rays are never publicly addressable
+/// (Constitution §9).
+model FileObject {
+  id String @id
+
+  /// Provider-side object key. Not a URL — a URL implies addressability.
+  storageKey String @unique
+
+  contentType String
+  sizeBytes   Int
+  checksum    String
+
+  sensitivity Sensitivity
+
+  ownerUserId String?
+  owner       User?   @relation(fields: [ownerUserId], references: [id])
+  /// Set when the file belongs to an organization rather than a person.
+  ownerOrganizationId String?
+
+  originalFilename String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([ownerUserId, deletedAt])
+  @@index([ownerOrganizationId, deletedAt])
+  @@map("file_objects")
+}
+
+enum Sensitivity {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  /// Protected health information: audited, never logged, never sent to a
+  /// third-party analytics or AI provider without explicit consent.
+  PHI
+}
+
+/// Per-user, per-channel notification preference.
+///
+/// Transactional notifications ignore `enabled: false`; marketing never may.
+/// That distinction is enforced in src/platform/notifications, and this table
+/// only records what the user asked for.
+model NotificationPreference {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channel NotificationChannel
+  enabled Boolean             @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, channel])
+  @@map("notification_preferences")
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+// ===========================================================================
+// PHASE 1 — GLOBAL PLATFORM CORE
+//
+// Everything below makes the Phase 0 contracts real: working authentication,
+// organizations with invitations and locations, notification delivery with
+// retry, geofencing, search, and the persistent stores that replace Phase 0's
+// in-memory placeholders.
+// ===========================================================================
+
+/// A single-use, hashed, typed token.
+///
+/// One table rather than separate PasswordResetToken / EmailVerification /
+/// MagicLink tables: the lifecycle is identical (issue, expire, consume once),
+/// and three copies of that logic is three places for a single-use check to be
+/// forgotten.
+///
+/// The token itself is NEVER stored, only a SHA-256 hash. A database read must
+/// not hand an attacker a working password-reset link, which is exactly what a
+/// plaintext token column would do.
+model VerificationToken {
+  id     String @id
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type TokenType
+
+  /// SENSITIVE. SHA-256 of the token. Unique, so lookup is one indexed hit.
+  tokenHash String @unique
+
+  /// The email or phone the token was sent to, captured at issue time, so a
+  /// token cannot be redeemed after the user changes their address.
+  destination String
+
+  expiresAt DateTime
+  /// Set the moment it is redeemed. Single use is enforced by checking this.
+  consumedAt DateTime?
+
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PHONE_VERIFICATION
+  PASSWORD_RESET
+  /// Sign-in link for accounts with no password set.
+  MAGIC_LINK
+  /// Confirms a destructive action such as account deletion.
+  ACTION_CONFIRMATION
+}
+
+/// Record of an authentication attempt.
+///
+/// Makes credential stuffing detectable and lets an account under attack be
+/// locked. Recording failures only would be a mistake: the ratio of failures to
+/// successes is the signal, and an attacker who occasionally succeeds looks
+/// identical to a forgetful user without it.
+///
+/// `identifier` is the email or phone as typed, so attempts against accounts
+/// that do not exist are still recorded. Enumeration is the earliest visible
+/// stage of an attack.
+model LoginAttempt {
+  id String @id
+
+  identifier String
+  userId     String?
+
+  success Boolean
+  /// Why it failed, for operators. Never returned to the caller: a precise
+  /// reason tells an attacker whether the account exists.
+  reason String?
+
+  ipAddress String?
+  userAgent String?
+
+  occurredAt DateTime @default(now())
+
+  @@index([identifier, occurredAt])
+  @@index([ipAddress, occurredAt])
+  @@map("login_attempts")
+}
+
+/// Persistent rate-limit counter.
+///
+/// Replaces Phase 0's in-memory limiter, which was per-process: behind N
+/// instances the effective limit became N times the intended one. A shared
+/// counter makes the limit mean what it says.
+model RateLimitCounter {
+  /// `<policy>:<subject>`, e.g. `auth-strict:ip:203.0.113.5`.
+  key String @id
+
+  count        Int
+  windowEndsAt DateTime
+
+  @@index([windowEndsAt])
+  @@map("rate_limit_counters")
+}
+
+/// An invitation to join an organization.
+///
+/// Addressed to an EMAIL, not a user, because an invitee usually has no account
+/// yet. Accepting either links an existing account or completes registration
+/// and links the new one.
+model Invitation {
+  id String @id
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  email   String
+  roleKey String
+
+  /// SENSITIVE. SHA-256 of the invitation token.
+  tokenHash String @unique
+
+  status InvitationStatus @default(PENDING)
+
+  invitedByUserId  String
+  acceptedByUserId String?
+
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([email, status])
+  @@map("invitations")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+/// A physical place an organization operates from.
+///
+/// Separate from Organization because a clinic chain is one organization with
+/// many branches, and discovery, availability and booking all attach to the
+/// BRANCH rather than the company. One address on the organization would make
+/// multi-location practices impossible without a later migration.
+model Location {
+  id String @id
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name String
+  slug String
+
+  addressId String?  @unique
+  address   Address? @relation(fields: [addressId], references: [id])
+
+  /// Denormalised from Address for indexed radius queries. Discovery filters on
+  /// a bounding box before computing exact distance, and a join per candidate
+  /// row would defeat that pre-filter.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  timezone String
+  phone    String?
+  email    String?
+
+  isPrimary Boolean        @default(false)
+  status    LocationStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  businessHours    BusinessHours[]
+  dentistPractices DentistPractice[]
+  serviceOfferings ServiceOffering[]
+
+  @@unique([organizationId, slug])
+  @@index([latitude, longitude])
+  @@index([organizationId, status])
+  @@map("locations")
+}
+
+enum LocationStatus {
+  ACTIVE
+  TEMPORARILY_CLOSED
+  PERMANENTLY_CLOSED
+}
+
+/// Opening hours for one location on one weekday.
+///
+/// Times are minutes from local midnight (0-1439), not timestamps. A clinic
+/// opens at 09:00 local time every day; that fact is independent of any date,
+/// and storing it as a timestamp drags daylight saving into a question that has
+/// nothing to do with it.
+///
+/// Several rows per weekday express split shifts, which are the norm for Indian
+/// clinics: 09:00-13:00 and 17:00-21:00.
+model BusinessHours {
+  id String @id
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  /// 0 = Sunday ... 6 = Saturday, matching JavaScript getDay().
+  dayOfWeek Int
+
+  /// Minutes from local midnight. 540 = 09:00.
+  opensAtMinutes  Int
+  closesAtMinutes Int
+
+  createdAt DateTime @default(now())
+
+  @@index([locationId, dayOfWeek])
+  @@map("business_hours")
+}
+
+/// A public or regional holiday.
+///
+/// Per country and optionally per region, because India's holidays differ by
+/// state and a national-only calendar would show clinics open on days they are
+/// closed.
+model Holiday {
+  id String @id
+
+  countryCode String  @db.Char(2)
+  regionId    String?
+
+  /// A calendar day, not a timestamp: giving a holiday a time zone makes it
+  /// start at the wrong moment somewhere.
+  date DateTime @db.Date
+  name String
+
+  isPublic Boolean @default(true)
+
+  @@unique([countryCode, regionId, date, name])
+  @@index([countryCode, date])
+  @@map("holidays")
+}
+
+/// Per-country tax configuration.
+///
+/// Separate from Country because rates change on a date and history must be
+/// preserved: an invoice raised last year must still reproduce the rate that
+/// applied then. Rows are added, never edited.
+model TaxConfiguration {
+  id String @id
+
+  countryCode String    @db.Char(2)
+  regime      TaxRegime
+
+  /// Basis points: 1800 = 18%. Integer, so no rate is ever approximate.
+  rateBasisPoints Int
+
+  /// What the rate applies to, e.g. `dental_services`, `dental_products`.
+  category String
+
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([countryCode, category, effectiveFrom])
+  @@map("tax_configurations")
+}
+
+/// A translatable string.
+///
+/// Held in the database as well as in files so non-engineers can translate
+/// without a deploy, and so a missing translation is a queryable gap rather
+/// than a discovery made by a user.
+model TranslationKey {
+  id String @id
+  /// Dotted key, e.g. `appointment.confirm.title`.
+  key String @unique
+
+  /// Where it appears, so a translator has context. "Book" is a verb or a noun
+  /// depending on the screen, and without context it gets translated wrongly.
+  description String?
+  namespace   String
+
+  createdAt DateTime @default(now())
+
+  translations Translation[]
+
+  @@index([namespace])
+  @@map("translation_keys")
+}
+
+model Translation {
+  id String @id
+
+  keyId String
+  key   TranslationKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+
+  locale String
+  value  String
+
+  /// Machine translations are marked so they can be reviewed, and are never
+  /// mistaken for a human-approved string in clinical content.
+  isMachineTranslated Boolean   @default(false)
+  reviewedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([keyId, locale])
+  @@index([locale])
+  @@map("translations")
+}
+
+/// A rendered notification template for one channel and locale.
+model NotificationTemplate {
+  id String @id
+
+  /// Registry notification ID, e.g. `TL-NOTIF-APPOINTMENT-CONFIRMED-001`.
+  notificationId String
+  channel        NotificationChannel
+  locale         String
+
+  /// Email subject or push title. Null for SMS, which has no subject.
+  subject String?
+  body    String
+
+  /// Provider-side template ID where the provider renders content: required for
+  /// WhatsApp, and for SMS under India's DLT regime.
+  providerTemplateId String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([notificationId, channel, locale])
+  @@map("notification_templates")
+}
+
+/// The delivery trail for one notification to one recipient on one channel.
+///
+/// This is what makes "why didn't the patient get the reminder?" answerable.
+/// Without it a failed SMS is invisible and support has nothing to inspect.
+model NotificationRecord {
+  id String @id
+
+  notificationId String
+  userId         String
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channel NotificationChannel
+  status  NotificationStatus  @default(PENDING)
+
+  /// Interpolation values. Never clinical detail: the template resolves that at
+  /// render time, so a payload leak is not a PHI leak.
+  data Json?
+
+  attempts  Int     @default(0)
+  lastError String?
+
+  /// Provider's ID, for reconciling delivery webhooks.
+  providerMessageId String?
+
+  /// When to try next. Null means no retry is scheduled.
+  nextAttemptAt DateTime?
+
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  failedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([notificationId, createdAt])
+  @@map("notification_records")
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  /// Deliberately not sent: no consent, muted channel, or no address on file.
+  SKIPPED
+}
+
+/// An in-app notification, which is a row here rather than an external send.
+model InAppNotification {
+  id String @id
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  notificationId String
+  title          String
+  body           String
+  /// Where clicking it should take the user.
+  linkUrl String?
+
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@map("in_app_notifications")
+}
+
+/// A place a user has saved: home, work, a parent's address.
+model SavedLocation {
+  id String @id
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label String
+
+  addressId String?  @unique
+  address   Address? @relation(fields: [addressId], references: [id])
+
+  latitude  Decimal @db.Decimal(9, 6)
+  longitude Decimal @db.Decimal(9, 6)
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("saved_locations")
+}
+
+/// A geofence: radius or polygon.
+///
+/// One table for both shapes, matching the platform's Geofence union type.
+/// `purpose` records what it is for, because the same geometry serves clinic
+/// catchments, campaign targeting and fraud signals, and those must be
+/// queryable separately.
+model Geofence {
+  id String @id
+
+  name String
+  kind GeofenceKind
+
+  /// Radius fences.
+  centreLatitude  Decimal? @db.Decimal(9, 6)
+  centreLongitude Decimal? @db.Decimal(9, 6)
+  radiusMetres    Int?
+
+  /// Polygon fences: an ordered array of {latitude, longitude}.
+  vertices Json?
+
+  /// What owns it (e.g. `organization`, `campaign`) and which record.
+  ownerType String
+  ownerId   String
+
+  purpose GeofencePurpose
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerType, ownerId])
+  @@index([purpose, isActive])
+  @@map("geofences")
+}
+
+enum GeofenceKind {
+  RADIUS
+  POLYGON
+}
+
+enum GeofencePurpose {
+  SERVICE_AREA
+  CAMPAIGN
+  NOTIFICATION
+  FRAUD_SIGNAL
+  ATTENDANCE
+}
+
+/// The search index.
+///
+/// One table for every searchable entity type, matching the single search
+/// contract in src/platform/search. Per-type tables would mean per-type query
+/// code, and a cross-type search - "implant", which is a treatment, an article
+/// and a product - would need a union of hand-written queries.
+///
+/// `searchVector` is a PostgreSQL tsvector maintained by a trigger created in
+/// the migration. Prisma has no native type for it, so it is Unsupported and
+/// never selected directly.
+model SearchDocument {
+  id String @id
+
+  entityType String
+  entityId   String
+
+  title   String
+  summary String?
+  /// Concatenated searchable text. Indexed, not displayed.
+  body String
+
+  /// Facet values, e.g. { specialty: [...], language: [...] }.
+  facets Json?
+
+  locale      String
+  countryCode String? @db.Char(2)
+
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  /// Merit-based ranking input. Never derived from spend (Constitution P3).
+  qualityScore Float @default(0)
+
+  isPublished Boolean @default(true)
+
+  searchVector Unsupported("tsvector")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([entityType, isPublished])
+  @@index([latitude, longitude])
+  @@index([qualityScore])
+  @@map("search_documents")
+}
+
+/// A request to delete an account.
+///
+/// Deletion is scheduled rather than immediate: it gives a user who was
+/// compromised or acted in haste a window to cancel, and it lets legally
+/// required retention run before erasure. Audit history survives regardless -
+/// Constitution section 8 forbids deleting the audit trail.
+model AccountDeletionRequest {
+  id String @id
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reason String?
+
+  requestedAt DateTime @default(now())
+  /// When erasure runs unless cancelled.
+  scheduledFor DateTime
+
+  status      DeletionStatus @default(PENDING)
+  cancelledAt DateTime?
+  completedAt DateTime?
+
+  @@index([status, scheduledFor])
+  @@map("account_deletion_requests")
+}
+
+enum DeletionStatus {
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
+// ===========================================================================
+// PHASE 3 — DENTIST & CLINIC ECOSYSTEM
+//
+// Professional identity and the verification that makes it trustworthy.
+//
+// VERIFICATION IS THE POINT OF THIS PHASE, NOT PROFILES
+// A profile anyone can create is a directory listing. What makes Toothlogy
+// different is that a dentist appearing in patient search has had their
+// registration checked, by a named verifier, with evidence, and that the check
+// can be revoked (Constitution P2). So verification is modelled as a
+// first-class, auditable, revocable record rather than a boolean on a profile.
+// ===========================================================================
+
+/// A dentist's professional profile.
+///
+/// Separate from `Profile` because the fields are specific to practising
+/// clinicians, and because this row carries the `isDiscoverable` flag that
+/// governs whether the dentist appears in patient search at all.
+model DentistProfile {
+  id String @id
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Public URL segment, e.g. /dentists/dr-asha-sharma.
+  slug String @unique
+
+  headline String?
+  /// Free-text professional biography, shown on the public profile.
+  bio      String?
+
+  /// Year the dentist began practising. Used to derive years of experience,
+  /// which is stored nowhere: a derived value would be wrong within a year.
+  practisingSince Int?
+
+  /// Languages spoken, as BCP 47 codes. A patient who cannot describe their
+  /// pain in a shared language cannot be treated well, which makes this a
+  /// clinical matter rather than a nicety — and a discovery filter.
+  languages String[]
+
+  /// Consultation fee in minor units, with its currency. Money is never a
+  /// float (Constitution section 4). Null means "not published".
+  consultationFeeMinor Int?
+  consultationCurrency String?
+
+  gender DentistGender?
+
+  /// Lifecycle: DRAFT -> SUBMITTED -> VERIFIED / REJECTED, with SUSPENDED and
+  /// REVOKED as terminal states an administrator can apply later.
+  status ProfileStatus @default(DRAFT)
+
+  /// Denormalised from the verification record so discovery can filter without
+  /// a join. Written only by the verification service, never by the dentist.
+  isVerified     Boolean   @default(false)
+  verifiedAt     DateTime?
+  verificationExpiresAt DateTime?
+
+  /// Whether this dentist appears in patient search. Requires verification AND
+  /// at least one discoverable practice location; the service computes it.
+  isDiscoverable Boolean @default(false)
+
+  /// Merit-based ranking input. Never derived from spend (Constitution P3).
+  qualityScore Float @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  qualifications Qualification[]
+  specialties    DentistSpecialty[]
+  practices      DentistPractice[]
+  verifications  VerificationRequest[]
+
+  @@index([status, isDiscoverable])
+  @@index([isVerified])
+  @@map("dentist_profiles")
+}
+
+enum DentistGender {
+  FEMALE
+  MALE
+  OTHER
+  /// Explicitly withheld, which is different from "not asked".
+  UNDISCLOSED
+}
+
+enum ProfileStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+/// An academic or professional qualification.
+///
+/// Each is verified independently: a dentist may hold a verified BDS and an
+/// unverified claimed MDS, and the profile must be able to show that honestly
+/// rather than treating credentials as all-or-nothing.
+model Qualification {
+  id String @id
+
+  dentistProfileId String
+  dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+
+  /// e.g. BDS, MDS, PhD.
+  degree      String
+  institution String
+  /// Year awarded. An int, not a date: certificates carry a year.
+  year        Int
+
+  /// Registration number with a dental council, where the qualification
+  /// carries one. This is the field verification actually checks.
+  registrationNumber String?
+  registrationBody   String?
+
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+
+  /// Supporting document. Private: certificates carry personal data.
+  documentFileId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dentistProfileId])
+  @@map("qualifications")
+}
+
+/// A dental specialty. Reference data, seeded.
+model Specialty {
+  id String @id
+
+  /// Stable machine key, e.g. `endodontics`.
+  key  String @unique
+  name String
+  /// Patient-facing explanation: "endodontics" means nothing to most people,
+  /// and a filter nobody understands is a filter nobody uses.
+  description String
+
+  dentists DentistSpecialty[]
+
+  @@map("specialties")
+}
+
+model DentistSpecialty {
+  id String @id
+
+  dentistProfileId String
+  dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+
+  specialtyId String
+  specialty   Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  /// A claimed specialty is not a verified one. Discovery may rank on claims
+  /// but must label what has actually been checked.
+  isPrimary Boolean @default(false)
+
+  @@unique([dentistProfileId, specialtyId])
+  @@map("dentist_specialties")
+}
+
+/// Where a dentist practises.
+///
+/// Many-to-many: a dentist commonly works at more than one clinic, and a clinic
+/// has many dentists. Availability and booking attach to this pair rather than
+/// to either side alone, because a dentist's Tuesday hours differ per clinic.
+model DentistPractice {
+  id String @id
+
+  dentistProfileId String
+  dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  /// The clinic confirms the association. Without this, anyone could claim to
+  /// practise at any clinic and appear in its search results.
+  isConfirmed Boolean   @default(false)
+  confirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([dentistProfileId, locationId])
+  @@index([locationId, isConfirmed])
+  @@map("dentist_practices")
+}
+
+/// A request to verify a dentist or an organization.
+///
+/// Append-oriented: a rejection is not deleted when the applicant resubmits.
+/// The history of what was checked, by whom and with what outcome IS the
+/// verification's value (Constitution P2).
+model VerificationRequest {
+  id String @id
+
+  subjectType VerificationSubject
+  /// The dentist profile or organization being verified.
+  subjectId   String
+
+  dentistProfileId String?
+  dentistProfile   DentistProfile? @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+
+  status VerificationStatus @default(PENDING)
+
+  /// Evidence supplied by the applicant: file ids and stated numbers.
+  submittedEvidence Json?
+  submittedByUserId String
+  submittedAt       DateTime @default(now())
+
+  /// Who decided, and why. `reviewerNotes` is internal; `decisionReason` is
+  /// shown to the applicant, because a rejection nobody can act on is useless.
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  decisionReason   String?
+  reviewerNotes    String?
+
+  /// Verification expires. A credential checked five years ago is not evidence
+  /// that the dentist is registered today.
+  expiresAt DateTime?
+
+  /// Revocation is a state, not a deletion.
+  revokedAt       DateTime?
+  revokedByUserId String?
+  revocationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([subjectType, subjectId, status])
+  @@index([status, submittedAt])
+  @@map("verification_requests")
+}
+
+enum VerificationSubject {
+  DENTIST
+  ORGANIZATION
+}
+
+enum VerificationStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  REVOKED
+  EXPIRED
+}
+
+/// A treatment or service a clinic offers, with its price.
+///
+/// Attached to a location rather than an organization: the same chain charges
+/// differently in different cities, and a single price across branches would be
+/// wrong in most of them.
+model ServiceOffering {
+  id String @id
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  /// Reference to the treatment catalogue, once Division 13 exists. Free text
+  /// until then, which is honest about what is not yet built.
+  name        String
+  description String?
+
+  /// Price in minor units with currency. Null means "on consultation", which
+  /// is a real answer in dentistry and must be distinguishable from zero.
+  priceMinor Int?
+  currency   String?
+
+  /// Typical duration, used later to size appointment slots.
+  durationMinutes Int?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([locationId, isActive])
+  @@map("service_offerings")
+}
