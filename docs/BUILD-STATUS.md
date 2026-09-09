@@ -162,15 +162,25 @@ public profile. Master catalogue and dentist pricing are separate tables, so
 re-seeding market ranges cannot overwrite a price a dentist set (§6 of the
 module spec), and a suggested range is never rendered without its label.
 
-> **Not verified against a database.** The migration
-> `20260909120000_phase_3_treatment_catalogue_pricing` has not been applied
-> anywhere, and `tests/integration/pricing.test.ts` (19 tests covering
-> ownership, IDOR, clinic isolation, scope fallback and price history) has
-> never executed — it skips without `DATABASE_URL`, and no PostgreSQL was
-> available in the environment it was written in. The 141 domain tests and 17
-> UI tests do run. Until someone applies the migration, seeds, and runs that
-> integration suite green, this feature is 🟠 and not 🟢, whatever the code
-> looks like (Constitution P8).
+Descriptions are written for all 56 treatments and all 39 variants, and a
+dentist may write their own wording per treatment or per variant. Those resolve
+through a four-level fallback (dentist variant → dentist service → master
+variant → master service), so no clinic is forced to duplicate text and a
+correction to the master description reaches every clinic that has not
+overridden it. A dentist's edit cannot reach the master record: the custom text
+is a separate column on their own row, and no dentist-facing path writes to the
+catalogue at all.
+
+> **Not verified against a database.** The migrations
+> `20260909120000_phase_3_treatment_catalogue_pricing` and
+> `20260909180000_price_list_descriptions` have not been applied anywhere, and
+> `tests/integration/pricing.test.ts` (26 tests covering ownership, IDOR,
+> clinic isolation, scope fallback, price history, description ownership and
+> fallback, and pagination) has never executed — it skips without
+> `DATABASE_URL`, and no PostgreSQL was available in the environment it was
+> written in. The 201 domain and UI tests do run. Until someone applies the
+> migrations, seeds, and runs that integration suite green, this feature is 🟠
+> and not 🟢, whatever the code looks like (Constitution P8).
 
 **Not built:** clinic verification submission UI 🔵 (the model supports
 organizations; only the dentist path has a UI), document upload for

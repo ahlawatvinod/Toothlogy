@@ -218,6 +218,78 @@ describe('duplicate handling (§25)', () => {
   });
 });
 
+describe('descriptions (§1, §2, §24)', () => {
+  it('gives every service a full and a short description', () => {
+    for (const { service } of allServices) {
+      expect(service.description, `${service.name} has no description`).toBeTruthy();
+      expect(service.shortDescription, `${service.name} has no short description`).toBeTruthy();
+    }
+  });
+
+  it('gives every variant a description', () => {
+    for (const { service, variant } of allVariants) {
+      expect(variant.description, `${service.name} → ${variant.name}`).toBeTruthy();
+    }
+  });
+
+  it('keeps short descriptions short enough for a table cell', () => {
+    for (const { service } of allServices) {
+      expect(service.shortDescription!.length, service.name).toBeLessThanOrEqual(120);
+    }
+  });
+
+  it('writes descriptions that are substantially longer than the short form', () => {
+    // Otherwise the short description is doing no work and the two fields have
+    // collapsed into one duplicated sentence.
+    for (const { service } of allServices) {
+      expect(service.description!.length, service.name).toBeGreaterThan(
+        service.shortDescription!.length,
+      );
+    }
+  });
+
+  it('makes no outcome guarantees, which a health platform must not', () => {
+    // Constitution P1: clinical safety outranks growth. A catalogue that
+    // promises "painless" or "permanent" is making a claim no clinic can keep.
+    //
+    // "permanent" is deliberately NOT in this list. It is ordinary clinical
+    // vocabulary — permanent molars, a permanent restoration, "not a permanent
+    // repair" — and forbidding the word would force the descriptions into
+    // vaguer language than the anatomy allows. What is forbidden is a promise
+    // about the RESULT, which is a different thing.
+    const forbidden =
+      /\b(guarantee[ds]?|guaranteed|painless|pain[- ]free|100%|risk[- ]free|best in|cure[sd]?|lifelong|permanently\s+(?:white|straight|fixed))\b/i;
+    for (const { service } of allServices) {
+      expect(forbidden.test(service.description!), `${service.name}: ${service.description}`).toBe(
+        false,
+      );
+      expect(forbidden.test(service.shortDescription!), service.name).toBe(false);
+    }
+    for (const { service, variant } of allVariants) {
+      expect(
+        forbidden.test(variant.description!),
+        `${service.name} → ${variant.name}: ${variant.description}`,
+      ).toBe(false);
+    }
+  });
+
+  it('does not repeat the parent service description on its variants', () => {
+    for (const { service, variant } of allVariants) {
+      expect(variant.description).not.toBe(service.description);
+      expect(variant.description).not.toBe(service.shortDescription);
+    }
+  });
+
+  it('writes distinct descriptions for sibling variants', () => {
+    // Two crowns described identically tell a patient nothing about which to
+    // choose, which is the entire point of listing them separately.
+    for (const { service } of allServices) {
+      const descriptions = (service.variants ?? []).map((variant) => variant.description);
+      expect(new Set(descriptions).size, service.name).toBe(descriptions.length);
+    }
+  });
+});
+
 describe('rupeesToMinor', () => {
   it('converts rupees to paise', () => {
     expect(rupeesToMinor(12000)).toBe(1_200_000n);

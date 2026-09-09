@@ -1627,7 +1627,13 @@ model CatalogueService {
   name String
   slug String @unique
 
+  /// The full clinical-but-readable explanation: what the procedure is, why it
+  /// may be needed, and what is generally included.
   description String?
+  /// One line, for a table cell or a card. Separate from `description` rather
+  /// than truncated from it, because a truncated sentence ends mid-clause and
+  /// on a treatment description that can change what it appears to say.
+  shortDescription String?
   /// Plain-language explanation shown to patients.
   patientDescription String?
 
@@ -1708,7 +1714,11 @@ model ServiceVariant {
   name String
   slug String
 
-  description String?
+  /// A variant's own description supplements the parent service's rather than
+  /// repeating it: "a zirconia crown is…" is worth saying, "a crown is…" is
+  /// already said one level up.
+  description      String?
+  shortDescription String?
 
   suggestedMinMinor BigInt?
   suggestedMaxMinor BigInt?
@@ -1825,6 +1835,16 @@ model DentistServicePrice {
   /// Free-text note shown to patients, e.g. "price depends on canal count".
   note String?
 
+  /// The clinic's own wording for this treatment, shown to patients in place
+  /// of the master description.
+  ///
+  /// A SEPARATE COLUMN, NOT AN EDIT OF THE MASTER RECORD.
+  /// A dentist editing "their" description must never reach the catalogue: one
+  /// clinic's phrasing would silently become every clinic's, and the master
+  /// text is what the platform stands behind. Null means "use the master
+  /// description" — see resolveDescription in platform/pricing/description.ts.
+  customDescription String?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -1884,6 +1904,10 @@ model DentistVariantPrice {
   isCustomQuote Boolean @default(false)
 
   isEnabled Boolean @default(true)
+
+  /// The clinic's own wording for this variant specifically. The most specific
+  /// of the four description sources; see resolveDescription.
+  customDescription String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -20,6 +20,7 @@ import { getPublicDentistProfile } from '@/platform/dentists/service';
 import { listPublicPriceList } from '@/platform/pricing/service';
 import { describePrice, describeSuggestedRange } from '@/platform/pricing/display';
 import { resolvePriceList } from '@/platform/pricing/resolution';
+import { resolveDescription } from '@/platform/pricing/description';
 import { formatMoney, money } from '@/platform/money';
 import { LANGUAGE_BY_CODE } from '@/registry/globalization';
 import { Badge, Card, CardBody, CardHeader } from '@/design-system';
@@ -212,7 +213,7 @@ export default async function PublicDentistPage({
         <Card label="Treatment prices">
           <CardHeader>
             <div className="tl-card__title-row">
-              <strong>Treatment prices</strong>
+              <strong>Clinic prices</strong>
               <Badge tone="neutral">Set by this clinic</Badge>
             </div>
           </CardHeader>
@@ -241,6 +242,16 @@ export default async function PublicDentistPage({
                           ) : null}
                         </div>
 
+                        {(() => {
+                          const description = resolveDescription({
+                            dentistService: row.customDescription,
+                            masterService: row.service.description,
+                          });
+                          return description.text ? (
+                            <p className="tl-publicprices__description">{description.text}</p>
+                          ) : null;
+                        })()}
+
                         <dl className="tl-publicprices__prices">
                           {row.variantPrices
                             .filter((price) => price.isEnabled)
@@ -256,9 +267,21 @@ export default async function PublicDentistPage({
                                 unitLabel: price.unit.shortLabel,
                               });
 
+                              const variantDescription = resolveDescription({
+                                dentistVariant: price.customDescription,
+                                masterVariant: price.variant?.description,
+                              });
+
                               return (
                                 <div key={price.id}>
-                                  <dt>{price.variant?.name ?? 'Price'}</dt>
+                                  <dt>
+                                    {price.variant?.name ?? 'Price'}
+                                    {variantDescription.text ? (
+                                      <span className="tl-publicprices__variant-note">
+                                        {variantDescription.text}
+                                      </span>
+                                    ) : null}
+                                  </dt>
                                   <dd>
                                     <span className="tl-price">
                                       <strong>{display.primary ?? display.text}</strong>

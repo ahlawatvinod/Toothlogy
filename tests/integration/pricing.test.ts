@@ -34,6 +34,7 @@ import {
   upsertServicePrice,
 } from '@/platform/pricing/service';
 import { resolveServicePrice } from '@/platform/pricing/resolution';
+import { resolveDescription } from '@/platform/pricing/description';
 import {
   assertSeeded,
   describeIntegration,
@@ -478,6 +479,176 @@ describeIntegration('dentist pricing', () => {
     });
     expect(row.deletedAt).not.toBeNull();
     expect(await listPriceHistory(asha.userId, servicePriceId)).not.toHaveLength(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Descriptions — specification §9, §10, §15
+  // -------------------------------------------------------------------------
+
+  it('a dentist writing their own description does not touch the master record', async () => {
+    const asha = await makeDentist('asha@example.com', 'dr-asha');
+
+    const before = await testDb().catalogueService.findUniqueOrThrow({ where: { slug: 'crown' } });
+
+    await upsertServicePrice(
+      asha.userId,
+      crown({ customDescription: 'We mill our crowns in-house and fit them in two visits.' }),
+      { userId: asha.userId },
+    );
+
+    const after = await testDb().catalogueService.findUniqueOrThrow({ where: { slug: 'crown' } });
+    expect(after.description).toBe(before.description);
+    expect(after.shortDescription).toBe(before.shortDescription);
+  });
+
+  it('one dentist’s description is invisible to another', async () => {
+    const asha = await makeDentist('asha@example.com', 'dr-asha');
+    const bibek = await makeDentist('bibek@example.com', 'dr-bibek');
+
+    await upsertServicePrice(asha.userId, crown({ customDescription: 'Asha’s wording.' }), {
+      userId: asha.userId,
+    });
+    await upsertServicePrice(bibek.userId, crown(), { userId: bibek.userId });
+
+    const [bibekRow] = await listOwnPriceList(bibek.userId);
+    expect(bibekRow?.customDescription).toBeNull();
+
+    // Bibek falls through to the master text, not to Asha's.
+    const resolved = resolveDescription({
+      dentistService: bibekRow?.customDescription,
+      masterService: bibekRow?.service.description,
+    });
+    expect(resolved.isCustom).toBe(false);
+    expect(resolved.text).not.toBe('Asha’s wording.');
+  });
+
+  it('falls back through variant, service and master descriptions in order', async () => {
+    const asha = await makeDentist('asha@example.com', 'dr-asha');
+
+    await upsertServicePrice(
+      asha.userId,
+      crown({
+        customDescription: 'Our crown service.',
+        variants: [
+          {
+            variantSlug: 'zirconia',
+            unitKey: 'per_crown',
+            currency: 'INR',
+            actualMinor: r(12000),
+            customDescription: 'Our zirconia crowns specifically.',
+          },
+          {
+            variantSlug: 'pfm',
+            unitKey: 'per_crown',
+            currency: 'INR',
+            actualMinor: r(6000),
+          },
+        ],
+      }),
+      { userId: asha.userId },
+    );
+
+    const [row] = await listOwnPriceList(asha.userId);
+    const byVariant = new Map(
+      row!.variantPrices.map((price) => [price.variant?.slug ?? null, price]),
+    );
+
+    // Level 1: the dentist's own variant wording wins.
+    const zirconia = byVariant.get('zirconia')!;
+    expect(
+      resolveDescription({
+        dentistVariant: zirconia.customDescription,
+        dentistService: row!.customDescription,
+        masterVariant: zirconia.variant?.description,
+        masterService: row!.service.description,
+      }).text,
+    ).toBe('Our zirconia crowns specifically.');
+
+    // Level 2: no variant wording, so the dentist's service wording is used —
+    // NOT the master variant text, which is one level further down.
+    const pfm = byVariant.get('pfm')!;
+    expect(
+      resolveDescription({
+        dentistVariant: pfm.customDescription,
+        dentistService: row!.customDescription,
+        masterVariant: pfm.variant?.description,
+        masterService: row!.service.description,
+      }).text,
+    ).toBe('Our crown service.');
+  });
+
+  it('clearing a description restores the master text rather than blanking it', async () => {
+    const asha = await makeDentist('asha@example.com', 'dr-asha');
+
+    await upsertServicePrice(asha.userId, crown({ customDescription: 'Ours.' }), {
+      userId: asha.userId,
+    });
+    await upsertServicePrice(asha.userId, crown({ customDescription: '   ' }), {
+      userId: asha.userId,
+    });
+
+    const [row] = await listOwnPriceList(asha.userId);
+    // Whitespace normalises to null, so the chain falls through.
+    expect(row?.customDescription).toBeNull();
+    expect(
+      resolveDescription({
+        dentistService: row?.customDescription,
+        masterService: row?.service.description,
+      }).isCustom,
+    ).toBe(false);
+  });
+
+  it('a price-only edit does not wipe a description written earlier', async () => {
+    const asha = await makeDentist('asha@example.com', 'dr-asha');
+
+    await upsertServicePrice(asha.userId, crown({ customDescription: 'Ours.' }), {
+      userId: asha.userId,
+    });
+    // No customDescription field at all: an edit that only changes the price.
+    await upsertServicePrice(
+      asha.userId,
+      crown({
+        variants: [
+          { variantSlug: 'zirconia', unitKey: 'per_crown', currency: 'INR', actualMinor: r(13000) },
+        ],
+      }),
+      { userId: asha.userId },
+    );
+
+    const [row] = await listOwnPriceList(asha.userId);
+    expect(row?.customDescription).toBe('Ours.');
+    expect(row?.variantPrices[0]?.actualMinor).toBe(r(13000));
+  });
+
+  it('rejects a description beyond the length limit', async () => {
+    const asha = await makeDentist('asha@example.com', 'dr-asha');
+    await expect(
+      upsertServicePrice(asha.userId, crown({ customDescription: 'x'.repeat(5000) }), {
+        userId: asha.userId,
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+
+  it('paginates a long price list and reports the total', async () => {
+    const asha = await makeDentist('asha@example.com', 'dr-asha');
+
+    for (const slug of ['crown', 'root-canal-treatment', 'dental-bridge']) {
+      await upsertServicePrice(
+        asha.userId,
+        {
+          serviceSlug: slug,
+          variants: [{ unitKey: 'per_visit', currency: 'INR', actualMinor: r(1000) }],
+        },
+        { userId: asha.userId },
+      );
+    }
+
+    const firstPage = await listOwnPriceList(asha.userId, { limit: 2, offset: 0 });
+    expect(firstPage).toHaveLength(2);
+    expect(firstPage.total).toBe(3);
+
+    const secondPage = await listOwnPriceList(asha.userId, { limit: 2, offset: 2 });
+    expect(secondPage).toHaveLength(1);
   });
 
   it('records an audit event for a price change', async () => {

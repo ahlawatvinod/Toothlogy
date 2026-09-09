@@ -23,6 +23,7 @@ import { hasDatabase } from '@/platform/config';
 import { listCatalogue, listPriceUnits } from '@/platform/catalogue/service';
 import { listOwnPriceList } from '@/platform/pricing/service';
 import { describePrice, describeSuggestedRange } from '@/platform/pricing/display';
+import { resolveDescription, resolveShortDescription } from '@/platform/pricing/description';
 import { Alert, Badge, Card, CardBody } from '@/design-system';
 import { PriceListClient, type CatalogueOption, type PriceRowView } from './price-list-client';
 
@@ -98,6 +99,8 @@ export default async function PriceListPage() {
     category.services.map((service) => ({
       slug: service.slug,
       name: service.name,
+      shortDescription: service.shortDescription,
+      description: service.description,
       categoryName: category.name,
       categorySlug: category.slug,
       defaultUnitKey: service.defaultUnit?.key ?? 'per_visit',
@@ -124,6 +127,12 @@ export default async function PriceListPage() {
     isEnabled: row.isEnabled,
     isPublicVisible: row.isPublicVisible,
     note: row.note,
+    description: resolveShortDescription({
+      dentistService: row.customDescription,
+      masterService: row.service.description,
+      masterServiceShort: row.service.shortDescription,
+    }),
+    customDescription: row.customDescription,
     suggested: describeSuggestedRange({
       minMinor: row.service.suggestedMinMinor,
       maxMinor: row.service.suggestedMaxMinor,
@@ -138,6 +147,13 @@ export default async function PriceListPage() {
       currency: price.currency,
       isCustomQuote: price.isCustomQuote,
       isEnabled: price.isEnabled,
+      description: resolveDescription({
+        dentistVariant: price.customDescription,
+        dentistService: row.customDescription,
+        masterVariant: price.variant?.description,
+        masterService: row.service.description,
+      }),
+      customDescription: price.customDescription,
       minMinor: price.minMinor?.toString() ?? '',
       maxMinor: price.maxMinor?.toString() ?? '',
       actualMinor: price.actualMinor?.toString() ?? '',

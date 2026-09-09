@@ -806,3 +806,221 @@
   font-size: var(--tl-text-sm);
   color: var(--tl-color-text-muted);
 }
+
+/* --- My Price -------------------------------------------------------------
+ *
+ * The dentist's own figure is the most important thing in the row, so it is
+ * the largest and darkest, and the suggested market range beside it is
+ * deliberately smaller and muted. Reversing that hierarchy is the whole
+ * mistake this styling exists to prevent (specification §23): a dentist
+ * skim-reading their own dashboard must never mistake the market range for
+ * what they charge.
+ */
+
+.tl-pricelist__myprice-col {
+  /* Widened so an inline editor can open without the column reflowing. */
+  min-inline-size: 14rem;
+}
+
+.tl-pricelist__myprice .tl-price strong {
+  font-size: var(--tl-text-lg);
+  font-weight: var(--tl-weight-bold);
+  color: var(--tl-color-text);
+}
+
+/* Suggested range: present, checkable, and visually secondary. */
+.tl-pricelist__suggested {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-subtle);
+  white-space: nowrap;
+}
+
+.tl-myprice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+}
+
+.tl-myprice--button {
+  padding: var(--tl-space-1) var(--tl-space-2);
+  margin-inline-start: calc(var(--tl-space-2) * -1);
+  border: 1px solid transparent;
+  border-radius: var(--tl-radius-md);
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.tl-myprice--button:hover {
+  border-color: var(--tl-color-border);
+  background: var(--tl-color-surface-sunken);
+}
+
+.tl-myprice__pencil {
+  inline-size: 0.9rem;
+  block-size: 0.9rem;
+  opacity: 0;
+  color: var(--tl-color-brand);
+  transition: opacity var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-myprice--button:hover .tl-myprice__pencil,
+.tl-myprice--button:focus-visible .tl-myprice__pencil {
+  opacity: 1;
+}
+
+/* An unset price says so. Never ₹0 and never blank: zero is a real price
+   (a free consultation) and must not look like an absent one. */
+.tl-myprice--unset {
+  flex-wrap: wrap;
+}
+
+.tl-myprice__empty {
+  font-size: var(--tl-text-sm);
+  font-style: italic;
+  color: var(--tl-color-text-subtle);
+}
+
+/* --- Inline price editing -------------------------------------------------- */
+
+.tl-inline-price {
+  display: grid;
+  gap: var(--tl-space-1);
+}
+
+.tl-inline-price__row {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+}
+
+.tl-inline-price__input {
+  inline-size: 7rem;
+  min-height: 2.25rem;
+  padding: var(--tl-space-1) var(--tl-space-3);
+}
+
+.tl-inline-price__error {
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-danger);
+}
+
+/* --- Descriptions in the list ---------------------------------------------- */
+
+.tl-pricelist__desc {
+  display: block;
+  margin-block-start: var(--tl-space-1);
+  max-inline-size: 28rem;
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-normal);
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-muted);
+  text-wrap: pretty;
+}
+
+.tl-pricelist__desc--empty {
+  font-style: italic;
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-pricelist__desc-tag {
+  display: inline-block;
+  margin-inline-start: var(--tl-space-2);
+  padding: 0 var(--tl-space-2);
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-color-brand-subtle);
+  color: var(--tl-color-brand-strong);
+  font-size: 0.6875rem;
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-pricecard__desc {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-pricecard__suggested {
+  margin: 0;
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+}
+
+/* On a card the dentist's price is the headline number. */
+.tl-pricecard__prices dd .tl-price strong {
+  font-size: var(--tl-text-lg);
+  font-weight: var(--tl-weight-bold);
+}
+
+.tl-pricecard__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tl-space-2);
+}
+
+/* --- Editor -------------------------------------------------------------- */
+
+.tl-textarea {
+  min-height: 5rem;
+  line-height: var(--tl-leading-normal);
+  resize: vertical;
+}
+
+.tl-drawer__readonly {
+  display: block;
+  margin-block-start: var(--tl-space-1);
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-normal);
+  opacity: 0.85;
+}
+
+.tl-master-desc {
+  padding: var(--tl-space-3) var(--tl-space-4);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-lg);
+  background: var(--tl-color-surface-sunken);
+  font-size: var(--tl-text-sm);
+}
+
+.tl-master-desc summary {
+  cursor: pointer;
+  font-weight: var(--tl-weight-medium);
+}
+
+.tl-master-desc p {
+  margin: var(--tl-space-3) 0 0;
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-master-desc__note {
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+}
+
+/* --- Patient-facing descriptions ------------------------------------------- */
+
+.tl-publicprices__description {
+  margin: var(--tl-space-2) 0 0;
+  max-inline-size: 62ch;
+  font-size: var(--tl-text-sm);
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-muted);
+  text-wrap: pretty;
+}
+
+.tl-publicprices__variant-note {
+  display: block;
+  max-inline-size: 44ch;
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+  line-height: var(--tl-leading-normal);
+}
+
+/* The clinic's price is the number the patient is deciding on. */
+.tl-publicprices__prices dd .tl-price strong {
+  font-size: var(--tl-text-lg);
+  font-weight: var(--tl-weight-bold);
+}

@@ -26,6 +26,8 @@ import type { PriceDisplay } from '@/platform/pricing/display';
 export interface CatalogueOption {
   readonly slug: string;
   readonly name: string;
+  readonly shortDescription: string | null;
+  readonly description: string | null;
   readonly categoryName: string;
   readonly categorySlug: string;
   readonly defaultUnitKey: string;
@@ -38,6 +40,10 @@ export interface CatalogueOption {
 export interface VariantView {
   readonly variantSlug: string | null;
   readonly variantName: string | null;
+  /** Resolved through the four-level chain; may be Toothlogy's or the clinic's. */
+  readonly description?: { text: string | null; isCustom: boolean };
+  /** What this clinic actually typed, which is what the editor shows. */
+  readonly customDescription?: string | null;
   readonly unitKey: string;
   readonly currency: string;
   readonly isCustomQuote: boolean;
@@ -59,6 +65,8 @@ export interface PriceRowView {
   readonly isEnabled: boolean;
   readonly isPublicVisible: boolean;
   readonly note: string | null;
+  readonly description?: { text: string | null; isCustom: boolean };
+  readonly customDescription?: string | null;
   readonly suggested: { label: string; value: string } | null;
   readonly variants: readonly VariantView[];
 }
@@ -98,6 +106,8 @@ interface EditorState {
   readonly locationId: string | null;
   readonly isPublicVisible: boolean;
   readonly note: string;
+  /** Empty means "use Toothlogy's description", not "no description". */
+  readonly customDescription: string;
   readonly variants: Array<{
     variantSlug: string | null;
     variantName: string;
@@ -107,6 +117,7 @@ interface EditorState {
     min: string;
     max: string;
     isCustomQuote: boolean;
+    customDescription: string;
   }>;
 }
 
@@ -120,6 +131,77 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
   const [error, setError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  /*
+   * Inline editing of My Price.
+   *
+   * Keyed by row id and variant so only the cell being edited is in an editing
+   * state — a single boolean would put every row into edit mode at once. The
+   * saving, error and saved states are per-cell for the same reason: a dentist
+   * changing one price should not see the whole table say "saving".
+   */
+  const [inline, setInline] = useState<{
+    key: string;
+    value: string;
+    state: 'editing' | 'saving' | 'error';
+    message?: string;
+  } | null>(null);
+
+  const inlineKey = (rowId: string, variantSlug: string | null) =>
+    `${rowId}:${variantSlug ?? '_base'}`;
+
+  async function saveInline(row: PriceRowView, variant: VariantView) {
+    if (!inline) return;
+    const minor = toMinor(inline.value);
+
+    if (minor === null) {
+      setInline({ ...inline, state: 'error', message: 'Enter an amount, for example 12000.' });
+      return;
+    }
+
+    setInline({ ...inline, state: 'saving' });
+
+    // The whole treatment is sent, not just the one field: the PUT replaces a
+    // treatment's prices as a unit, so omitting the untouched variants would
+    // delete them.
+    const result = await api.put<{ servicePriceId: string; changes: number }>(
+      '/api/v1/dentists/me/price-list',
+      {
+        serviceSlug: row.serviceSlug,
+        locationId: row.locationId,
+        isPublicVisible: row.isPublicVisible,
+        note: row.note,
+        variants: row.variants.map((existing) => ({
+          variantSlug: existing.variantSlug,
+          unitKey: existing.unitKey,
+          currency: existing.currency,
+          isCustomQuote: existing.isCustomQuote,
+          actualMinor:
+            existing.variantSlug === variant.variantSlug
+              ? minor
+              : existing.actualMinor || null,
+          discountedMinor: existing.discountedMinor || null,
+          minMinor: existing.minMinor || null,
+          maxMinor: existing.maxMinor || null,
+        })),
+      },
+    );
+
+    if (!result.ok) {
+      setInline({ ...inline, state: 'error', message: result.message });
+      setRequestId(result.requestId);
+      return;
+    }
+
+    setInline(null);
+    setNotice('Price updated.');
+    await refresh();
+  }
+
+  async function refresh() {
+    const refreshed = await api.get<{ rows: PriceRowView[] }>('/api/v1/dentists/me/price-list');
+    if (refreshed.ok) setRows(refreshed.data.rows as unknown as PriceRowView[]);
+  }
 
   const visibleRows = useMemo(() => {
     let result = rows;
@@ -194,6 +276,11 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
       locationId: existing?.locationId ?? null,
       isPublicVisible: existing?.isPublicVisible ?? true,
       note: existing?.note ?? '',
+      // The clinic's OWN text, never the resolved text. Pre-filling the box
+      // with Toothlogy's description would make a dentist who saves an
+      // untouched form silently adopt it as their own — and stop receiving
+      // corrections to it.
+      customDescription: existing?.customDescription ?? '',
       variants:
         option.variants.length > 0
           ? option.variants.map((variant) => {
@@ -207,6 +294,7 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
                 min: toMajor(current?.minMinor ?? ''),
                 max: toMajor(current?.maxMinor ?? ''),
                 isCustomQuote: current?.isCustomQuote ?? false,
+                customDescription: current?.customDescription ?? '',
               };
             })
           : [
@@ -219,6 +307,7 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
                 min: toMajor(existing?.variants[0]?.minMinor ?? ''),
                 max: toMajor(existing?.variants[0]?.maxMinor ?? ''),
                 isCustomQuote: existing?.variants[0]?.isCustomQuote ?? option.isCustomQuote,
+                customDescription: existing?.variants[0]?.customDescription ?? '',
               },
             ],
     });
@@ -249,6 +338,9 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
         locationId: editor.locationId,
         isPublicVisible: editor.isPublicVisible,
         note: editor.note.trim() || null,
+        // Empty string sent as null, so clearing the box restores the master
+        // description rather than publishing a blank one.
+        customDescription: editor.customDescription.trim() || null,
         variants: filled.map((variant) => ({
           variantSlug: variant.variantSlug,
           unitKey: variant.unitKey,
@@ -258,6 +350,7 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
           discountedMinor: variant.isCustomQuote ? null : toMinor(variant.discounted),
           minMinor: variant.isCustomQuote ? null : toMinor(variant.min),
           maxMinor: variant.isCustomQuote ? null : toMinor(variant.max),
+          customDescription: variant.customDescription.trim() || null,
         })),
       },
     );
@@ -273,10 +366,10 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
     setEditor(null);
     setNotice(`Saved. ${result.data.changes} price change${result.data.changes === 1 ? '' : 's'} recorded.`);
     // Reload from the server rather than patching local state: the server owns
-    // the resolved display string, and reconstructing it here is exactly the
-    // duplication this component is written to avoid.
-    const refreshed = await api.get<{ rows: PriceRowView[] }>('/api/v1/dentists/me/price-list');
-    if (refreshed.ok) setRows(refreshed.data.rows as unknown as PriceRowView[]);
+    // the resolved display string and the resolved description, and
+    // reconstructing either here is exactly the duplication this component is
+    // written to avoid.
+    await refresh();
   }
 
   const option = editor ? catalogue.find((entry) => entry.slug === editor.serviceSlug) : null;
@@ -370,16 +463,24 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
       ) : (
         <>
           {/* Desktop */}
-          <div className="tl-table__scroll tl-pricelist__table" tabIndex={0} role="region" aria-label="Your prices">
+          <div
+            className="tl-table__scroll tl-pricelist__table"
+            tabIndex={0}
+            role="region"
+            aria-label="Your prices"
+          >
             <table className="tl-table">
               <caption className="tl-visually-hidden">Your treatment prices</caption>
               <thead>
                 <tr>
                   <th scope="col">Treatment</th>
                   <th scope="col">Variant</th>
-                  <th scope="col">Price</th>
-                  <th scope="col">Suggested range</th>
-                  <th scope="col">Clinic</th>
+                  {/* Suggested comes BEFORE My Price and is styled down, so the
+                      dentist's own figure is the one the eye lands on (§23). */}
+                  <th scope="col">Suggested India price</th>
+                  <th scope="col" className="tl-pricelist__myprice-col">
+                    My Price
+                  </th>
                   <th scope="col">Status</th>
                   <th scope="col">
                     <span className="tl-visually-hidden">Actions</span>
@@ -388,51 +489,90 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
               </thead>
               <tbody>
                 {visibleRows.flatMap((row) =>
-                  row.variants.map((variant, index) => (
-                    <tr key={`${row.id}-${variant.variantSlug ?? 'base'}`}>
-                      {index === 0 ? (
-                        <th scope="row" rowSpan={row.variants.length}>
-                          <span className="tl-pricelist__service">{row.serviceName}</span>
-                          <span className="tl-pricelist__category">{row.categoryName}</span>
-                        </th>
-                      ) : null}
-                      <td>{variant.variantName ?? '—'}</td>
-                      <td className="tl-pricelist__price">
-                        <PriceCell display={variant.display} />
-                      </td>
-                      {index === 0 ? (
-                        <td rowSpan={row.variants.length} className="tl-pricelist__suggested">
-                          {row.suggested ? row.suggested.value : '—'}
-                        </td>
-                      ) : null}
-                      {index === 0 ? (
-                        <td rowSpan={row.variants.length}>{row.locationName ?? 'All clinics'}</td>
-                      ) : null}
-                      {index === 0 ? (
-                        <td rowSpan={row.variants.length}>
-                          {row.isPublicVisible && row.isEnabled ? (
-                            <Badge tone="success">Published</Badge>
+                  row.variants.map((variant, index) => {
+                    const key = inlineKey(row.id, variant.variantSlug);
+                    const editing = inline?.key === key;
+
+                    return (
+                      <tr key={key}>
+                        {index === 0 ? (
+                          <th scope="row" rowSpan={row.variants.length}>
+                            <span className="tl-pricelist__service">{row.serviceName}</span>
+                            <span className="tl-pricelist__category">{row.categoryName}</span>
+                            {row.description?.text ? (
+                              <span className="tl-pricelist__desc">
+                                {row.description.text}
+                                {row.description.isCustom ? (
+                                  <span className="tl-pricelist__desc-tag">Your wording</span>
+                                ) : null}
+                              </span>
+                            ) : (
+                              <span className="tl-pricelist__desc tl-pricelist__desc--empty">
+                                Description not added
+                              </span>
+                            )}
+                          </th>
+                        ) : null}
+
+                        <td>{variant.variantName ?? '—'}</td>
+
+                        {index === 0 ? (
+                          <td rowSpan={row.variants.length} className="tl-pricelist__suggested">
+                            {row.suggested ? row.suggested.value : '—'}
+                          </td>
+                        ) : null}
+
+                        <td className="tl-pricelist__myprice">
+                          {editing ? (
+                            <InlinePriceEditor
+                              value={inline.value}
+                              state={inline.state}
+                              message={inline.message}
+                              onChange={(value) => setInline({ ...inline, value, state: 'editing' })}
+                              onCancel={() => setInline(null)}
+                              onSave={() => saveInline(row, variant)}
+                            />
                           ) : (
-                            <Badge tone="neutral">Hidden</Badge>
+                            <MyPriceCell
+                              variant={variant}
+                              onEdit={() =>
+                                setInline({
+                                  key,
+                                  value: toMajor(variant.actualMinor),
+                                  state: 'editing',
+                                })
+                              }
+                            />
                           )}
                         </td>
-                      ) : null}
-                      {index === 0 ? (
-                        <td rowSpan={row.variants.length}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const match = catalogue.find((c) => c.slug === row.serviceSlug);
-                              if (match) openEditor(match, row);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                        </td>
-                      ) : null}
-                    </tr>
-                  )),
+
+                        {index === 0 ? (
+                          <td rowSpan={row.variants.length}>
+                            {row.isPublicVisible && row.isEnabled ? (
+                              <Badge tone="success">Published</Badge>
+                            ) : (
+                              <Badge tone="neutral">Hidden</Badge>
+                            )}
+                          </td>
+                        ) : null}
+
+                        {index === 0 ? (
+                          <td rowSpan={row.variants.length}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const match = catalogue.find((c) => c.slug === row.serviceSlug);
+                                if (match) openEditor(match, row);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                          </td>
+                        ) : null}
+                      </tr>
+                    );
+                  }),
                 )}
               </tbody>
             </table>
@@ -454,32 +594,61 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
                   )}
                 </div>
 
+                {row.description?.text ? (
+                  <p className="tl-pricecard__desc">{row.description.text}</p>
+                ) : (
+                  <p className="tl-pricecard__desc tl-pricelist__desc--empty">
+                    Description not added
+                  </p>
+                )}
+
+                {row.suggested ? (
+                  <p className="tl-pricecard__suggested">
+                    {row.suggested.label}: {row.suggested.value}
+                  </p>
+                ) : null}
+
                 <dl className="tl-pricecard__prices">
                   {row.variants.map((variant) => (
                     <div key={variant.variantSlug ?? 'base'}>
-                      <dt>{variant.variantName ?? 'Price'}</dt>
+                      <dt>{variant.variantName ?? 'My Price'}</dt>
                       <dd>
-                        <PriceCell display={variant.display} />
+                        <MyPriceCell
+                          variant={variant}
+                          onEdit={() => {
+                            const match = catalogue.find((c) => c.slug === row.serviceSlug);
+                            if (match) openEditor(match, row);
+                          }}
+                        />
                       </dd>
                     </div>
                   ))}
                 </dl>
 
-                <p className="tl-pricecard__meta">
-                  {row.locationName ?? 'All clinics'}
-                  {row.suggested ? ` · ${row.suggested.label} ${row.suggested.value}` : ''}
-                </p>
+                <p className="tl-pricecard__meta">{row.locationName ?? 'All clinics'}</p>
 
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    const match = catalogue.find((c) => c.slug === row.serviceSlug);
-                    if (match) openEditor(match, row);
-                  }}
-                >
-                  Edit
-                </Button>
+                <div className="tl-pricecard__actions">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const match = catalogue.find((c) => c.slug === row.serviceSlug);
+                      if (match) openEditor(match, row);
+                    }}
+                  >
+                    Edit price
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const match = catalogue.find((c) => c.slug === row.serviceSlug);
+                      if (match) openEditor(match, row);
+                    }}
+                  >
+                    Edit description
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -501,9 +670,12 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
             <div className="tl-drawer__body">
               {option.suggested ? (
                 <p className="tl-drawer__suggested">
-                  {/* Always labelled. A bare range here would read as the
-                      dentist's own price the moment it is copied elsewhere. */}
-                  <strong>{option.suggested.label}:</strong> {option.suggested.value}
+                  {/* Labelled AND explicitly read-only. A bare range here would
+                      read as the dentist's own price the moment it is copied
+                      elsewhere, and the master range is not theirs to edit
+                      (specification §7). */}
+                  <strong>Suggested India price:</strong> {option.suggested.value}
+                  <span className="tl-drawer__readonly">Set by Toothlogy · read only</span>
                 </p>
               ) : null}
 
@@ -616,10 +788,69 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
                           </Field>
                         </div>
                       ) : null}
+
+                      <Field
+                        label={`Description for ${variant.variantName}`}
+                        hint="Optional. Leave empty to use Toothlogy's description."
+                      >
+                        {(props) => (
+                          <textarea
+                            {...props}
+                            className="tl-input tl-textarea"
+                            rows={2}
+                            value={variant.customDescription}
+                            onChange={(event) => {
+                              const next = [...editor.variants];
+                              next[index] = {
+                                ...variant,
+                                customDescription: event.target.value,
+                              };
+                              setEditor({ ...editor, variants: next });
+                            }}
+                          />
+                        )}
+                      </Field>
                     </div>
                   ))}
                 </div>
               </fieldset>
+
+              {/*
+               * The clinic's own wording for the treatment.
+               *
+               * The master text is shown beside it as reference, NOT loaded
+               * into the box: pre-filling would make a dentist who saves an
+               * untouched form adopt Toothlogy's wording as their own, and
+               * they would then stop receiving corrections to it (§9).
+               */}
+              <Field
+                label="Your description of this treatment"
+                hint="Optional. Leave empty to use Toothlogy's description."
+              >
+                {(props) => (
+                  <textarea
+                    {...props}
+                    className="tl-input tl-textarea"
+                    rows={4}
+                    value={editor.customDescription}
+                    onChange={(event) =>
+                      setEditor({ ...editor, customDescription: event.target.value })
+                    }
+                    placeholder="Describe this treatment in your own words"
+                  />
+                )}
+              </Field>
+
+              {option.description ? (
+                <details className="tl-master-desc">
+                  <summary>Toothlogy&rsquo;s description</summary>
+                  <p>{option.description}</p>
+                  <p className="tl-master-desc__note">
+                    Shown to patients when you have not written your own. You cannot edit this
+                    text; writing your own replaces it on your profile only.
+                  </p>
+                </details>
+              ) : null}
 
               <label className="tl-checkbox">
                 <input
@@ -656,6 +887,105 @@ export function PriceListClient({ catalogue, units, clinics, initialRows }: Pric
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The dentist's own price, which is the most important thing on the row.
+ *
+ * An unset price says so and offers to fix it, rather than rendering ₹0 or a
+ * blank cell (specification §20). ₹0 is a real price — a free consultation —
+ * so the two states must not look alike.
+ */
+function MyPriceCell({
+  variant,
+  onEdit,
+}: {
+  readonly variant: VariantView;
+  readonly onEdit: () => void;
+}) {
+  const unset =
+    !variant.isCustomQuote &&
+    !variant.actualMinor &&
+    !variant.discountedMinor &&
+    !variant.minMinor &&
+    !variant.maxMinor;
+
+  if (unset) {
+    return (
+      <span className="tl-myprice tl-myprice--unset">
+        <span className="tl-myprice__empty">My Price not set</span>
+        <Button variant="ghost" size="sm" onClick={onEdit}>
+          Add My Price
+        </Button>
+      </span>
+    );
+  }
+
+  return (
+    <button type="button" className="tl-myprice tl-myprice--button" onClick={onEdit}>
+      <PriceCell display={variant.display} />
+      <span className="tl-visually-hidden">Edit this price</span>
+      <Icon name="arrowRight" className="tl-myprice__pencil" />
+    </button>
+  );
+}
+
+/**
+ * Inline price editing.
+ *
+ * Every state the specification asks for is visible here: editing, saving,
+ * validation error and server error. They share one control rather than being
+ * three components, because a dentist correcting a rejected value should be
+ * typing in the same box that rejected it.
+ */
+function InlinePriceEditor({
+  value,
+  state,
+  message,
+  onChange,
+  onCancel,
+  onSave,
+}: {
+  readonly value: string;
+  readonly state: 'editing' | 'saving' | 'error';
+  readonly message?: string;
+  readonly onChange: (value: string) => void;
+  readonly onCancel: () => void;
+  readonly onSave: () => void;
+}) {
+  return (
+    <span className="tl-inline-price">
+      <span className="tl-inline-price__row">
+        <input
+          className="tl-input tl-inline-price__input"
+          inputMode="decimal"
+          autoFocus
+          aria-label="My Price in rupees"
+          aria-invalid={state === 'error' || undefined}
+          value={value}
+          disabled={state === 'saving'}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter saves and Escape abandons, which is what anyone editing a
+            // cell in a table expects without being told.
+            if (event.key === 'Enter') onSave();
+            if (event.key === 'Escape') onCancel();
+          }}
+        />
+        <Button variant="primary" size="sm" loading={state === 'saving'} onClick={onSave}>
+          Save
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+      </span>
+      {state === 'error' && message ? (
+        <span className="tl-inline-price__error" role="alert">
+          {message}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

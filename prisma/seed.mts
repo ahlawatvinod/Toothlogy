@@ -440,14 +440,21 @@ async function seedCatalogue(): Promise<{
           name: service.name,
           categoryId,
           defaultUnitId: unitId,
+          description: service.description ?? null,
+          shortDescription: service.shortDescription ?? null,
           patientDescription: service.patientDescription ?? null,
           sortOrder: index,
           ...priceFields,
         },
+        // Master descriptions ARE refreshed on a re-seed — they are Toothlogy's
+        // text to correct. A dentist's own wording lives on their price row and
+        // is never touched by this (specification §9).
         update: {
           name: service.name,
           categoryId,
           defaultUnitId: unitId,
+          description: service.description ?? null,
+          shortDescription: service.shortDescription ?? null,
           patientDescription: service.patientDescription ?? null,
           sortOrder: index,
           ...priceFields,
@@ -468,6 +475,7 @@ async function seedCatalogue(): Promise<{
             slug: variant.slug,
             name: variant.name,
             description: variant.description ?? null,
+            shortDescription: variant.shortDescription ?? null,
             suggestedMinMinor: variant.min === undefined ? null : rupeesToMinor(variant.min),
             suggestedMaxMinor: variant.max === undefined ? null : rupeesToMinor(variant.max),
             suggestedCurrency: variant.min === undefined ? null : CATALOGUE_CURRENCY,
@@ -478,6 +486,7 @@ async function seedCatalogue(): Promise<{
           update: {
             name: variant.name,
             description: variant.description ?? null,
+            shortDescription: variant.shortDescription ?? null,
             suggestedMinMinor: variant.min === undefined ? null : rupeesToMinor(variant.min),
             suggestedMaxMinor: variant.max === undefined ? null : rupeesToMinor(variant.max),
             suggestedCurrency: variant.min === undefined ? null : CATALOGUE_CURRENCY,

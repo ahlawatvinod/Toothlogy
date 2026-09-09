@@ -16,6 +16,7 @@
 
 import { listPublicPriceList } from '@/platform/pricing/service';
 import { describePrice, describeSuggestedRange } from '@/platform/pricing/display';
+import { resolveDescription } from '@/platform/pricing/description';
 import { resolvePriceList } from '@/platform/pricing/resolution';
 import { defineRoute } from '@/platform/http/handler';
 import { errors } from '@/platform/kernel/errors';
@@ -51,6 +52,12 @@ export const GET = defineRoute({
             categoryName: row.service.category.name,
             patientDescription: row.service.patientDescription,
           },
+          // Resolved through the four-level chain, so a clinic that wrote its
+          // own wording gets it and one that did not gets Toothlogy's.
+          description: resolveDescription({
+            dentistService: row.customDescription,
+            masterService: row.service.description,
+          }),
           // Which of the three sources this price came from, so a client can
           // label it honestly rather than guessing.
           priceSource: entry.source,
@@ -67,6 +74,12 @@ export const GET = defineRoute({
             .filter((price) => price.isEnabled)
             .map((price) => ({
               variantName: price.variant?.name ?? null,
+              description: resolveDescription({
+                dentistVariant: price.customDescription,
+                dentistService: row.customDescription,
+                masterVariant: price.variant?.description,
+                masterService: row.service.description,
+              }),
               display: describePrice({
                 minMinor: price.minMinor,
                 maxMinor: price.maxMinor,

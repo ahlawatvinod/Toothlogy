@@ -30,6 +30,11 @@ import { db, transaction } from '../db/client';
 import { recordAuditEvent } from '../audit';
 import { validatePriceFields } from './validation';
 import { scopeKeyFor, variantKeyFor } from './resolution';
+import {
+  DESCRIPTION_MAX,
+  normalizeDescription,
+  validateDescription,
+} from './description';
 
 // ---------------------------------------------------------------------------
 // Contracts
@@ -48,6 +53,8 @@ export const variantPriceInputSchema = z.object({
   currency: z.string().length(3).toUpperCase(),
   isCustomQuote: z.boolean().optional(),
   isEnabled: z.boolean().optional(),
+  /** The clinic's own wording for this variant. Null clears it. */
+  customDescription: z.string().max(DESCRIPTION_MAX).nullable().optional(),
 });
 
 export const servicePriceInputSchema = z.object({
@@ -57,6 +64,13 @@ export const servicePriceInputSchema = z.object({
   isEnabled: z.boolean().optional(),
   isPublicVisible: z.boolean().optional(),
   note: z.string().trim().max(500).nullable().optional(),
+  /**
+   * The clinic's own wording for this treatment. Null clears it and the master
+   * description is shown again — see resolveDescription. This never writes to
+   * the catalogue: a dentist editing "their" description must not change what
+   * every other clinic shows (specification §9).
+   */
+  customDescription: z.string().max(DESCRIPTION_MAX).nullable().optional(),
   variants: z.array(variantPriceInputSchema).min(1).max(40),
 });
 
@@ -115,6 +129,9 @@ async function assertPractisesAt(dentistProfileId: string, locationId: string): 
  * readonly `orderBy` is rejected outright.
  */
 const priceRowInclude = {
+  // `service` brings its own description and its variants' descriptions, which
+  // are levels 3 and 4 of the fallback chain in description.ts. Without them
+  // every row would need a second query to find out what to display.
   service: {
     include: {
       category: true,
@@ -129,22 +146,56 @@ const priceRowInclude = {
   },
 } satisfies import('@prisma/client').Prisma.DentistServicePriceInclude;
 
-/** A dentist's own list, including rows they have hidden from patients. */
-export async function listOwnPriceList(userId: string, options: { locationId?: string | null } = {}) {
+/**
+ * A dentist's own list, including rows they have hidden from patients.
+ *
+ * ONE QUERY, NOT ONE PER ROW.
+ * `priceRowInclude` pulls the service, its category, its unit, its variants and
+ * the dentist's variant prices in a single round trip. Fetching the service for
+ * each row instead is the N+1 that turns a fifty-treatment price list into
+ * fifty-one queries, and it only becomes visible once a clinic has a full list
+ * (specification §21).
+ *
+ * Paginated because a multi-site clinic with per-location overrides can hold
+ * several hundred rows, and every one of them carries two descriptions.
+ */
+export async function listOwnPriceList(
+  userId: string,
+  options: {
+    locationId?: string | null;
+    limit?: number;
+    offset?: number;
+  } = {},
+) {
   const profile = await requireOwnProfile(userId);
 
-  return db().dentistServicePrice.findMany({
-    where: {
-      dentistProfileId: profile.id,
-      deletedAt: null,
-      ...(options.locationId === undefined
-        ? {}
-        : { locationId: options.locationId }),
-    },
-    include: priceRowInclude,
-    orderBy: [{ service: { categoryId: 'asc' } }, { service: { sortOrder: 'asc' } }],
-  });
+  const where = {
+    dentistProfileId: profile.id,
+    deletedAt: null,
+    ...(options.locationId === undefined ? {} : { locationId: options.locationId }),
+  };
+
+  // Clamped rather than trusted: an unbounded `take` from a query string is a
+  // cheap way to make the server assemble an arbitrarily large response.
+  const take = Math.min(Math.max(options.limit ?? DEFAULT_PRICE_PAGE_SIZE, 1), MAX_PRICE_PAGE_SIZE);
+  const skip = Math.max(options.offset ?? 0, 0);
+
+  const [rows, total] = await Promise.all([
+    db().dentistServicePrice.findMany({
+      where,
+      include: priceRowInclude,
+      orderBy: [{ service: { categoryId: 'asc' } }, { service: { sortOrder: 'asc' } }],
+      take,
+      skip,
+    }),
+    db().dentistServicePrice.count({ where }),
+  ]);
+
+  return Object.assign(rows, { total, limit: take, offset: skip });
 }
+
+export const DEFAULT_PRICE_PAGE_SIZE = 100;
+export const MAX_PRICE_PAGE_SIZE = 500;
 
 /**
  * The public price list for a dentist, as a patient sees it.
@@ -267,11 +318,18 @@ export async function upsertServicePrice(
       variantId = match.id;
     }
 
-    const issues = validatePriceFields({
+    const issues = [...validatePriceFields({
       ...variant,
       unitKey: variant.unitKey,
       currency: variant.currency,
-    });
+    })];
+
+    const descriptionIssue = validateDescription(
+      variant.customDescription,
+      'customDescription',
+    );
+    if (descriptionIssue) issues.push(descriptionIssue);
+
     if (issues.length > 0) {
       throw errors.validation('One or more prices are not valid.', {
         issues: issues.map((issue) => ({
@@ -327,6 +385,7 @@ export async function upsertServicePrice(
         isEnabled: parsed.isEnabled ?? true,
         isPublicVisible: parsed.isPublicVisible ?? true,
         note: parsed.note ?? null,
+        customDescription: normalizeDescription(parsed.customDescription),
       },
       update: {
         ...(parsed.isEnabled === undefined ? {} : { isEnabled: parsed.isEnabled }),
@@ -334,6 +393,11 @@ export async function upsertServicePrice(
           ? {}
           : { isPublicVisible: parsed.isPublicVisible }),
         note: parsed.note ?? null,
+        // Only written when the caller sent the field. Omitting it from a
+        // price-only edit must not silently wipe wording the clinic wrote.
+        ...(parsed.customDescription === undefined
+          ? {}
+          : { customDescription: normalizeDescription(parsed.customDescription) }),
         deletedAt: null,
       },
     });
@@ -359,6 +423,7 @@ export async function upsertServicePrice(
         currency: row.input.currency,
         isCustomQuote: row.input.isCustomQuote ?? false,
         isEnabled: row.input.isEnabled ?? true,
+        customDescription: normalizeDescription(row.input.customDescription),
       };
 
       await tx.dentistVariantPrice.upsert({

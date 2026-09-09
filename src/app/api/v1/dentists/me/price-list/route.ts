@@ -19,8 +19,8 @@ import {
   servicePriceInputSchema,
   upsertServicePrice,
 } from '@/platform/pricing/service';
-import { describePrice } from '@/platform/pricing/display';
-import { describeSuggestedRange } from '@/platform/pricing/display';
+import { describePrice, describeSuggestedRange } from '@/platform/pricing/display';
+import { resolveDescription, resolveShortDescription } from '@/platform/pricing/description';
 import { defineRoute } from '@/platform/http/handler';
 import { isAuthenticated } from '@/platform/rbac';
 import { errors } from '@/platform/kernel/errors';
@@ -42,9 +42,13 @@ export const GET = defineRoute({
     const locationId =
       locationParam === null ? undefined : locationParam === '' ? null : locationParam;
 
-    const rows = await listOwnPriceList(principal.userId, { locationId });
+    const limit = Number(url.searchParams.get('limit') ?? '') || undefined;
+    const offset = Number(url.searchParams.get('offset') ?? '') || undefined;
+
+    const rows = await listOwnPriceList(principal.userId, { locationId, limit, offset });
 
     return {
+      page: { total: rows.total, limit: rows.limit, offset: rows.offset },
       rows: rows.map((row) => ({
         id: row.id,
         service: {
@@ -58,6 +62,17 @@ export const GET = defineRoute({
         isEnabled: row.isEnabled,
         isPublicVisible: row.isPublicVisible,
         note: row.note,
+        // What a patient would read, after the four-level fallback...
+        description: resolveDescription({
+          dentistService: row.customDescription,
+          masterService: row.service.description,
+        }),
+        // ...and what this clinic actually typed, which is what the editor
+        // must show. Rendering the resolved text into the edit box would make
+        // a dentist who saves an untouched form adopt the master wording as
+        // their own, and then stop receiving corrections to it.
+        customDescription: row.customDescription,
+        masterDescription: row.service.description,
         // The market reference, kept beside the dentist's own figure and always
         // labelled — never merged into it.
         suggested: describeSuggestedRange({
@@ -76,6 +91,21 @@ export const GET = defineRoute({
           currency: price.currency,
           isCustomQuote: price.isCustomQuote,
           isEnabled: price.isEnabled,
+          description: resolveDescription({
+            dentistVariant: price.customDescription,
+            dentistService: row.customDescription,
+            masterVariant: price.variant?.description,
+            masterService: row.service.description,
+          }),
+          shortDescription: resolveShortDescription({
+            dentistVariant: price.customDescription,
+            dentistService: row.customDescription,
+            masterVariant: price.variant?.description,
+            masterService: row.service.description,
+            masterVariantShort: price.variant?.shortDescription,
+            masterServiceShort: row.service.shortDescription,
+          }),
+          customDescription: price.customDescription,
           // Raw minor units as strings, so a client can edit them without ever
           // parsing the rendered string back apart.
           amounts: {
