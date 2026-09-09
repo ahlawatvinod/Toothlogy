@@ -22,6 +22,7 @@
 
 import Link from 'next/link';
 import NextImage from 'next/image';
+import { Icon } from '@/design-system';
 import { resolveAsset } from '@/platform/media';
 import { cn } from '@/design-system';
 import { Reveal } from '@/components/motion/reveal';
@@ -116,11 +117,49 @@ export function BannerHero({
         </div>
 
         <Reveal variant="scale" delay={200} className="tl-hero__figure">
-          <ImageCard
-            slug="banner-dental-hospital"
-            eager
-            sizes="(max-width: 64rem) 100vw, 56vw"
-          />
+          {/* Atmospheric glow behind the banner. Decorative and aria-hidden. */}
+          <div className="tl-hero__glow-blob" aria-hidden="true" />
+
+          <div className="tl-hero__banner-wrap">
+            <ImageCard
+              slug="banner-dental-hospital"
+              eager
+              sizes="(max-width: 64rem) 100vw, 56vw"
+              className="tl-hero__banner"
+            />
+
+            {/*
+             * Floating glass cards.
+             *
+             * These state capabilities the platform genuinely enforces in code.
+             * They are deliberately NOT statistics: there is no dentist count,
+             * no clinic count and no average rating to show, and inventing one
+             * on a health platform is a number a patient would act on
+             * (Constitution P9). The real figures live in the strip below,
+             * counted from the registry as the page renders.
+             */}
+            <p className="tl-hero__chip tl-hero__chip--one">
+              <Icon name="shieldCheck" />
+              <span>
+                <strong>Verified dentists</strong>
+                Qualifications checked against the issuing council&rsquo;s register.
+              </span>
+            </p>
+            <p className="tl-hero__chip tl-hero__chip--two">
+              <Icon name="scale" />
+              <span>
+                <strong>Merit over spend</strong>
+                Every promoted result is labelled as one.
+              </span>
+            </p>
+            <p className="tl-hero__chip tl-hero__chip--three">
+              <Icon name="lock" />
+              <span>
+                <strong>Records stay yours</strong>
+                Access is explicit, revocable and audited.
+              </span>
+            </p>
+          </div>
         </Reveal>
       </div>
     </section>

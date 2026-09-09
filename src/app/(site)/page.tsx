@@ -27,6 +27,7 @@ import { registrySummary } from '@/registry';
 import { PILLARS } from '@/registry/types';
 import { COUNTRIES, LANGUAGES } from '@/registry/globalization';
 import { DENTAL_SPECIALTIES } from '@/platform/dentists/specialties';
+import { CATALOGUE_SERVICE_COUNT } from '@/platform/catalogue/catalogue-data';
 import { Badge, Icon, type IconName } from '@/design-system';
 import { LogoMark } from '@/components/brand/logo';
 import { HeroTooth } from '@/components/brand/hero-tooth';
@@ -37,6 +38,7 @@ import { BannerCta, BannerHero, PromotionalBanner } from '@/components/site/bann
 import { LabFeature } from '@/components/site/lab-feature';
 import { ProtectiveCare } from '@/components/site/protective-care';
 import { ComfortCare } from '@/components/site/comfort-care';
+import { HeroStats, type HeroStat } from '@/components/site/hero-stats';
 import { hasAsset } from '@/platform/media';
 
 export const metadata: Metadata = {
@@ -137,11 +139,11 @@ export default function HomePage() {
          */
         actions={
           <>
-            <Link className="tl-button tl-button--primary tl-button--lg" href="/register">
+            <Link className="tl-button tl-button--gradient tl-button--lg" href="/register">
               Create an account
             </Link>
             <Link
-              className="tl-button tl-button--secondary tl-button--lg"
+              className="tl-button tl-button--outline tl-button--lg"
               href="/register?role=dentist"
             >
               List your practice
@@ -235,6 +237,43 @@ export default function HomePage() {
         </div>
       </section>
       )}
+
+      {/*
+       * Trust strip. Real counts only — see the note in hero-stats.tsx for why
+       * the reference's dentist/clinic/rating figures are not used.
+       */}
+      <section className="tl-section tl-section--tight" aria-label="Toothlogy at a glance">
+        <HeroStats
+          stats={
+            [
+              {
+                icon: 'tooth',
+                value: DENTAL_SPECIALTIES.length,
+                label: 'Dental specialties',
+                meta: 'A dentist can be verified in each',
+              },
+              {
+                icon: 'clipboardCheck',
+                value: CATALOGUE_SERVICE_COUNT,
+                label: 'Treatments catalogued',
+                meta: 'Each with a plain-language description',
+              },
+              {
+                icon: 'globe',
+                value: COUNTRIES.length,
+                label: 'Countries configured',
+                meta: 'Currency, tax and locale per country',
+              },
+              {
+                icon: 'shieldCheck',
+                value: summary.apis.implemented,
+                label: 'APIs live',
+                meta: `of ${summary.apis.total} registered`,
+              },
+            ] satisfies HeroStat[]
+          }
+        />
+      </section>
 
       {/* ================= SPECIALTIES ================= */}
       <section className="tl-section" aria-labelledby="specialties-heading">

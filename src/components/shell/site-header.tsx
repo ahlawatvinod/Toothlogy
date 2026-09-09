@@ -60,7 +60,7 @@ export async function SiteHeader() {
               <Link className="tl-button tl-button--ghost tl-button--sm" href="/login">
                 Sign in
               </Link>
-              <Link className="tl-button tl-button--primary tl-button--sm" href="/register">
+              <Link className="tl-button tl-button--gradient tl-button--sm" href="/register">
                 Create account
               </Link>
             </>
