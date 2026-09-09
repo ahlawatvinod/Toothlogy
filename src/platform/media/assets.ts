@@ -89,21 +89,30 @@ export const IMAGE_ASSETS: readonly ImageAsset[] = [
   // --- Banners (1920x600) -------------------------------------------------
   {
     slug: 'banner-dental-hospital',
-    alt: 'Dental team standing in a modern dental hospital',
+    alt: 'Two dentists standing in a modern dental clinic, beside illustrations of an implant, a root canal, a denture and clear aligners',
     kind: 'banner',
-    note: 'Banner 1. Homepage hero.',
+    note:
+      'Banner 1. A male and a female dentist standing either side of a central tooth, with treatment insets. ' +
+      'Homepage hero: the brief names this composition for it, and two clinicians facing the camera is the ' +
+      'strongest trust signal of the three.',
   },
   {
     slug: 'banner-dental-promotional',
-    alt: 'Dental care promotional banner',
+    alt: 'A modern dental surgery with treatment illustrations including veneers, an implant, a denture, aligners, braces and a root canal',
     kind: 'banner',
-    note: 'Banner 2. Mid-page promotional band.',
+    note:
+      'Banner 2. Clinic interior and a montage of treatment insets, with no people in frame. ' +
+      'Used to introduce the treatments section: it is the one banner that is about the range of ' +
+      'work rather than about a person.',
   },
   {
     slug: 'banner-dental-cta',
-    alt: 'Dental treatment banner',
+    alt: 'A smiling patient being examined in a dental chair, beside illustrations of an implant, aligners, a denture and a crown',
     kind: 'banner',
-    note: 'Banner 3. Final call to action.',
+    note:
+      'Banner 3. A patient mid-treatment, smiling. Used for the closing call to action: it shows the ' +
+      'outcome of booking rather than the clinic that provides it, which is what a conversion band ' +
+      'should show.',
   },
 
   // --- Consultation and diagnosis ------------------------------------------
@@ -239,17 +248,19 @@ export const IMAGE_ASSETS: readonly ImageAsset[] = [
   },
   {
     slug: 'sports-mouthguard',
-    alt: 'Custom sports mouthguard',
+    alt: 'An athlete wearing a custom sports mouthguard, beside examples of mouthguards in several colours',
     kind: 'service',
     serviceSlug: 'sports-mouthguard',
     note: 'Created with a sportsperson.',
   },
   {
     slug: 'dental-lab-custom-appliance',
-    alt: 'Custom dental appliances made in a dental laboratory',
+    alt: 'A dental technician in a laboratory holding a clear aligner, beside examples of custom dental appliances',
     kind: 'service',
     serviceSlug: 'dental-lab-custom-appliance',
-    note: 'Created with a model and several custom appliances. Intended as a full-width split feature.',
+    note:
+      'A dental technician in a laboratory holding an aligner on a model, with insets of an aligner, a ' +
+      'partial denture, an expander and a mouthguard. Full-width split feature (§18).',
   },
 ] as const;
 

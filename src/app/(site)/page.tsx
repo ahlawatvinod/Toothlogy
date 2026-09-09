@@ -33,6 +33,9 @@ import { HeroTooth } from '@/components/brand/hero-tooth';
 import { Reveal } from '@/components/motion/reveal';
 import { Counter } from '@/components/motion/counter';
 import { Feature, SectionHeading, Tile } from '@/components/site/sections';
+import { BannerCta, BannerHero, PromotionalBanner } from '@/components/site/banner-hero';
+import { LabFeature } from '@/components/site/lab-feature';
+import { hasAsset } from '@/platform/media';
 
 export const metadata: Metadata = {
   title: 'Toothlogy — find the right dentist',
@@ -100,7 +103,44 @@ export default function HomePage() {
 
   return (
     <>
-      {/* ================= HERO ================= */}
+      {/*
+       * HERO
+       *
+       * Two complete designs, not one and a fallback: the approved clinic
+       * banner when it has been delivered, and the illustrated gradient hero
+       * otherwise. Whichever renders, the headline, copy and both calls to
+       * action are identical, so nothing about the page's meaning depends on
+       * whether a file has arrived.
+       */}
+      <BannerHero
+        badge="Better care · Healthier smiles · Brighter future"
+        title={
+          <>
+            Help every good dentist be{' '}
+            <span className="tl-gradient-text tl-gradient-text--on-banner">
+              found by the right patient
+            </span>
+            .
+          </>
+        }
+        lead="Toothlogy is a global dental ecosystem connecting patients, dentists, clinics, colleges, students and suppliers — built so competence is discoverable, not just marketing budgets."
+        note="Accounts, clinics and dentist verification are live today. Search and booking arrive in Phase 4 — see what works below."
+        actions={
+          <>
+            <Link className="tl-button tl-button--on-brand tl-button--lg" href="/register">
+              Create an account
+            </Link>
+            <Link
+              className="tl-button tl-button--on-brand-ghost tl-button--lg"
+              href="/register?role=dentist"
+            >
+              List your practice
+            </Link>
+          </>
+        }
+      />
+
+      {hasAsset('banner-dental-hospital') ? null : (
       <section className="tl-hero" aria-labelledby="hero-heading">
         <div className="tl-container tl-hero__inner">
           <Reveal className="tl-hero__copy">
@@ -184,6 +224,7 @@ export default function HomePage() {
           </Reveal>
         </div>
       </section>
+      )}
 
       {/* ================= SPECIALTIES ================= */}
       <section className="tl-section" aria-labelledby="specialties-heading">
@@ -229,6 +270,13 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Introduces the section above. Absent until the banner is delivered. */}
+      <PromotionalBanner
+        slug="banner-dental-promotional"
+        heading="Every treatment, one catalogue"
+        lead="From a routine check-up to an implant, each treatment carries a plain-language description and a market price range."
+      />
+
       {/* ================= WHY TOOTHLOGY ================= */}
       <section className="tl-section tl-section--soft" aria-labelledby="why-heading">
         <div className="tl-container tl-split">
@@ -257,6 +305,9 @@ export default function HomePage() {
           </ul>
         </div>
       </section>
+
+      {/* Full-width split feature. Absent until its photograph is delivered. */}
+      <LabFeature />
 
       {/* ================= WHAT WORKS TODAY ================= */}
       <section className="tl-section" aria-labelledby="status-heading">
@@ -429,6 +480,14 @@ export default function HomePage() {
       </section>
 
       {/* ================= CTA ================= */}
+      <BannerCta
+        title="Your healthier smile starts here"
+        lead="Create an account to be ready when discovery opens — or list your practice now and get your qualifications verified before patients start searching."
+        primary={{ href: '/register', label: 'Create an account' }}
+        secondary={{ href: '/for-dentists', label: 'For dentists' }}
+      />
+
+      {hasAsset('banner-dental-cta') ? null : (
       <section className="tl-section tl-section--tight" aria-labelledby="cta-heading">
         <div className="tl-container">
           <Reveal className="tl-cta" variant="scale">
@@ -454,6 +513,7 @@ export default function HomePage() {
           </Reveal>
         </div>
       </section>
+      )}
     </>
   );
 }

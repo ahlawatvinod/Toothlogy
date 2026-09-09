@@ -120,14 +120,27 @@ export function BannerImage({
   alt,
   eager = false,
   position = 'center',
+  align = 'start',
   className,
   children,
-}: AssetImageProps & { readonly children?: React.ReactNode }) {
+}: AssetImageProps & {
+  readonly children?: React.ReactNode;
+  /**
+   * Which side the overlaid copy sits on.
+   *
+   * Not a style preference — it is art direction, and it differs per banner
+   * because these compositions differ. Text belongs where the photograph has
+   * least to say: over the clinic wall rather than over a clinician's face.
+   * The scrim follows it, so the darkened half is always the half being
+   * written on.
+   */
+  readonly align?: 'start' | 'end';
+}) {
   const asset = resolveAsset(slug);
   if (!asset) return null;
 
   return (
-    <div className={cn('tl-banner', className)}>
+    <div className={cn('tl-banner', `tl-banner--${align}`, className)}>
       <NextImage
         src={asset.src}
         alt={alt ?? asset.alt}

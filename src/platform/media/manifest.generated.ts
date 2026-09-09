@@ -22,4 +22,4 @@ export const PRESENT_ASSETS: Readonly<Record<string, string>> = {
 };
 
 /** When the scan last ran, for the audit report. */
-export const MANIFEST_GENERATED_AT = '2026-09-09T10:58:29.069Z';
+export const MANIFEST_GENERATED_AT = '2026-09-09T11:14:14.980Z';
