@@ -24,7 +24,29 @@ const present = new Set(
 
 const missing = assets.filter((a) => !present.has(a.slug));
 
-console.log(`Toothlogy approved image assets: ${present.size} of ${assets.length} present.\n`);
+/*
+ * `--summary` prints one line and stops. It runs on every build so that a
+ * deploy log states how many approved images the build actually contains.
+ *
+ * The failure this prevents: a build with zero images succeeds, says nothing,
+ * deploys cleanly, and the first anyone knows is that the live site has no
+ * photographs on it. A green build is not evidence the assets are there.
+ */
+const summaryOnly = process.argv.includes('--summary');
+
+console.log(`Toothlogy approved image assets: ${present.size} of ${assets.length} present.`);
+
+if (summaryOnly) {
+  if (missing.length > 0) {
+    console.log(
+      `  ${missing.length} approved image(s) are NOT in this build. ` +
+        'Run `npm run assets:audit` for the list.',
+    );
+  }
+  process.exit(0);
+}
+
+console.log('');
 
 if (missing.length === 0) {
   console.log('All approved assets are present.');
