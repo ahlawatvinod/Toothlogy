@@ -124,6 +124,36 @@
   }
 }
 
+/*
+ * A wider panel for the one auth form that needs it.
+ *
+ * The layout renders the panel and the page renders its contents, so the page
+ * cannot put a class on its own container. `:has()` lets the form ask for the
+ * width instead — the panel stays generic, and adding another wide form later
+ * is one class on that form rather than a change here.
+ */
+.tl-auth__panel:has(.tl-form--wide) {
+  max-width: 36rem;
+}
+
+/*
+ * Two columns, pinned.
+ *
+ * The shared choice grid is `auto-fit` with a 9rem floor, which lands on three
+ * columns at this width and leaves the fourth role stranded alone on a second
+ * row. Four roles want 2x2; the extra width goes into the cards rather than
+ * into a fourth column.
+ */
+@media (min-width: 26rem) {
+  .tl-form--wide .tl-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tl-form--wide .tl-choice {
+    padding: var(--tl-space-4);
+  }
+}
+
 .tl-auth__brand {
   display: inline-flex;
   align-items: center;

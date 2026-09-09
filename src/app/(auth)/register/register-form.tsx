@@ -95,8 +95,15 @@ export function RegisterForm({ defaultRole }: { defaultRole?: string }) {
     },
   });
 
+  /*
+   * `tl-form--wide` widens the surrounding auth panel. This is the only form in
+   * the auth group carrying a role chooser on top of five fields, and at the
+   * shared 28rem the role cards wrap their hints onto three lines each. The
+   * panel opts in from the form rather than the other way round, because the
+   * layout renders the panel and cannot know which page is inside it.
+   */
   return (
-    <form onSubmit={form.handleSubmit} noValidate className="tl-form">
+    <form onSubmit={form.handleSubmit} noValidate className="tl-form tl-form--wide">
       {form.formError ? (
         <Alert tone="danger" title="Could not create your account">
           {form.formError}
