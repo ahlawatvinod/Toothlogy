@@ -1630,31 +1630,58 @@
 
 /* --- Framed call to action -------------------------------------------------- */
 
-.tl-cta--framed {
+/* Copy left, image right, on the brand-gradient panel. */
+.tl-cta--split {
   display: grid;
-  gap: var(--tl-space-7);
-  padding: var(--tl-space-9) var(--tl-space-6);
-  text-align: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--tl-space-8);
+  padding: var(--tl-space-8) var(--tl-space-7);
+  text-align: start;
 }
 
 .tl-cta__body {
   display: grid;
   gap: var(--tl-space-4);
-  justify-items: center;
+  justify-items: start;
+}
+
+.tl-cta--split .tl-cta__title,
+.tl-cta--split .tl-cta__lead {
+  margin-inline: 0;
+  max-inline-size: 20ch;
+}
+
+.tl-cta--split .tl-cta__lead {
+  max-inline-size: 44ch;
+}
+
+.tl-cta--split .tl-cta__actions {
+  justify-content: flex-start;
+}
+
+@media (max-width: 64rem) {
+  /* Content first when it stacks: the reader gets the offer before the
+     picture of it. */
+  .tl-cta--split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tl-space-6);
+    padding: var(--tl-space-8) var(--tl-space-5);
+  }
 }
 
 /* Inside the brand-gradient panel the image card needs a light edge rather
    than the neutral border it carries on a white section. */
-.tl-cta--framed .tl-imagecard {
+/* Inside the brand-gradient panel the card needs a light edge rather than the
+   neutral border it carries on a white section. */
+.tl-cta--split .tl-imagecard {
   border-color: rgb(255 255 255 / 0.35);
   background: rgb(255 255 255 / 0.08);
-  max-inline-size: 62rem;
-  margin-inline: auto;
 }
 
 @media (max-width: 40rem) {
-  .tl-cta--framed {
-    padding: var(--tl-space-8) var(--tl-space-4);
+  .tl-cta--split {
+    padding: var(--tl-space-7) var(--tl-space-4);
   }
 }
 

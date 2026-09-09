@@ -171,10 +171,11 @@ export function PromotionalBanner({
 }
 
 /**
- * Closing call to action: copy and buttons above, approved banner below.
+ * Closing call to action: copy left, approved banner right.
  *
- * The image is visually dominant without competing with the buttons, because
- * it is not behind them (§11).
+ * A split rather than a stack, so the patient banner sits beside the buttons
+ * at the same optical weight instead of below them — and, as everywhere else
+ * here, no copy is written across the photograph.
  */
 export function BannerCta({
   title,
@@ -192,7 +193,7 @@ export function BannerCta({
   return (
     <section className="tl-section" aria-labelledby="cta-heading">
       <div className="tl-container">
-        <Reveal variant="scale" className="tl-cta tl-cta--framed">
+        <Reveal variant="scale" className="tl-cta tl-cta--split">
           <div className="tl-cta__body">
             <Reveal>
               <h2 className="tl-cta__title" id="cta-heading">{title}</h2>
@@ -212,7 +213,7 @@ export function BannerCta({
           </div>
 
           <Reveal variant="scale" delay={260}>
-            <ImageCard slug="banner-dental-cta" sizes="(max-width: 64rem) 100vw, 62rem" />
+            <ImageCard slug="banner-dental-cta" sizes="(max-width: 64rem) 100vw, 34rem" />
           </Reveal>
         </Reveal>
       </div>
