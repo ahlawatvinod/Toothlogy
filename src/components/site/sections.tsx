@@ -10,6 +10,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Icon, cn, type IconName } from '@/design-system';
+import { ServiceImage } from '@/components/media/asset-image';
 
 /* -------------------------------------------------------------------------
  * Section heading
@@ -55,6 +56,14 @@ export interface TileProps {
   readonly title: string;
   readonly text: string;
   /**
+   * Catalogue service slug. When an approved photograph for it has been
+   * delivered, the tile shows it above the icon; when it has not, the tile is
+   * exactly as it is today. Nothing here renders a placeholder.
+   */
+  readonly serviceSlug?: string;
+  /** Dental specialty key, for the category grid. */
+  readonly specialtyKey?: string;
+  /**
    * When present the whole tile becomes one link, via a stretched pseudo-element
    * on the anchor. When absent the tile is static and gets no hover lift — a
    * card that rises under the pointer and then does nothing when clicked is a
@@ -64,9 +73,15 @@ export interface TileProps {
   readonly cta?: string;
 }
 
-export function Tile({ icon, title, text, href, cta }: TileProps) {
+export function Tile({ icon, title, text, href, cta, serviceSlug, specialtyKey }: TileProps) {
   const body = (
     <>
+      {/* Renders null until the approved image for this treatment exists. */}
+      <ServiceImage
+        serviceSlug={serviceSlug}
+        specialtyKey={specialtyKey}
+        className="tl-tile__media"
+      />
       <span className="tl-tile__icon" aria-hidden="true">
         <Icon name={icon} />
       </span>

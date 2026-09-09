@@ -221,6 +221,7 @@ export default function HomePage() {
                   icon={SPECIALTY_ICONS[specialty.key] ?? 'tooth'}
                   title={specialty.name}
                   text={specialty.description}
+                  specialtyKey={specialty.key}
                 />
               </Reveal>
             ))}

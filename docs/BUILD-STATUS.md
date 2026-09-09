@@ -143,6 +143,15 @@ registry or the specialty list as the page renders, so none of them can be
 wrong (P9); the animated counters animate a value they were given and cannot
 invent one.
 
+🟡 **Approved image assets.** The registry, resolution, sync/audit tooling and
+the image components are built and tested; **none of the 70 approved
+photographs exist**, so every surface that would show one currently renders
+nothing at all — never a placeholder or a stock substitute. `npm run
+assets:audit` lists what is outstanding; drop the files into
+`public/brand/{banners,services}` named after their slug and run `npm run
+assets:sync`. 🟡 rather than 🔴 because our side works and no third-party
+content is connected, which is the same state as an unwired provider.
+
 **Not built:** PWA manifest and service worker 🔴, locale-prefixed routing 🔵
 (flag exists, off), account preferences UI 🔴, saved items 🔴.
 

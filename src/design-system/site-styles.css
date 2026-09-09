@@ -1336,3 +1336,194 @@
   text-transform: uppercase;
   color: var(--tl-color-text-subtle);
 }
+
+/* ==========================================================================
+   APPROVED IMAGE ASSETS
+   ==========================================================================
+
+   Presentation only. Every rule here sizes, crops or animates the FRAME the
+   image sits in; none of it modifies the source file. The registry in
+   src/platform/media decides whether there is a file at all, and when there is
+   not, the component renders nothing and these rules never apply.
+   ========================================================================== */
+
+.tl-asset {
+  position: relative;
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-color-surface-sunken);
+}
+
+/* A reserved 1:1 frame. Held whether or not the image has loaded, so a grid of
+   cards never changes height as photographs arrive. */
+.tl-asset--square {
+  aspect-ratio: 1 / 1;
+}
+
+.tl-asset__img {
+  inline-size: 100%;
+  block-size: 100%;
+  display: block;
+  /* Never stretched: the fit is cover or contain, chosen per placement, and
+     the intrinsic ratio is always respected. */
+  transition: transform var(--tl-duration-slow) var(--tl-ease-out);
+}
+
+/* Hover lift of 3%, at the top of the range the brief allows. Enough to feel
+   responsive, small enough that a face or an instrument does not visibly
+   shift under the pointer. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .tl-tile--link:hover .tl-asset__img,
+  .tl-asset:hover .tl-asset__img {
+    transform: scale(1.03);
+  }
+}
+
+/* --- Banners -------------------------------------------------------------- */
+
+.tl-banner {
+  position: relative;
+  inline-size: 100%;
+  overflow: hidden;
+  /* The source ratio on wide screens. */
+  aspect-ratio: 1920 / 600;
+  background: var(--tl-color-surface-sunken);
+}
+
+.tl-banner__img {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+/*
+ * A darkened scrim behind overlay text.
+ *
+ * A CSS gradient over the image, not a change to it. Without it, overlay text
+ * sits at whatever contrast the photograph happens to provide, which on a
+ * bright clinical image is often none.
+ */
+.tl-banner__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgb(8 30 41 / 0.78) 0%,
+    rgb(8 30 41 / 0.55) 45%,
+    rgb(8 30 41 / 0.15) 100%
+  );
+}
+
+.tl-banner__content {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: var(--tl-space-4);
+  justify-items: start;
+  block-size: 100%;
+  inline-size: 100%;
+  max-inline-size: var(--tl-container-max);
+  margin-inline: auto;
+  padding: var(--tl-space-6) var(--tl-space-4);
+  color: #ffffff;
+}
+
+@media (min-width: 48rem) {
+  .tl-banner__content {
+    padding-inline: var(--tl-space-5);
+  }
+}
+
+/*
+ * On a narrow screen a 1920x600 image laid out at 320px is a 100px strip, too
+ * short to read anything over. The FRAME is made taller and object-position
+ * steers which part of the photograph survives the crop — deliberately, rather
+ * than cutting a second image for mobile, which the brief forbids.
+ */
+@media (max-width: 48rem) {
+  .tl-banner {
+    aspect-ratio: 4 / 3;
+    max-block-size: 32rem;
+  }
+}
+
+@media (max-width: 30rem) {
+  .tl-banner {
+    aspect-ratio: 3 / 4;
+    max-block-size: 30rem;
+  }
+}
+
+/* --- Split feature (dental lab, §18) -------------------------------------- */
+
+.tl-feature-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--tl-space-8);
+  align-items: center;
+}
+
+.tl-feature-split__body {
+  display: grid;
+  gap: var(--tl-space-4);
+  justify-items: start;
+}
+
+.tl-feature-split__list {
+  display: grid;
+  gap: var(--tl-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tl-feature-split__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tl-space-3);
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-feature-split__list svg {
+  flex: none;
+  margin-block-start: 0.15rem;
+  color: var(--tl-color-accent);
+}
+
+.tl-feature-split .tl-asset {
+  border-radius: var(--tl-radius-2xl);
+  box-shadow: var(--tl-shadow-lg);
+}
+
+@media (max-width: 60rem) {
+  .tl-feature-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tl-space-6);
+  }
+}
+
+/* --- Tile with a photograph ------------------------------------------------
+ *
+ * A tile whose image is absent keeps its own padding and reads as a text card.
+ * Nothing collapses and no gap is left where a picture would have been.
+ */
+
+.tl-tile__media {
+  margin: calc(var(--tl-space-5) * -1) calc(var(--tl-space-5) * -1) var(--tl-space-4);
+  border-radius: var(--tl-radius-xl) var(--tl-radius-xl) 0 0;
+}
+
+@media (max-width: 40rem) {
+  .tl-tile:has(> .tl-tile__media) {
+    padding: var(--tl-space-4);
+  }
+
+  .tl-tile__media {
+    margin: calc(var(--tl-space-4) * -1) calc(var(--tl-space-4) * -1) var(--tl-space-3);
+  }
+}

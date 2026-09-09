@@ -237,6 +237,16 @@ export const COMPONENTS: readonly ComponentEntry[] = [
     ariaPattern: null,
   },
   {
+    id: 'TL-CMP-ASSETIMAGE-001',
+    name: 'Asset Image',
+    description:
+      'Renders an approved photograph, or nothing at all when the file has not been delivered. Never a placeholder, a grey box or a stock substitute, so the site is correct with zero images and with all seventy.',
+    status: 'implemented',
+    phase: 2,
+    module: '@/components/media/asset-image',
+    ariaPattern: null,
+  },
+  {
     id: 'TL-CMP-THEMETOGGLE-001',
     name: 'Theme Toggle',
     description:

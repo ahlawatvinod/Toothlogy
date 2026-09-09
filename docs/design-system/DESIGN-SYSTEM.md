@@ -160,6 +160,7 @@ theoretical.
 | `TL-CMP-LOGO-001` | Logo | — (img when standing alone) |
 | `TL-CMP-REVEAL-001` | Reveal | — |
 | `TL-CMP-COUNTER-001` | Counter | — (final value exposed, steps hidden) |
+| `TL-CMP-ASSETIMAGE-001` | Asset Image | — (alt from the asset registry) |
 
 All ✅ IMPLEMENTED, covered by 33 accessibility tests.
 
