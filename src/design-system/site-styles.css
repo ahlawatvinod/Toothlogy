@@ -1592,12 +1592,30 @@
 }
 
 @media (max-width: 64rem) {
-  /* Stacked, copy first: the reader gets the point before the picture. The
-     figure keeps a generous width so the composition stays legible. */
+  /*
+   * Collapse to one column.
+   *
+   * This override is REQUIRED, not redundant: `.tl-hero--split .tl-hero__inner`
+   * is a two-class selector and outranks the plain `.tl-hero__inner` rule in
+   * the earlier media query, so without it the split hero stayed two-column
+   * all the way down. At 320px that rendered the banner 136px wide — a 3.2:1
+   * composition in which neither clinician was identifiable.
+   */
+  .tl-hero--split .tl-hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tl-space-6);
+  }
+
+  /* Copy first: the reader gets the point before the picture. The figure keeps
+     a generous width so the composition stays legible. */
   .tl-hero--split .tl-hero__figure {
     order: 2;
     max-inline-size: 40rem;
     margin-inline: auto;
+  }
+
+  .tl-hero--split .tl-hero__copy {
+    max-width: none;
   }
 }
 

@@ -54,11 +54,22 @@ export function resolveAsset(slug: string | undefined | null): ResolvedAsset | n
   if (!slug) return null;
 
   const asset = ASSET_BY_SLUG.get(slug);
-  const src = PRESENT_ASSETS[slug];
-  if (!asset || !src) return null;
+  const present = PRESENT_ASSETS[slug];
+  if (!asset || !present) return null;
 
-  const { width, height } = ASSET_DIMENSIONS[asset.kind];
-  return { slug: asset.slug, src, alt: asset.alt, width, height, kind: asset.kind };
+  // The delivered file's real dimensions, measured at sync time. The declared
+  // per-kind size is only a fallback: a file that is not exactly the nominal
+  // size would otherwise make the browser reserve the wrong box, which is the
+  // layout shift width/height exist to prevent.
+  const fallback = ASSET_DIMENSIONS[asset.kind];
+  return {
+    slug: asset.slug,
+    src: present.src,
+    alt: asset.alt,
+    width: present.width || fallback.width,
+    height: present.height || fallback.height,
+    kind: asset.kind,
+  };
 }
 
 /**

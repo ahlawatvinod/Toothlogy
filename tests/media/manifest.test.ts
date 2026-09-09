@@ -42,9 +42,19 @@ describe('manifest', () => {
   });
 
   it('records a path that actually resolves for every listed asset', () => {
-    for (const [slug, src] of Object.entries(PRESENT_ASSETS)) {
-      const absolute = join(ROOT, 'public', src.replace(/^\//, ''));
-      expect(existsSync(absolute), `${slug} → ${src}`).toBe(true);
+    for (const [slug, asset] of Object.entries(PRESENT_ASSETS)) {
+      const absolute = join(ROOT, 'public', asset.src.replace(/^\//, ''));
+      expect(existsSync(absolute), `${slug} → ${asset.src}`).toBe(true);
+    }
+  });
+
+  it('records real pixel dimensions, not the nominal per-kind size', () => {
+    // Passing a declared size for a file that is a different size makes the
+    // browser reserve the wrong box — the layout shift these attributes exist
+    // to prevent.
+    for (const [slug, asset] of Object.entries(PRESENT_ASSETS)) {
+      expect(asset.width, `${slug} width`).toBeGreaterThan(0);
+      expect(asset.height, `${slug} height`).toBeGreaterThan(0);
     }
   });
 

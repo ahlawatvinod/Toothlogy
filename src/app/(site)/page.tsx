@@ -36,6 +36,7 @@ import { Feature, SectionHeading, Tile } from '@/components/site/sections';
 import { BannerCta, BannerHero, PromotionalBanner } from '@/components/site/banner-hero';
 import { LabFeature } from '@/components/site/lab-feature';
 import { ProtectiveCare } from '@/components/site/protective-care';
+import { ComfortCare } from '@/components/site/comfort-care';
 import { hasAsset } from '@/platform/media';
 
 export const metadata: Metadata = {
@@ -317,8 +318,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Both absent until their photographs are delivered. */}
+      {/* Each absent until its photographs are delivered. */}
       <ProtectiveCare />
+      <ComfortCare />
       <LabFeature />
 
       {/* ================= WHAT WORKS TODAY ================= */}
