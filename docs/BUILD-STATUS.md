@@ -1,6 +1,6 @@
 # Toothlogy Build Status
 
-**Last verified:** 2026-09-08
+**Last verified:** 2026-09-09
 **Delivered through:** Phase 3 of 12
 **Enforced by:** `DELIVERED_THROUGH_PHASE` in [`src/registry/index.ts`](../src/registry/index.ts),
 asserted by `tests/registry/registry-integrity.test.ts`
@@ -127,6 +127,21 @@ theming applied before first paint, register/login/forgot/reset/verify flows,
 account dashboard, security page, organization management UI, about, privacy,
 terms, contact, 5 honest "not built yet" pages, SEO metadata, structured data
 on public dentist profiles.
+
+🟢 **Public site visual identity.** The brand mark is vector and transparent
+(`public/brand/toothlogy-mark.svg`, served as the favicon from
+`src/app/icon.svg`); the palette is derived from it. The home page, header,
+footer, "not built yet" pages and auth screens were rebuilt on the token layer,
+with scroll-reveal motion that is disabled under `prefers-reduced-motion` and
+never hides content from a visitor without JavaScript. Verified at 320–1920px
+with no horizontal overflow on any public page.
+
+**What the redesign deliberately did NOT add:** no hero search field, no dentist
+result cards, no star ratings, no patient-count statistics. Discovery is Phase 4
+and reviews are Phase 5. Every figure on the home page is counted from the
+registry or the specialty list as the page renders, so none of them can be
+wrong (P9); the animated counters animate a value they were given and cannot
+invent one.
 
 **Not built:** PWA manifest and service worker 🔴, locale-prefixed routing 🔵
 (flag exists, off), account preferences UI 🔴, saved items 🔴.

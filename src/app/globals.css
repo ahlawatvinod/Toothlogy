@@ -33,35 +33,59 @@
 
 @import "tailwindcss";
 
-/* Component styles. Kept separate so the token layer above stays readable. */
+/* Component styles. Kept separate so the token layer above stays readable.
+ * Order matters: primitives, then application chrome, then the public site,
+ * so a later layer can refine an earlier one without !important. */
 @import "../design-system/styles.css";
 @import "../design-system/app-styles.css";
+@import "../design-system/site-styles.css";
 
 :root {
   /* --- Brand -------------------------------------------------------------
-   * Teal reads as clinical and calm without the coldness of pure medical blue.
+   * Taken from the Toothlogy mark, which runs teal at the top-left into a deep
+   * dental navy at the bottom-right. `--tl-color-brand` is the navy end: it is
+   * the one that has to carry white text at 4.5:1, and the teal end does not.
+   *
    * `-strong` is the interactive/hover state; `-subtle` is for tinted surfaces.
    */
-  --tl-color-brand: #0d7d7d;
-  --tl-color-brand-strong: #095c5c;
-  --tl-color-brand-subtle: #e6f4f4;
+  --tl-color-brand: #0f6d8c;
+  --tl-color-brand-strong: #0a5470;
+  --tl-color-brand-subtle: #e7f3f8;
   --tl-color-on-brand: #ffffff;
 
+  /* The teal end of the mark. Secondary to brand, never a substitute for it —
+   * `--tl-color-accent` fails AA against white for body text, so it is used for
+   * large text, icons, borders and gradient stops only. */
+  --tl-color-accent: #0e8f8a;
+  --tl-color-accent-strong: #0a6f6b;
+  --tl-color-accent-subtle: #e4f5f3;
+
+  /* Cyan highlight. Decorative only — glows, gradient stops, focus accents. */
+  --tl-color-highlight: #22b8d6;
+
+  /* --- Brand gradients ---------------------------------------------------
+   * Named rather than written inline, so the mark's teal-to-navy sweep is one
+   * decision instead of thirty near-misses across the stylesheet.
+   */
+  --tl-gradient-brand: linear-gradient(135deg, #17a094 0%, #1c85a0 45%, #2a6698 100%);
+  --tl-gradient-brand-soft: linear-gradient(135deg, #ecf8f7 0%, #e9f3fa 55%, #eef4fb 100%);
+  --tl-gradient-text: linear-gradient(100deg, #0e8f8a 0%, #1281a5 55%, #2a6698 100%);
+
   /* --- Surfaces ---------------------------------------------------------- */
-  --tl-color-background: #fbfcfc;
+  --tl-color-background: #fbfdfe;
   --tl-color-surface: #ffffff;
   --tl-color-surface-raised: #ffffff;
-  --tl-color-surface-sunken: #f2f5f5;
+  --tl-color-surface-sunken: #f3f7f9;
 
   /* --- Text -------------------------------------------------------------- */
-  --tl-color-text: #10201f;
-  --tl-color-text-muted: #566361;
-  --tl-color-text-subtle: #788582;
+  --tl-color-text: #0c1b26;
+  --tl-color-text-muted: #4f616d;
+  --tl-color-text-subtle: #71838f;
   --tl-color-text-inverse: #ffffff;
 
   /* --- Borders ----------------------------------------------------------- */
-  --tl-color-border: #dbe2e1;
-  --tl-color-border-strong: #b6c2c0;
+  --tl-color-border: #dde5ea;
+  --tl-color-border-strong: #b7c5ce;
 
   /* --- Status ------------------------------------------------------------
    * Status colour is never the only signal — every badge and alert carries
@@ -98,11 +122,21 @@
   --tl-space-6: 2rem;
   --tl-space-7: 3rem;
   --tl-space-8: 4rem;
+  /* Section rhythm. Landing sections need a step above the component scale, or
+   * every band ends up the same height and the page reads as one long list. */
+  --tl-space-9: 5.5rem;
+  --tl-space-10: 7.5rem;
 
-  /* --- Radius ------------------------------------------------------------ */
+  /* --- Radius ------------------------------------------------------------
+   * `xl` and `2xl` are the card and panel radii of the redesigned marketing
+   * surfaces. Kept on the same token scale so "rounded" means one of four
+   * values across the product rather than whatever the last author typed.
+   */
   --tl-radius-sm: 0.25rem;
   --tl-radius-md: 0.5rem;
   --tl-radius-lg: 0.75rem;
+  --tl-radius-xl: 1.125rem;
+  --tl-radius-2xl: 1.75rem;
   --tl-radius-full: 9999px;
 
   /* --- Typography --------------------------------------------------------
@@ -120,6 +154,14 @@
   --tl-text-xl: 1.375rem;
   --tl-text-2xl: 1.75rem;
   --tl-text-3xl: 2.25rem;
+  /* Display sizes. Fluid via clamp() so a 320px phone and a 1920px monitor each
+   * get a proportionate headline without a media query per breakpoint — and
+   * still in rem at both ends, so browser font-size settings keep working. */
+  --tl-text-4xl: clamp(2.1rem, 1.5rem + 2.6vw, 3rem);
+  --tl-text-5xl: clamp(2.5rem, 1.7rem + 3.3vw, 3.6rem);
+
+  --tl-tracking-tight: -0.022em;
+  --tl-tracking-wide: 0.08em;
 
   --tl-leading-tight: 1.25;
   --tl-leading-normal: 1.55;
@@ -128,19 +170,45 @@
   --tl-weight-normal: 400;
   --tl-weight-medium: 500;
   --tl-weight-semibold: 600;
+  --tl-weight-bold: 700;
 
-  /* --- Elevation --------------------------------------------------------- */
-  --tl-shadow-sm: 0 1px 2px rgb(16 32 31 / 0.06);
-  --tl-shadow-md: 0 2px 8px rgb(16 32 31 / 0.08);
-  --tl-shadow-lg: 0 8px 24px rgb(16 32 31 / 0.12);
+  /* --- Elevation ---------------------------------------------------------
+   * Two-layer shadows: a tight contact shadow plus a wide soft one. A single
+   * large blur reads as a drop shadow from 2013; the pair reads as a surface
+   * actually lifted off the page, which is most of what "premium" means here.
+   */
+  --tl-shadow-sm: 0 1px 2px rgb(13 40 56 / 0.06);
+  --tl-shadow-md: 0 1px 2px rgb(13 40 56 / 0.05), 0 4px 12px rgb(13 40 56 / 0.07);
+  --tl-shadow-lg: 0 2px 4px rgb(13 40 56 / 0.05), 0 12px 32px rgb(13 40 56 / 0.10);
+  --tl-shadow-xl: 0 4px 8px rgb(13 40 56 / 0.05), 0 24px 56px rgb(13 40 56 / 0.13);
+  /* Brand-tinted lift for the primary CTA. A neutral grey shadow under a
+   * coloured button always looks slightly dirty. */
+  --tl-shadow-brand: 0 2px 6px rgb(15 109 140 / 0.22), 0 10px 24px rgb(15 109 140 / 0.20);
+
+  /* --- Glass -------------------------------------------------------------
+   * Used by the header and a small number of floating panels. Tokenised so the
+   * blur radius and tint are one decision; glassmorphism sprayed everywhere is
+   * the fastest way to make a health product look unserious.
+   */
+  --tl-glass-bg: rgb(255 255 255 / 0.72);
+  --tl-glass-bg-strong: rgb(255 255 255 / 0.92);
+  --tl-glass-border: rgb(15 109 140 / 0.10);
+  --tl-glass-blur: saturate(180%) blur(16px);
 
   /* --- Motion ------------------------------------------------------------ */
   --tl-duration-fast: 120ms;
   --tl-duration-normal: 200ms;
+  --tl-duration-slow: 520ms;
   --tl-ease: cubic-bezier(0.2, 0, 0.2, 1);
+  /* Decelerating ease for entrances: fast off the mark, long settle. */
+  --tl-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --tl-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
   /* --- Layout ------------------------------------------------------------ */
   --tl-container-max: 72rem;
+  /* A wider track for full-bleed marketing sections, so the hero and CTA can
+   * breathe without the reading measure of body copy growing with them. */
+  --tl-container-wide: 78rem;
   /* Minimum touch target. 44px is the accessibility floor for a reliable tap. */
   --tl-touch-target: 2.75rem;
 
@@ -153,23 +221,35 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --tl-color-brand: #35b3b3;
-    --tl-color-brand-strong: #5bcaca;
-    --tl-color-brand-subtle: #122a2a;
-    --tl-color-on-brand: #06201f;
+    --tl-color-brand: #4dc4dc;
+    --tl-color-brand-strong: #7ad6e8;
+    --tl-color-brand-subtle: #102b36;
+    --tl-color-on-brand: #04222c;
 
-    --tl-color-background: #0b1413;
-    --tl-color-surface: #111d1c;
-    --tl-color-surface-raised: #172524;
-    --tl-color-surface-sunken: #0a100f;
+    --tl-color-accent: #2fc0b4;
+    --tl-color-accent-strong: #5fd4ca;
+    --tl-color-accent-subtle: #0c2b2a;
 
-    --tl-color-text: #e8efee;
-    --tl-color-text-muted: #a5b3b1;
-    --tl-color-text-subtle: #7d8a88;
-    --tl-color-text-inverse: #0b1413;
+    --tl-color-highlight: #6fdcf2;
 
-    --tl-color-border: #24322f;
-    --tl-color-border-strong: #3a4b48;
+    /* The gradient inverts: on a dark ground the light end has to be the
+     * saturated one, or the sweep disappears into the background. */
+    --tl-gradient-brand: linear-gradient(135deg, #1d8f88 0%, #1a7091 45%, #1d4f78 100%);
+    --tl-gradient-brand-soft: linear-gradient(135deg, #0f2229 0%, #101f2b 55%, #121d2c 100%);
+    --tl-gradient-text: linear-gradient(100deg, #46d0c2 0%, #4dc4dc 55%, #7fb6ea 100%);
+
+    --tl-color-background: #071319;
+    --tl-color-surface: #0d1e26;
+    --tl-color-surface-raised: #12262f;
+    --tl-color-surface-sunken: #050f14;
+
+    --tl-color-text: #e6f0f4;
+    --tl-color-text-muted: #a2b6c0;
+    --tl-color-text-subtle: #7b8f9a;
+    --tl-color-text-inverse: #071319;
+
+    --tl-color-border: #1d3540;
+    --tl-color-border-strong: #33505d;
 
     --tl-color-success: #4ade80;
     --tl-color-success-subtle: #10241a;
@@ -183,8 +263,14 @@
     --tl-color-focus: #7cc0ff;
 
     --tl-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-    --tl-shadow-md: 0 2px 8px rgb(0 0 0 / 0.45);
-    --tl-shadow-lg: 0 8px 24px rgb(0 0 0 / 0.55);
+    --tl-shadow-md: 0 1px 2px rgb(0 0 0 / 0.35), 0 4px 12px rgb(0 0 0 / 0.4);
+    --tl-shadow-lg: 0 2px 4px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+    --tl-shadow-xl: 0 4px 8px rgb(0 0 0 / 0.45), 0 24px 56px rgb(0 0 0 / 0.6);
+    --tl-shadow-brand: 0 2px 6px rgb(0 0 0 / 0.45), 0 10px 24px rgb(9 60 78 / 0.55);
+
+    --tl-glass-bg: rgb(13 30 38 / 0.72);
+    --tl-glass-bg-strong: rgb(13 30 38 / 0.94);
+    --tl-glass-border: rgb(122 214 232 / 0.14);
 
     color-scheme: dark;
   }
@@ -192,23 +278,35 @@
 
 /* Explicitly chosen dark theme. */
 :root[data-theme="dark"] {
-  --tl-color-brand: #35b3b3;
-  --tl-color-brand-strong: #5bcaca;
-  --tl-color-brand-subtle: #122a2a;
-  --tl-color-on-brand: #06201f;
+  --tl-color-brand: #4dc4dc;
+  --tl-color-brand-strong: #7ad6e8;
+  --tl-color-brand-subtle: #102b36;
+  --tl-color-on-brand: #04222c;
 
-  --tl-color-background: #0b1413;
-  --tl-color-surface: #111d1c;
-  --tl-color-surface-raised: #172524;
-  --tl-color-surface-sunken: #0a100f;
+  --tl-color-accent: #2fc0b4;
+  --tl-color-accent-strong: #5fd4ca;
+  --tl-color-accent-subtle: #0c2b2a;
 
-  --tl-color-text: #e8efee;
-  --tl-color-text-muted: #a5b3b1;
-  --tl-color-text-subtle: #7d8a88;
-  --tl-color-text-inverse: #0b1413;
+  --tl-color-highlight: #6fdcf2;
 
-  --tl-color-border: #24322f;
-  --tl-color-border-strong: #3a4b48;
+  /* The gradient inverts: on a dark ground the light end has to be the
+   * saturated one, or the sweep disappears into the background. */
+  --tl-gradient-brand: linear-gradient(135deg, #1d8f88 0%, #1a7091 45%, #1d4f78 100%);
+  --tl-gradient-brand-soft: linear-gradient(135deg, #0f2229 0%, #101f2b 55%, #121d2c 100%);
+  --tl-gradient-text: linear-gradient(100deg, #46d0c2 0%, #4dc4dc 55%, #7fb6ea 100%);
+
+  --tl-color-background: #071319;
+  --tl-color-surface: #0d1e26;
+  --tl-color-surface-raised: #12262f;
+  --tl-color-surface-sunken: #050f14;
+
+  --tl-color-text: #e6f0f4;
+  --tl-color-text-muted: #a2b6c0;
+  --tl-color-text-subtle: #7b8f9a;
+  --tl-color-text-inverse: #071319;
+
+  --tl-color-border: #1d3540;
+  --tl-color-border-strong: #33505d;
 
   --tl-color-success: #4ade80;
   --tl-color-success-subtle: #10241a;
@@ -222,8 +320,14 @@
   --tl-color-focus: #7cc0ff;
 
   --tl-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-  --tl-shadow-md: 0 2px 8px rgb(0 0 0 / 0.45);
-  --tl-shadow-lg: 0 8px 24px rgb(0 0 0 / 0.55);
+  --tl-shadow-md: 0 1px 2px rgb(0 0 0 / 0.35), 0 4px 12px rgb(0 0 0 / 0.4);
+  --tl-shadow-lg: 0 2px 4px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+  --tl-shadow-xl: 0 4px 8px rgb(0 0 0 / 0.45), 0 24px 56px rgb(0 0 0 / 0.6);
+  --tl-shadow-brand: 0 2px 6px rgb(0 0 0 / 0.45), 0 10px 24px rgb(9 60 78 / 0.55);
+
+  --tl-glass-bg: rgb(13 30 38 / 0.72);
+  --tl-glass-bg-strong: rgb(13 30 38 / 0.94);
+  --tl-glass-border: rgb(122 214 232 / 0.14);
 
   color-scheme: dark;
 }
@@ -234,6 +338,10 @@
   --color-brand-strong: var(--tl-color-brand-strong);
   --color-brand-subtle: var(--tl-color-brand-subtle);
   --color-on-brand: var(--tl-color-on-brand);
+  --color-accent: var(--tl-color-accent);
+  --color-accent-strong: var(--tl-color-accent-strong);
+  --color-accent-subtle: var(--tl-color-accent-subtle);
+  --color-highlight: var(--tl-color-highlight);
 
   --color-background: var(--tl-color-background);
   --color-surface: var(--tl-color-surface);
@@ -263,6 +371,8 @@
   --radius-sm: var(--tl-radius-sm);
   --radius-md: var(--tl-radius-md);
   --radius-lg: var(--tl-radius-lg);
+  --radius-xl: var(--tl-radius-xl);
+  --radius-2xl: var(--tl-radius-2xl);
 }
 
 /* --- Base ---------------------------------------------------------------- */

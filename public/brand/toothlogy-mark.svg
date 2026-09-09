@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Toothlogy">
+  <title>Toothlogy</title>
+  <defs>
+    <linearGradient id="tl-tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17a094"/>
+      <stop offset="0.45" stop-color="#1c85a0"/>
+      <stop offset="1" stop-color="#2a6698"/>
+    </linearGradient>
+    <linearGradient id="tl-rim" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#c9d8e2" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.7"/>
+    </linearGradient>
+    <linearGradient id="tl-enamel" x1="0.25" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#f7fbfd"/>
+      <stop offset="1" stop-color="#dde9f0"/>
+    </linearGradient>
+    <radialGradient id="tl-glow" cx="0.5" cy="0.46" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Tile -->
+  <rect x="18" y="18" width="476" height="476" rx="116" fill="url(#tl-tile)"/>
+  <!-- Brushed metal rim, drawn as two hairlines rather than one thick stroke so
+       it reads as a bevel at large sizes and stays crisp at favicon sizes. -->
+  <rect x="18" y="18" width="476" height="476" rx="116" fill="none" stroke="url(#tl-rim)" stroke-width="11"/>
+  <rect x="35" y="35" width="442" height="442" rx="101" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2.5"/>
+
+  <!-- Radial dial. Dashed circles give the instrument-tick texture of the
+       original without 120 individual path elements. -->
+  <g fill="none" stroke="#ffffff" stroke-linecap="butt">
+    <circle cx="256" cy="256" r="188" stroke-opacity="0.13" stroke-width="26" stroke-dasharray="2.2 12"/>
+    <circle cx="256" cy="256" r="150" stroke-opacity="0.10" stroke-width="16" stroke-dasharray="2 16"/>
+    <circle cx="256" cy="256" r="205" stroke-opacity="0.10" stroke-width="2"/>
+  </g>
+  <circle cx="256" cy="248" r="200" fill="url(#tl-glow)"/>
+
+  <!-- Tooth -->
+  <path fill="url(#tl-enamel)" d="M256 128c-42 0-74 22-78 64-3 28 5 54 12 80 9 34 15 68 18 92 2 14 8 22 16 22 9 0 14-9 16-24 4-36 9-60 16-60s12 24 16 60c2 15 7 24 16 24 8 0 14-8 16-22 3-24 9-58 18-92 7-26 15-52 12-80-4-42-36-64-78-64z"/>
+  <!-- Enamel highlight -->
+  <path fill="#ffffff" fill-opacity="0.9" d="M214 162c13-11 29-16 40-14 8 1 6 9-2 12-15 6-27 16-34 28-6 9-14 7-14-3 0-8 4-16 10-23z"/>
+  <!-- Shading in the root furcation -->
+  <path fill="#a9c2d2" fill-opacity="0.4" d="M256 302c5 0 9 12 12 30-5-8-9-12-12-12s-7 4-12 12c3-18 7-30 12-30z"/>
+  <!-- Sparkle -->
+  <path fill="#ffffff" d="M302 176l6 22 22 6-22 6-6 22-6-22-22-6 22-6z"/>
+  <!-- Rx: the prescription mark from the original logo -->
+  <g fill="#93aabb" fill-opacity="0.95" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="500">
+    <text x="274" y="284" font-size="42">R</text>
+    <text x="301" y="295" font-size="28">x</text>
+  </g>
+</svg>

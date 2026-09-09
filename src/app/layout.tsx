@@ -12,10 +12,35 @@
  */
 
 import type { Metadata, Viewport } from 'next';
+import { Manrope } from 'next/font/google';
 import { DEFAULT_LOCALE } from '@/registry/globalization';
 import { getDirection } from '@/platform/i18n';
 import { THEME_SCRIPT } from '@/design-system';
 import './globals.css';
+
+/*
+ * The product typeface.
+ *
+ * `--tl-font-sans` in globals.css has always referenced `--font-tl-sans`; until
+ * now nothing defined it, so every screen silently fell back to system-ui. This
+ * wires it up.
+ *
+ * Manrope is a geometric sans with a wide range of weights, which is what the
+ * wordmark needs — "tooth" at 700 beside "logy" at 300 only works if both come
+ * from one family. `next/font` self-hosts it: no request to Google at runtime,
+ * no third-party font call from a health platform's pages, and `display: swap`
+ * with an explicit fallback so text is readable during the swap rather than
+ * invisible.
+ */
+const sans = Manrope({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-tl-sans',
+  // The weights the design system actually uses. Loading the full range would
+  // ship several files nothing references.
+  weight: ['300', '400', '500', '600', '700'],
+  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+});
 
 export const metadata: Metadata = {
   title: {
@@ -25,6 +50,9 @@ export const metadata: Metadata = {
   description:
     'Toothlogy is a global dental ecosystem connecting patients, dentists, clinics, colleges, students and suppliers.',
   applicationName: 'Toothlogy',
+  // Drives the icon on iOS home screens and the theme colour of the browser
+  // chrome on Android. Both resolve from src/app/icon.svg.
+  appleWebApp: { title: 'Toothlogy' },
   // Phase 0 has no public content worth indexing. Made explicit rather than
   // left to a default, so the decision is deliberate and easy to reverse.
   robots: { index: false, follow: false },
@@ -37,7 +65,7 @@ export const viewport: Viewport = {
   // need to magnify text, and is an accessibility failure under WCAG 1.4.4.
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#fbfcfc' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b1413' },
+    { media: '(prefers-color-scheme: dark)', color: '#071319' },
   ],
 };
 
@@ -45,7 +73,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const locale = DEFAULT_LOCALE;
 
   return (
-    <html lang={locale} dir={getDirection(locale)} suppressHydrationWarning>
+    <html
+      lang={locale}
+      dir={getDirection(locale)}
+      className={sans.variable}
+      suppressHydrationWarning
+    >
       <head>
         {/*
          * Runs before first paint to apply the stored theme, preventing a flash

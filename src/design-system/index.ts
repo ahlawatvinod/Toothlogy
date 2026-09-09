@@ -39,6 +39,7 @@ export {
   type CardProps,
   type TableProps,
 } from './components/surfaces';
+export { Icon, type IconName, type IconProps } from './components/icon';
 export { Tabs, type TabItem, type TabsProps } from './components/tabs';
 export { Dialog, type DialogProps } from './components/dialog';
 export { ThemeToggle, THEME_STORAGE_KEY, type ThemePreference } from './components/theme-toggle';

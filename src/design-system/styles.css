@@ -39,16 +39,32 @@
   gap: var(--tl-space-2);
   min-height: var(--tl-touch-target);
   border: 1px solid transparent;
-  border-radius: var(--tl-radius-md);
+  border-radius: var(--tl-radius-full);
   font-family: inherit;
-  font-weight: var(--tl-weight-medium);
+  font-weight: var(--tl-weight-semibold);
   line-height: var(--tl-leading-tight);
+  letter-spacing: -0.005em;
   cursor: pointer;
   text-decoration: none;
+  /* Stops a double-tap on mobile from selecting the label text. */
+  -webkit-user-select: none;
+  user-select: none;
   transition:
     background-color var(--tl-duration-fast) var(--tl-ease),
     border-color var(--tl-duration-fast) var(--tl-ease),
-    color var(--tl-duration-fast) var(--tl-ease);
+    color var(--tl-duration-fast) var(--tl-ease),
+    box-shadow var(--tl-duration-normal) var(--tl-ease),
+    transform var(--tl-duration-fast) var(--tl-ease);
+}
+
+/*
+ * Press feedback. `:active` rather than a hover lift, because a button that
+ * moves on hover moves out from under a pointer that is already travelling
+ * toward it — a small but real cause of mis-clicks. Sinking on press is
+ * unambiguous, and it is the one interaction touch devices also get.
+ */
+.tl-button:active:not(:disabled):not([aria-busy="true"]) {
+  transform: scale(0.975);
 }
 
 .tl-button--sm {
@@ -58,13 +74,13 @@
 }
 
 .tl-button--md {
-  padding-inline: var(--tl-space-4);
+  padding-inline: var(--tl-space-5);
   font-size: var(--tl-text-base);
 }
 
 .tl-button--lg {
   min-height: 3.25rem;
-  padding-inline: var(--tl-space-5);
+  padding-inline: var(--tl-space-6);
   font-size: var(--tl-text-lg);
 }
 
@@ -72,13 +88,19 @@
   width: 100%;
 }
 
+/* The brand-tinted shadow is deliberate: a neutral grey shadow under a coloured
+   surface always reads as slightly dirty. */
 .tl-button--primary {
   background: var(--tl-color-brand);
   color: var(--tl-color-on-brand);
+  box-shadow: var(--tl-shadow-brand);
 }
 
 .tl-button--primary:hover:not(:disabled):not([aria-busy='true']) {
   background: var(--tl-color-brand-strong);
+  box-shadow:
+    0 2px 6px rgb(15 109 140 / 0.28),
+    0 14px 30px rgb(15 109 140 / 0.26);
 }
 
 .tl-button--secondary {
@@ -164,17 +186,36 @@
 .tl-input {
   width: 100%;
   min-height: var(--tl-touch-target);
-  padding: var(--tl-space-2) var(--tl-space-3);
+  padding: var(--tl-space-3) var(--tl-space-4);
   background: var(--tl-color-surface);
   color: var(--tl-color-text);
   border: 1px solid var(--tl-color-border-strong);
-  border-radius: var(--tl-radius-md);
+  border-radius: var(--tl-radius-lg);
   font-family: inherit;
   /*
    * 16px minimum on mobile. Below it, iOS Safari zooms the viewport on focus
    * and does not zoom back out, leaving the user stranded mid-form.
    */
   font-size: var(--tl-text-base);
+  transition:
+    border-color var(--tl-duration-fast) var(--tl-ease),
+    box-shadow var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-input:hover:not(:disabled) {
+  border-color: var(--tl-color-brand);
+}
+
+/*
+ * A brand-tinted glow on focus, layered UNDER the global focus ring rather than
+ * replacing it — the ring is what meets the non-text contrast requirement, and
+ * a soft glow on its own does not.
+ */
+.tl-input:focus-visible {
+  border-color: var(--tl-color-brand);
+  box-shadow:
+    var(--tl-focus-ring),
+    0 0 0 6px rgb(15 109 140 / 0.08);
 }
 
 .tl-input::placeholder {
@@ -196,10 +237,11 @@
 .tl-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.125rem var(--tl-space-2);
+  gap: var(--tl-space-1);
+  padding: 0.2rem var(--tl-space-3);
   border-radius: var(--tl-radius-full);
   font-size: var(--tl-text-xs);
-  font-weight: var(--tl-weight-medium);
+  font-weight: var(--tl-weight-semibold);
   line-height: 1.5;
   white-space: nowrap;
 }
@@ -379,18 +421,30 @@
 .tl-card {
   background: var(--tl-color-surface);
   border: 1px solid var(--tl-color-border);
-  border-radius: var(--tl-radius-lg);
+  border-radius: var(--tl-radius-xl);
   box-shadow: var(--tl-shadow-sm);
   overflow: hidden;
 }
 
 .tl-card__header {
-  padding: var(--tl-space-4);
+  padding: var(--tl-space-5) var(--tl-space-5) var(--tl-space-4);
   border-block-end: 1px solid var(--tl-color-border);
 }
 
+/*
+ * Consecutive blocks in a card body need their own rhythm. Tailwind's preflight
+ * zeroes the margin on <p>, so without this two paragraphs run together into a
+ * single wall of text — which is what a card body most often contains.
+ *
+ * Top margins on the sibling rather than bottom margins on every child, so the
+ * last element never fights the card's own padding.
+ */
+.tl-card__body > * + * {
+  margin-block-start: var(--tl-space-3);
+}
+
 .tl-card__body {
-  padding: var(--tl-space-4);
+  padding: var(--tl-space-5);
 }
 
 .tl-card__footer {
@@ -532,30 +586,46 @@
 
 /* --- Theme toggle --------------------------------------------------------- */
 
+/*
+ * A three-way segmented control rather than a two-state switch, because
+ * "system" is a real choice and a binary toggle silently overrides it.
+ *
+ * It is compact by design: the theme control is a preference, not a primary
+ * action, and at full button size it dominates a header bar that also has to
+ * carry sign-in and the brand.
+ */
 .tl-theme-toggle {
   display: inline-flex;
-  padding: 0.125rem;
+  padding: 0.1875rem;
   gap: 0.125rem;
   background: var(--tl-color-surface-sunken);
   border: 1px solid var(--tl-color-border);
-  border-radius: var(--tl-radius-md);
+  border-radius: var(--tl-radius-full);
 }
 
 .tl-theme-toggle__option {
-  padding: var(--tl-space-1) var(--tl-space-3);
-  min-height: 2rem;
+  padding: 0.25rem var(--tl-space-3);
+  min-height: 1.875rem;
   background: transparent;
   border: none;
-  border-radius: var(--tl-radius-sm);
+  border-radius: var(--tl-radius-full);
   color: var(--tl-color-text-muted);
   font: inherit;
-  font-size: var(--tl-text-sm);
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-medium);
   cursor: pointer;
+  transition:
+    background-color var(--tl-duration-fast) var(--tl-ease),
+    color var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-theme-toggle__option:hover {
+  color: var(--tl-color-text);
 }
 
 .tl-theme-toggle__option--active {
   background: var(--tl-color-surface);
-  color: var(--tl-color-text);
+  color: var(--tl-color-brand);
   box-shadow: var(--tl-shadow-sm);
 }
 
@@ -609,7 +679,7 @@
  */
 .tl-registry-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr));
   gap: var(--tl-space-4);
   margin: 0;
 }
@@ -640,7 +710,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
   gap: var(--tl-space-2);
 }
 
@@ -692,4 +762,17 @@
   height: 3rem;
   border: 1px solid var(--tl-color-border);
   border-radius: var(--tl-radius-md);
+}
+
+/* --- Icon ----------------------------------------------------------------- */
+
+/*
+ * Sized in `em` so an icon scales with the text it sits beside rather than
+ * needing a size class at every call site, and `flex: none` so it never
+ * squashes when a flex label wraps.
+ */
+.tl-icon {
+  inline-size: 1.25em;
+  block-size: 1.25em;
+  flex: none;
 }

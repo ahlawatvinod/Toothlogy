@@ -1,0 +1,1338 @@
+/*
+ * TOOTHLOGY PUBLIC SITE STYLES
+ *
+ * The marketing and discovery surfaces: header, hero, section bands, footer and
+ * the motion primitives they use. Application chrome lives in app-styles.css and
+ * component primitives in styles.css; this is the third layer, and it is
+ * separate because it is the only one a visitor who never signs in ever sees.
+ *
+ * Every value resolves to a token from globals.css. Logical properties
+ * throughout, so RTL mirrors from the `dir` attribute alone.
+ */
+
+/* ==========================================================================
+   MOTION PRIMITIVES
+   ==========================================================================
+
+   The hidden-then-revealed state is deliberately fenced behind TWO conditions:
+
+     .tl-js                                  scripting is available
+     @media (prefers-reduced-motion: no-preference)   motion is wanted
+
+   Written this way round, "visible" is the default and hiding is the special
+   case. The alternative — hide by default, un-hide in an override — leaves a
+   permanently blank page for anyone whose JavaScript failed to load or who
+   asked for reduced motion, which is the single most common way scroll
+   animations break a site. Content is never hidden unless something is
+   guaranteed to bring it back.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-js .tl-reveal {
+    opacity: 0;
+    transition:
+      opacity var(--tl-duration-slow) var(--tl-ease-out),
+      transform var(--tl-duration-slow) var(--tl-ease-out);
+    transition-delay: var(--tl-reveal-delay, 0ms);
+    /* Promotes to its own layer for the duration of the transition only.
+       A permanent will-change on dozens of sections costs real memory. */
+    will-change: opacity, transform;
+  }
+
+  .tl-js .tl-reveal--up {
+    transform: translate3d(0, 18px, 0);
+  }
+
+  .tl-js .tl-reveal--scale {
+    transform: scale(0.97);
+  }
+
+  .tl-js .tl-reveal.is-revealed {
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
+}
+
+/* ==========================================================================
+   SECTION FURNITURE
+   ========================================================================== */
+
+.tl-section {
+  padding-block: var(--tl-space-9);
+}
+
+.tl-section--tight {
+  padding-block: var(--tl-space-8);
+}
+
+/* A tinted band. Used to break the page into movements so it does not read as
+   one uninterrupted column of white cards. */
+.tl-section--sunken {
+  background: var(--tl-color-surface-sunken);
+  border-block: 1px solid var(--tl-color-border);
+}
+
+.tl-section--soft {
+  background: var(--tl-gradient-brand-soft);
+  border-block: 1px solid var(--tl-color-border);
+}
+
+.tl-section__head {
+  max-width: 46rem;
+  margin-block-end: var(--tl-space-7);
+}
+
+.tl-section__head--center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.tl-section__title {
+  margin: 0 0 var(--tl-space-3);
+  font-size: var(--tl-text-4xl);
+  line-height: 1.12;
+  letter-spacing: var(--tl-tracking-tight);
+  font-weight: var(--tl-weight-bold);
+  text-wrap: balance;
+}
+
+.tl-section__lead {
+  margin: 0;
+  font-size: var(--tl-text-lg);
+  line-height: var(--tl-leading-relaxed);
+  color: var(--tl-color-text-muted);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.tl-section__head--center .tl-section__lead {
+  margin-inline: auto;
+}
+
+/* Small capitalised label above a section title. */
+.tl-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+  margin: 0 0 var(--tl-space-3);
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-semibold);
+  letter-spacing: var(--tl-tracking-wide);
+  text-transform: uppercase;
+  color: var(--tl-color-accent);
+}
+
+.tl-eyebrow::before {
+  content: "";
+  inline-size: 1.5rem;
+  block-size: 2px;
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-gradient-brand);
+}
+
+.tl-section__head--center .tl-eyebrow::before {
+  display: none;
+}
+
+/* Gradient-filled words in a headline. Falls back to the brand colour where
+   background-clip: text is unsupported, so the text is never invisible. */
+.tl-gradient-text {
+  color: var(--tl-color-brand);
+}
+
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .tl-gradient-text {
+    background: var(--tl-gradient-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /* Descenders are clipped without this on some engines. */
+    padding-block-end: 0.06em;
+  }
+}
+
+/* ==========================================================================
+   LOGO
+   ========================================================================== */
+
+.tl-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  /* One knob sizes the whole lockup, keeping the mark-to-wordmark ratio of the
+     original artwork fixed wherever it is used. */
+  font-size: var(--tl-logo-size, 1.3rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tl-logo__mark {
+  inline-size: 1.85em;
+  block-size: 1.85em;
+  flex: none;
+  border-radius: 0.42em;
+  /* A faint outer glow stands in for the brushed rim at small sizes, where a
+     drawn bevel would just look like a fuzzy edge. */
+  filter: drop-shadow(0 1px 2px rgb(15 109 140 / 0.25));
+}
+
+.tl-logo__word {
+  display: inline-flex;
+  align-items: flex-start;
+  letter-spacing: -0.025em;
+  color: var(--tl-color-brand-strong);
+}
+
+.tl-logo__word-bold {
+  font-weight: 700;
+}
+
+.tl-logo__word-light {
+  font-weight: 300;
+}
+
+.tl-logo__tm {
+  font-size: 0.42em;
+  font-weight: var(--tl-weight-medium);
+  margin-block-start: 0.15em;
+  margin-inline-start: 0.12em;
+  letter-spacing: 0;
+}
+
+.tl-logo--mark {
+  gap: 0;
+}
+
+/* ==========================================================================
+   HEADER
+   ==========================================================================
+
+   Transparent over the hero, frosted once the page scrolls. The scrolled state
+   is driven by a data attribute set from a scroll listener rather than by
+   `backdrop-filter` alone, because a permanently blurred bar over a white hero
+   looks like a rendering artefact rather than a design.
+   ========================================================================== */
+
+.tl-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: transparent;
+  border-block-end: 1px solid transparent;
+  transition:
+    background-color var(--tl-duration-normal) var(--tl-ease),
+    border-color var(--tl-duration-normal) var(--tl-ease),
+    box-shadow var(--tl-duration-normal) var(--tl-ease);
+}
+
+.tl-header[data-scrolled="true"] {
+  background: var(--tl-glass-bg);
+  border-block-end-color: var(--tl-glass-border);
+  box-shadow: var(--tl-shadow-sm);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .tl-header[data-scrolled="true"] {
+    -webkit-backdrop-filter: var(--tl-glass-blur);
+    backdrop-filter: var(--tl-glass-blur);
+  }
+}
+
+/* An open mobile menu always gets the solid treatment: a translucent panel over
+   arbitrary page content fails contrast unpredictably. */
+.tl-header[data-menu-open="true"] {
+  background: var(--tl-glass-bg-strong);
+  border-block-end-color: var(--tl-color-border);
+}
+
+.tl-header__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-5);
+  min-height: 4.5rem;
+}
+
+.tl-header__brand {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  border-radius: var(--tl-radius-md);
+  transition: transform var(--tl-duration-normal) var(--tl-ease-spring);
+}
+
+.tl-header__brand:hover .tl-logo__mark {
+  transform: rotate(-3deg) scale(1.05);
+}
+
+.tl-header__brand .tl-logo__mark {
+  transition: transform var(--tl-duration-normal) var(--tl-ease-spring);
+}
+
+.tl-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-1);
+  margin-inline: auto;
+}
+
+.tl-header__nav a {
+  position: relative;
+  padding: var(--tl-space-2) var(--tl-space-3);
+  border-radius: var(--tl-radius-md);
+  color: var(--tl-color-text-muted);
+  text-decoration: none;
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-medium);
+  transition:
+    color var(--tl-duration-fast) var(--tl-ease),
+    background-color var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-header__nav a:hover {
+  color: var(--tl-color-text);
+  background: var(--tl-color-brand-subtle);
+}
+
+/* The active indicator is an underline AND a colour change AND aria-current.
+   Colour alone would not distinguish the current page for a visitor with a
+   colour-vision deficiency. */
+.tl-header__nav a[aria-current="page"] {
+  color: var(--tl-color-brand);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-header__nav a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--tl-space-3);
+  inset-block-end: 0.25rem;
+  block-size: 2px;
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-gradient-brand);
+}
+
+.tl-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+}
+
+/* --- Hamburger ------------------------------------------------------------ */
+
+.tl-header__toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--tl-touch-target);
+  block-size: var(--tl-touch-target);
+  padding: 0;
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-md);
+  background: var(--tl-color-surface);
+  color: var(--tl-color-text);
+  cursor: pointer;
+}
+
+.tl-header__toggle-bars {
+  position: relative;
+  inline-size: 1.05rem;
+  block-size: 0.7rem;
+}
+
+.tl-header__toggle-bars span {
+  position: absolute;
+  inset-inline: 0;
+  block-size: 2px;
+  border-radius: var(--tl-radius-full);
+  background: currentColor;
+  transition:
+    transform var(--tl-duration-normal) var(--tl-ease),
+    opacity var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-header__toggle-bars span:nth-child(1) { inset-block-start: 0; }
+.tl-header__toggle-bars span:nth-child(2) { inset-block-start: calc(50% - 1px); }
+.tl-header__toggle-bars span:nth-child(3) { inset-block-end: 0; }
+
+.tl-header__toggle[aria-expanded="true"] .tl-header__toggle-bars span:nth-child(1) {
+  transform: translateY(0.33rem) rotate(45deg);
+}
+
+.tl-header__toggle[aria-expanded="true"] .tl-header__toggle-bars span:nth-child(2) {
+  opacity: 0;
+}
+
+.tl-header__toggle[aria-expanded="true"] .tl-header__toggle-bars span:nth-child(3) {
+  transform: translateY(-0.33rem) rotate(-45deg);
+}
+
+/* --- Mobile menu ---------------------------------------------------------- */
+
+.tl-header__menu {
+  display: grid;
+  gap: var(--tl-space-1);
+  padding-block: var(--tl-space-3) var(--tl-space-5);
+  border-block-start: 1px solid var(--tl-color-border);
+}
+
+.tl-header__menu a {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--tl-touch-target);
+  padding-inline: var(--tl-space-3);
+  border-radius: var(--tl-radius-md);
+  color: var(--tl-color-text);
+  text-decoration: none;
+  font-size: var(--tl-text-base);
+  font-weight: var(--tl-weight-medium);
+}
+
+.tl-header__menu a:hover {
+  background: var(--tl-color-brand-subtle);
+}
+
+.tl-header__menu a[aria-current="page"] {
+  color: var(--tl-color-brand);
+  background: var(--tl-color-brand-subtle);
+}
+
+.tl-header__menu-actions {
+  display: grid;
+  gap: var(--tl-space-2);
+  margin-block-start: var(--tl-space-3);
+  padding-block-start: var(--tl-space-4);
+  border-block-start: 1px solid var(--tl-color-border);
+}
+
+.tl-header__menu-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tl-space-3);
+  margin-block-start: var(--tl-space-3);
+}
+
+/* Each item slides in behind the one before it. Purely CSS, and neutralised
+   wholesale by the reduced-motion rule in globals.css. */
+@media (prefers-reduced-motion: no-preference) {
+  .tl-header__menu > * {
+    animation: tl-menu-in var(--tl-duration-normal) var(--tl-ease-out) backwards;
+    animation-delay: calc(var(--tl-menu-index, 0) * 40ms);
+  }
+}
+
+@keyframes tl-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (max-width: 60rem) {
+  .tl-header__nav,
+  .tl-header__actions {
+    display: none;
+  }
+
+  .tl-header__toggle {
+    display: inline-flex;
+    margin-inline-start: auto;
+  }
+}
+
+@media (min-width: 60.0625rem) {
+  .tl-header__menu {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   HERO
+   ========================================================================== */
+
+/* These bands paint their own ground, so the inner-page wash in app-styles.css
+   would double up behind them. */
+.tl-layout:has(.tl-hero),
+.tl-layout:has(.tl-pending) {
+  background: none;
+}
+
+.tl-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  /* Pulled under the transparent header so the gradient starts at the very top
+     of the viewport rather than below a 72px white strip. */
+  margin-block-start: calc(var(--tl-space-8) * -1 - 0.5rem);
+  padding-block: calc(var(--tl-space-9) + 4.5rem) var(--tl-space-9);
+  background: var(--tl-gradient-brand-soft);
+}
+
+.tl-hero__inner {
+  display: grid;
+  gap: var(--tl-space-8);
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+}
+
+.tl-hero__copy {
+  display: grid;
+  gap: var(--tl-space-5);
+  justify-items: start;
+  max-width: 36rem;
+}
+
+.tl-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+  padding: var(--tl-space-2) var(--tl-space-4);
+  border: 1px solid var(--tl-glass-border);
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-glass-bg-strong);
+  box-shadow: var(--tl-shadow-sm);
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-semibold);
+  letter-spacing: 0.02em;
+  color: var(--tl-color-brand-strong);
+}
+
+.tl-hero__badge-dot {
+  inline-size: 0.45rem;
+  block-size: 0.45rem;
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-color-accent);
+  box-shadow: 0 0 0 3px rgb(14 143 138 / 0.18);
+}
+
+.tl-hero__title {
+  margin: 0;
+  font-size: var(--tl-text-5xl);
+  line-height: 1.06;
+  letter-spacing: var(--tl-tracking-tight);
+  font-weight: var(--tl-weight-bold);
+  text-wrap: balance;
+}
+
+.tl-hero__lead {
+  margin: 0;
+  font-size: var(--tl-text-lg);
+  line-height: var(--tl-leading-relaxed);
+  color: var(--tl-color-text-muted);
+  max-width: 34rem;
+  text-wrap: pretty;
+}
+
+.tl-hero__actions {
+  display: flex;
+  gap: var(--tl-space-3);
+  flex-wrap: wrap;
+}
+
+.tl-hero__note {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-subtle);
+  max-width: 40ch;
+}
+
+/* --- Hero visual ---------------------------------------------------------- */
+
+.tl-hero__visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  max-inline-size: 30rem;
+  margin-inline: auto;
+  inline-size: 100%;
+}
+
+/* Soft radial glow behind the mark. Decorative, so it is aria-hidden in markup
+   and cannot be tabbed to or read out. */
+.tl-hero__glow {
+  position: absolute;
+  inset: 6%;
+  border-radius: var(--tl-radius-full);
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgb(34 184 214 / 0.28) 0%,
+    rgb(23 160 148 / 0.16) 38%,
+    transparent 70%
+  );
+  filter: blur(8px);
+  z-index: -1;
+}
+
+.tl-hero__rings {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: var(--tl-color-accent);
+  opacity: 0.22;
+}
+
+.tl-hero__tooth {
+  inline-size: min(62%, 17.5rem);
+  block-size: auto;
+  filter: drop-shadow(0 18px 36px rgb(15 109 140 / 0.18));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-hero__tooth {
+    animation: tl-float 7s var(--tl-ease) infinite;
+  }
+
+  .tl-hero__rings {
+    animation: tl-spin 48s linear infinite;
+  }
+}
+
+@keyframes tl-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -12px, 0); }
+}
+
+@keyframes tl-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Floating chips around the hero visual. These describe what the platform
+   verifies, not how many dentists it has — a fabricated rating on a health
+   product is exactly the claim a patient would act on. */
+.tl-hero__chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+  padding: var(--tl-space-3) var(--tl-space-4);
+  border: 1px solid var(--tl-glass-border);
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-glass-bg-strong);
+  box-shadow: var(--tl-shadow-lg);
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-text);
+  white-space: nowrap;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .tl-hero__chip {
+    -webkit-backdrop-filter: var(--tl-glass-blur);
+    backdrop-filter: var(--tl-glass-blur);
+  }
+}
+
+.tl-hero__chip svg {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: none;
+  color: var(--tl-color-accent);
+}
+
+.tl-hero__chip--one { inset-block-start: 12%; inset-inline-start: -2%; }
+.tl-hero__chip--two { inset-block-start: 44%; inset-inline-end: -4%; }
+.tl-hero__chip--three { inset-block-end: 12%; inset-inline-start: 4%; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-hero__chip {
+    animation: tl-float 8s var(--tl-ease) infinite;
+  }
+
+  .tl-hero__chip--two { animation-delay: -2.6s; }
+  .tl-hero__chip--three { animation-delay: -5.2s; }
+}
+
+@media (max-width: 64rem) {
+  .tl-hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tl-space-7);
+  }
+
+  .tl-hero__visual {
+    order: -1;
+    max-inline-size: 22rem;
+  }
+
+  /* The chips are pinned to the corners of a square that has shrunk; at this
+     width they start colliding with the tooth and each other. */
+  .tl-hero__chip--two {
+    inset-inline-end: -1%;
+  }
+}
+
+@media (max-width: 40rem) {
+  .tl-hero {
+    padding-block: calc(var(--tl-space-8) + 4rem) var(--tl-space-8);
+  }
+
+  .tl-hero__visual {
+    max-inline-size: 16rem;
+  }
+
+  .tl-hero__chip {
+    padding: var(--tl-space-2) var(--tl-space-3);
+    font-size: 0.6875rem;
+  }
+
+  .tl-hero__chip--one { inset-inline-start: -6%; }
+  .tl-hero__chip--two { inset-inline-end: -6%; }
+  .tl-hero__chip--three { inset-block-end: 6%; inset-inline-start: -2%; }
+
+  .tl-hero__actions {
+    inline-size: 100%;
+  }
+
+  .tl-hero__actions > * {
+    flex: 1 1 100%;
+  }
+}
+
+/* ==========================================================================
+   TILE GRID — specialties, features, pillars
+   ========================================================================== */
+
+/*
+ * `min(<track>, 100%)` rather than a bare track size.
+ *
+ * `minmax(20rem, 1fr)` is a floor, not a suggestion: in a container narrower
+ * than 20rem the browser still lays out a 20rem column and the page scrolls
+ * sideways. Wrapping the floor in `min(…, 100%)` lets the column collapse to
+ * the container on a 320px phone. This is the single most common cause of
+ * horizontal scroll on a responsive grid, and it only shows up at the smallest
+ * breakpoint — which is why it is worth the comment.
+ */
+.tl-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
+  gap: var(--tl-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tl-tiles--wide {
+  grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
+}
+
+.tl-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tl-space-2);
+  block-size: 100%;
+  padding: var(--tl-space-5);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-color-surface);
+  transition:
+    transform var(--tl-duration-normal) var(--tl-ease-out),
+    box-shadow var(--tl-duration-normal) var(--tl-ease-out),
+    border-color var(--tl-duration-normal) var(--tl-ease);
+}
+
+.tl-tile__icon {
+  display: grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  margin-block-end: var(--tl-space-2);
+  border-radius: var(--tl-radius-lg);
+  background: var(--tl-color-brand-subtle);
+  color: var(--tl-color-brand);
+  transition: transform var(--tl-duration-normal) var(--tl-ease-spring);
+}
+
+.tl-tile__icon svg {
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
+}
+
+.tl-tile__title {
+  margin: 0;
+  font-size: var(--tl-text-base);
+  font-weight: var(--tl-weight-semibold);
+  line-height: var(--tl-leading-tight);
+}
+
+.tl-tile__text {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-muted);
+  text-wrap: pretty;
+}
+
+.tl-tile__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+  margin-block-start: auto;
+  padding-block-start: var(--tl-space-3);
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-brand);
+}
+
+.tl-tile__arrow {
+  inline-size: 1rem;
+  block-size: 1rem;
+  transition: transform var(--tl-duration-normal) var(--tl-ease-out);
+}
+
+/* Interactive tiles only. A hover lift on a card that does nothing when clicked
+   is a promise the card cannot keep. */
+.tl-tile--link:hover,
+.tl-tile--link:focus-within {
+  transform: translateY(-4px);
+  box-shadow: var(--tl-shadow-lg);
+  border-color: var(--tl-color-brand-subtle);
+}
+
+.tl-tile--link:hover .tl-tile__icon,
+.tl-tile--link:focus-within .tl-tile__icon {
+  transform: scale(1.08);
+}
+
+.tl-tile--link:hover .tl-tile__arrow,
+.tl-tile--link:focus-within .tl-tile__arrow {
+  transform: translateX(4px);
+}
+
+/* The whole tile is clickable via a stretched link, so the hit area is the card
+   rather than four words of text — but the accessible name stays on the anchor,
+   and the focus ring is drawn on the card. */
+.tl-tile__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.tl-tile__link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tl-tile__link:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.tl-tile--link:has(.tl-tile__link:focus-visible) {
+  box-shadow: var(--tl-focus-ring), var(--tl-shadow-lg);
+}
+
+/*
+ * Compact tile for phones.
+ *
+ * Stacked vertically, twelve specialty cards at the desktop proportions make a
+ * section roughly two thousand pixels tall — a real cost on the device where
+ * scrolling is most expensive. Moving the icon beside the title instead of
+ * above it is an intentionally different layout rather than the desktop one
+ * squeezed, and it takes roughly a third off the height of every card without
+ * dropping a word of content.
+ */
+@media (max-width: 40rem) {
+  /*
+   * Scoped to tiles that actually have an icon. Applied to every tile, the
+   * two-column grid leaves a column gap in front of the title of an icon-less
+   * card — the icon track collapses to zero width but the gap does not, so the
+   * heading sits indented from its own body copy.
+   */
+  .tl-tile:has(> .tl-tile__icon) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--tl-space-2) var(--tl-space-3);
+    padding: var(--tl-space-4);
+  }
+
+  /*
+   * Everything spans both columns by default; only the icon and the title opt
+   * into the two-column row. Stated as a blanket rule rather than listed per
+   * class because auto-placement is the trap: a child without an explicit
+   * column lands in the narrow icon track and drags it wide.
+   */
+  .tl-tile:has(> .tl-tile__icon) > * {
+    grid-column: 1 / -1;
+  }
+
+  .tl-tile__icon {
+    grid-column: 1;
+    grid-row: 1;
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    margin-block-end: 0;
+  }
+
+  .tl-tile:has(> .tl-tile__icon) .tl-tile__title {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .tl-tile {
+    padding: var(--tl-space-4);
+  }
+}
+
+/* ==========================================================================
+   SPLIT — "Why Toothlogy"
+   ========================================================================== */
+
+.tl-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: var(--tl-space-8);
+  align-items: start;
+}
+
+.tl-split__copy {
+  position: sticky;
+  top: 6rem;
+  display: grid;
+  gap: var(--tl-space-4);
+  justify-items: start;
+}
+
+.tl-split__list {
+  display: grid;
+  gap: var(--tl-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tl-feature {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--tl-space-4);
+  align-items: start;
+  padding: var(--tl-space-5);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-color-surface);
+  transition:
+    transform var(--tl-duration-normal) var(--tl-ease-out),
+    box-shadow var(--tl-duration-normal) var(--tl-ease-out);
+}
+
+.tl-feature:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--tl-shadow-md);
+}
+
+.tl-feature__icon {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: var(--tl-radius-lg);
+  background: var(--tl-gradient-brand);
+  color: #ffffff;
+  box-shadow: var(--tl-shadow-sm);
+}
+
+.tl-feature__icon svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+.tl-feature__title {
+  margin: 0 0 var(--tl-space-1);
+  font-size: var(--tl-text-base);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-feature__text {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-muted);
+  text-wrap: pretty;
+}
+
+@media (max-width: 60rem) {
+  .tl-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tl-space-6);
+  }
+
+  .tl-split__copy {
+    position: static;
+  }
+}
+
+/* ==========================================================================
+   STATS
+   ========================================================================== */
+
+.tl-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: var(--tl-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tl-stat-card {
+  padding: var(--tl-space-5);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-color-surface);
+}
+
+.tl-stat-card__value {
+  display: block;
+  font-size: var(--tl-text-3xl);
+  font-weight: var(--tl-weight-bold);
+  line-height: 1.1;
+  letter-spacing: var(--tl-tracking-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--tl-color-brand);
+}
+
+.tl-stat-card__label {
+  display: block;
+  margin-block-start: var(--tl-space-1);
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-medium);
+}
+
+.tl-stat-card__meta {
+  display: block;
+  margin-block-start: var(--tl-space-1);
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+}
+
+/* ==========================================================================
+   CTA BAND
+   ========================================================================== */
+
+.tl-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  padding: var(--tl-space-9) var(--tl-space-6);
+  border-radius: var(--tl-radius-2xl);
+  background: var(--tl-gradient-brand);
+  color: #ffffff;
+  text-align: center;
+}
+
+/* A single large watermark of the mark, clipped by the panel. Cheaper than a
+   pattern and it ties the band to the logo rather than to generic blobs. */
+.tl-cta__watermark {
+  position: absolute;
+  z-index: -1;
+  inset-block-start: -18%;
+  inset-inline-end: -6%;
+  inline-size: 26rem;
+  block-size: auto;
+  max-inline-size: 60%;
+  opacity: 0.12;
+}
+
+.tl-cta__title {
+  margin: 0 0 var(--tl-space-3);
+  font-size: var(--tl-text-4xl);
+  line-height: 1.12;
+  letter-spacing: var(--tl-tracking-tight);
+  font-weight: var(--tl-weight-bold);
+  text-wrap: balance;
+}
+
+.tl-cta__lead {
+  margin: 0 auto var(--tl-space-6);
+  max-width: 46ch;
+  font-size: var(--tl-text-lg);
+  line-height: var(--tl-leading-relaxed);
+  /* Not a token: this is white-on-brand, a context that exists only here. */
+  color: rgb(255 255 255 / 0.88);
+  text-wrap: pretty;
+}
+
+.tl-cta__actions {
+  display: flex;
+  gap: var(--tl-space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Inverted buttons for the coloured band. */
+.tl-button--on-brand {
+  background: #ffffff;
+  color: var(--tl-color-brand-strong);
+  border-color: #ffffff;
+}
+
+.tl-button--on-brand:hover:not(:disabled):not([aria-busy="true"]) {
+  background: rgb(255 255 255 / 0.9);
+  border-color: rgb(255 255 255 / 0.9);
+  color: var(--tl-color-brand-strong);
+}
+
+.tl-button--on-brand-ghost {
+  background: rgb(255 255 255 / 0.1);
+  color: #ffffff;
+  border-color: rgb(255 255 255 / 0.45);
+}
+
+.tl-button--on-brand-ghost:hover:not(:disabled):not([aria-busy="true"]) {
+  background: rgb(255 255 255 / 0.2);
+  border-color: rgb(255 255 255 / 0.7);
+  color: #ffffff;
+}
+
+/* The default focus ring is a blue halo on a white gap — invisible on a blue
+   band. On brand surfaces it inverts. */
+.tl-cta :focus-visible {
+  box-shadow:
+    0 0 0 2px var(--tl-color-brand-strong),
+    0 0 0 4px #ffffff;
+}
+
+@media (max-width: 40rem) {
+  .tl-cta {
+    padding: var(--tl-space-8) var(--tl-space-5);
+  }
+
+  .tl-cta__actions > * {
+    flex: 1 1 100%;
+  }
+}
+
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
+
+.tl-footer {
+  border-block-start: 1px solid var(--tl-color-border);
+  background: var(--tl-color-surface-sunken);
+  padding-block: var(--tl-space-8) var(--tl-space-6);
+  margin-block-start: var(--tl-space-9);
+}
+
+.tl-footer__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 3fr);
+  gap: var(--tl-space-8);
+  padding-block-end: var(--tl-space-7);
+}
+
+.tl-footer__brand {
+  display: grid;
+  gap: var(--tl-space-4);
+  justify-items: start;
+  max-width: 22rem;
+}
+
+.tl-footer__brand-link {
+  text-decoration: none;
+  border-radius: var(--tl-radius-md);
+}
+
+.tl-footer__tagline {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-footer__social {
+  display: flex;
+  gap: var(--tl-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tl-footer__social a {
+  display: grid;
+  place-items: center;
+  inline-size: var(--tl-touch-target);
+  block-size: var(--tl-touch-target);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-md);
+  background: var(--tl-color-surface);
+  color: var(--tl-color-text-muted);
+  transition:
+    color var(--tl-duration-fast) var(--tl-ease),
+    border-color var(--tl-duration-fast) var(--tl-ease),
+    transform var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-footer__social a:hover {
+  color: var(--tl-color-brand);
+  border-color: var(--tl-color-brand);
+  transform: translateY(-2px);
+}
+
+.tl-footer__social svg {
+  inline-size: 1.05rem;
+  block-size: 1.05rem;
+}
+
+.tl-footer__grid {
+  display: grid;
+  /* 7.5rem, not 9rem: at 9rem the fifth group wrapped to its own row on a
+     1440px screen, leaving one orphaned column under four. */
+  grid-template-columns: repeat(auto-fit, minmax(min(7.5rem, 100%), 1fr));
+  gap: var(--tl-space-6) var(--tl-space-4);
+}
+
+.tl-footer__heading {
+  margin: 0 0 var(--tl-space-3);
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-semibold);
+  letter-spacing: var(--tl-tracking-wide);
+  text-transform: uppercase;
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-footer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--tl-space-2);
+}
+
+.tl-footer__list a {
+  display: inline-block;
+  color: var(--tl-color-text-muted);
+  text-decoration: none;
+  font-size: var(--tl-text-sm);
+  transition: color var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-footer__list a:hover {
+  color: var(--tl-color-brand);
+}
+
+.tl-footer__bottom {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--tl-space-4);
+  flex-wrap: wrap;
+  padding-block-start: var(--tl-space-5);
+  border-block-start: 1px solid var(--tl-color-border);
+}
+
+.tl-footer__note {
+  margin: 0;
+  font-size: var(--tl-text-xs);
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-subtle);
+  max-width: 62ch;
+}
+
+.tl-footer__legal {
+  margin: 0;
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+  white-space: nowrap;
+}
+
+@media (max-width: 60rem) {
+  .tl-footer__top {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tl-space-7);
+  }
+}
+
+/* Row of pillar badges under a centred section heading. */
+.tl-pillars {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--tl-space-2);
+}
+
+.tl-pillars .tl-badge {
+  padding: var(--tl-space-2) var(--tl-space-4);
+  font-size: var(--tl-text-sm);
+}
+
+/* ==========================================================================
+   "NOT BUILT YET" SURFACE
+   ==========================================================================
+
+   Shares the hero's tinted band so a phase-pending route still looks like part
+   of the product. Nothing here is shaped like the feature that is missing —
+   see src/components/shell/not-built-yet.tsx.
+   ========================================================================== */
+
+.tl-pending {
+  margin-block-start: calc(var(--tl-space-8) * -1 - 0.5rem);
+  padding-block: calc(var(--tl-space-9) + 4.5rem) var(--tl-space-9);
+  background: var(--tl-gradient-brand-soft);
+}
+
+.tl-pending__inner {
+  display: grid;
+  gap: var(--tl-space-4);
+  justify-items: start;
+  max-width: 44rem;
+}
+
+.tl-pending__title {
+  margin: 0;
+  font-size: var(--tl-text-4xl);
+  line-height: 1.1;
+  letter-spacing: var(--tl-tracking-tight);
+  font-weight: var(--tl-weight-bold);
+  text-wrap: balance;
+}
+
+.tl-pending__lead {
+  margin: 0;
+  font-size: var(--tl-text-lg);
+  line-height: var(--tl-leading-relaxed);
+  color: var(--tl-color-text-muted);
+  text-wrap: pretty;
+}
+
+.tl-pending__phase {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tl-space-3);
+  margin: 0;
+  padding: var(--tl-space-3) var(--tl-space-5);
+  border: 1px solid var(--tl-glass-border);
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-glass-bg-strong);
+  box-shadow: var(--tl-shadow-sm);
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-brand-strong);
+}
+
+.tl-pending__note {
+  margin: 0;
+  padding-inline-start: var(--tl-space-4);
+  border-inline-start: 3px solid var(--tl-color-accent);
+  font-size: var(--tl-text-sm);
+  line-height: var(--tl-leading-normal);
+  color: var(--tl-color-text-muted);
+  max-width: 62ch;
+}
+
+.tl-pending__actions {
+  margin-block-start: var(--tl-space-4);
+  padding-block-start: var(--tl-space-5);
+  border-block-start: 1px solid var(--tl-color-border);
+  inline-size: 100%;
+}
+
+.tl-pending__actions-heading {
+  margin: 0 0 var(--tl-space-4);
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-semibold);
+  letter-spacing: var(--tl-tracking-wide);
+  text-transform: uppercase;
+  color: var(--tl-color-text-subtle);
+}

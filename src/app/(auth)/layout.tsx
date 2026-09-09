@@ -11,16 +11,14 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { Logo } from '@/components/brand/logo';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="tl-auth">
       <div className="tl-auth__panel">
-        <Link href="/" className="tl-auth__brand">
-          <span className="tl-header__mark" aria-hidden="true">
-            T
-          </span>
-          <span>Toothlogy</span>
+        <Link href="/" className="tl-auth__brand" aria-label="Toothlogy home">
+          <Logo />
         </Link>
         {children}
       </div>

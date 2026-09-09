@@ -156,6 +156,10 @@ theoretical.
 | `TL-CMP-SPINNER-001` | Spinner | status |
 | `TL-CMP-STATE-001` | Empty / Loading / Error states | — |
 | `TL-CMP-THEMETOGGLE-001` | ThemeToggle | radiogroup |
+| `TL-CMP-ICON-001` | Icon | — (aria-hidden unless titled) |
+| `TL-CMP-LOGO-001` | Logo | — (img when standing alone) |
+| `TL-CMP-REVEAL-001` | Reveal | — |
+| `TL-CMP-COUNTER-001` | Counter | — (final value exposed, steps hidden) |
 
 All ✅ IMPLEMENTED, covered by 33 accessibility tests.
 

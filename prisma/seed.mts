@@ -22,6 +22,7 @@
 import { PrismaClient } from '@prisma/client';
 import { COUNTRIES } from '../src/registry/globalization.ts';
 import { NOTIFICATIONS } from '../src/registry/events.ts';
+import { DENTAL_SPECIALTIES } from '../src/platform/dentists/specialties.ts';
 
 const prisma = new PrismaClient();
 
@@ -304,76 +305,12 @@ async function seedNotificationTemplates(): Promise<number> {
   return NOTIFICATIONS.length;
 }
 
-/**
- * The recognised dental specialties.
- *
- * Descriptions are written for PATIENTS, not clinicians. "Endodontics" means
- * nothing to most people, and a search filter nobody understands is a filter
- * nobody uses — which would push patients toward general practitioners for
- * problems that need a specialist.
+/*
+ * The specialty list itself lives in `src/platform/dentists/specialties.ts`, so
+ * the database and the public site cannot disagree about what a specialty is
+ * called. See that file for why.
  */
-const SPECIALTIES: ReadonlyArray<{ key: string; name: string; description: string }> = [
-  {
-    key: 'general_dentistry',
-    name: 'General dentistry',
-    description: 'Routine check-ups, fillings, cleaning and everyday dental care.',
-  },
-  {
-    key: 'endodontics',
-    name: 'Endodontics (root canal)',
-    description: 'Treatment of the nerve and pulp inside a tooth, including root canal therapy.',
-  },
-  {
-    key: 'orthodontics',
-    name: 'Orthodontics (braces and aligners)',
-    description: 'Straightening teeth and correcting bite problems with braces or aligners.',
-  },
-  {
-    key: 'periodontics',
-    name: 'Periodontics (gums)',
-    description: 'Treatment of gum disease and the bone supporting your teeth.',
-  },
-  {
-    key: 'prosthodontics',
-    name: 'Prosthodontics (crowns and dentures)',
-    description: 'Replacing missing or damaged teeth with crowns, bridges, dentures or implants.',
-  },
-  {
-    key: 'oral_surgery',
-    name: 'Oral and maxillofacial surgery',
-    description: 'Surgical procedures including extractions, wisdom teeth and jaw surgery.',
-  },
-  {
-    key: 'pedodontics',
-    name: 'Paediatric dentistry',
-    description: 'Dental care for children, from first teeth through the teenage years.',
-  },
-  {
-    key: 'oral_pathology',
-    name: 'Oral pathology and medicine',
-    description: 'Diagnosis of diseases affecting the mouth, jaws and surrounding tissues.',
-  },
-  {
-    key: 'oral_radiology',
-    name: 'Oral radiology',
-    description: 'Dental imaging, including X-rays, OPG and CBCT scans.',
-  },
-  {
-    key: 'public_health_dentistry',
-    name: 'Public health dentistry',
-    description: 'Community dental health, prevention programmes and population oral care.',
-  },
-  {
-    key: 'implantology',
-    name: 'Implantology',
-    description: 'Replacing missing teeth with surgically placed dental implants.',
-  },
-  {
-    key: 'cosmetic_dentistry',
-    name: 'Cosmetic dentistry',
-    description: 'Improving the appearance of teeth: whitening, veneers and reshaping.',
-  },
-];
+const SPECIALTIES = DENTAL_SPECIALTIES;
 
 async function seedSpecialties(): Promise<number> {
   for (const specialty of SPECIALTIES) {

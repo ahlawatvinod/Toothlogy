@@ -14,17 +14,29 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Button } from '@/design-system';
+import { Button, type ButtonSize, type ButtonVariant } from '@/design-system';
 import { api } from '@/lib/api-client';
 
-export function SignOutButton() {
+export interface SignOutButtonProps {
+  /** Defaults match the header bar; the mobile menu needs full-size controls. */
+  readonly size?: ButtonSize;
+  readonly variant?: ButtonVariant;
+  readonly fullWidth?: boolean;
+}
+
+export function SignOutButton({
+  size = 'sm',
+  variant = 'ghost',
+  fullWidth = false,
+}: SignOutButtonProps = {}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   return (
     <Button
-      variant="ghost"
-      size="sm"
+      variant={variant}
+      size={size}
+      fullWidth={fullWidth}
       loading={busy}
       onClick={async () => {
         setBusy(true);

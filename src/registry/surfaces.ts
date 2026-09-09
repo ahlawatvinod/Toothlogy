@@ -183,6 +183,46 @@ export const COMPONENTS: readonly ComponentEntry[] = [
     ariaPattern: null,
   },
   {
+    id: 'TL-CMP-ICON-001',
+    name: 'Icon',
+    description:
+      'The single stroked icon set. Local rather than a package, so the product cannot end up with two icon styles; aria-hidden unless given a title, since almost every icon sits beside a label that already names the thing.',
+    status: 'implemented',
+    phase: 2,
+    module: '@/design-system/components/icon',
+    ariaPattern: null,
+  },
+  {
+    id: 'TL-CMP-LOGO-001',
+    name: 'Logo',
+    description:
+      'The Toothlogy lockup. The mark is inline SVG so it costs no request and picks up the theme; the wordmark is real text at two weights, so it stays selectable, translatable and legible to a screen reader.',
+    status: 'implemented',
+    phase: 2,
+    module: '@/components/brand/logo',
+    ariaPattern: null,
+  },
+  {
+    id: 'TL-CMP-REVEAL-001',
+    name: 'Reveal',
+    description:
+      'Scroll-triggered section entrance. Hides its content only when scripting is available AND motion is wanted, so a reduced-motion or no-JavaScript visitor is never left with a blank page.',
+    status: 'implemented',
+    phase: 2,
+    module: '@/components/motion/reveal',
+    ariaPattern: null,
+  },
+  {
+    id: 'TL-CMP-COUNTER-001',
+    name: 'Counter',
+    description:
+      'Counts a number into view. Renders the real value server-side and can never invent one; the intermediate values are aria-hidden so a screen reader announces the figure once rather than sixty times.',
+    status: 'implemented',
+    phase: 2,
+    module: '@/components/motion/counter',
+    ariaPattern: null,
+  },
+  {
     id: 'TL-CMP-THEMETOGGLE-001',
     name: 'Theme Toggle',
     description:

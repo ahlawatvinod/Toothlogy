@@ -1,8 +1,15 @@
 /*
  * TOOTHLOGY APPLICATION LAYOUT STYLES
  *
- * Shell, forms and page furniture. Component primitives live in styles.css;
- * this file is the layer above them — the arrangements those primitives sit in.
+ * Shell, forms and page furniture for the signed-in application. Component
+ * primitives live in styles.css; this file is the layer above them — the
+ * arrangements those primitives sit in.
+ *
+ * The public site's header, footer, hero and section bands used to live here.
+ * They now live in site-styles.css, because they diverged: the marketing
+ * surfaces need a transparent-to-frosted header and full-bleed bands, while the
+ * application shell needs a plain, dense, always-solid one. Keeping both in one
+ * file meant every change to one had to be checked against the other.
  *
  * Every value resolves to a token. Logical properties throughout, so RTL
  * mirrors from the `dir` attribute alone.
@@ -22,159 +29,83 @@
 }
 
 .tl-page {
-  padding-block: var(--tl-space-6) var(--tl-space-8);
+  padding-block: var(--tl-space-7) var(--tl-space-8);
   display: grid;
   gap: var(--tl-space-5);
 }
 
+/*
+ * The page title is the one piece of furniture every inner page shares, so it
+ * is where a type scale change has the most reach: /about, /contact, /privacy,
+ * /terms, the account screens and the admin queue all pick this up rather than
+ * each carrying its own heading styles.
+ */
 .tl-page__header h1 {
-  margin: 0 0 var(--tl-space-2);
-  font-size: var(--tl-text-2xl);
-  line-height: var(--tl-leading-tight);
+  margin: 0 0 var(--tl-space-3);
+  font-size: var(--tl-text-3xl);
+  line-height: 1.14;
+  letter-spacing: var(--tl-tracking-tight);
+  font-weight: var(--tl-weight-bold);
+  text-wrap: balance;
 }
 
 .tl-page__lead {
   margin: 0;
+  font-size: var(--tl-text-lg);
+  line-height: var(--tl-leading-relaxed);
   color: var(--tl-color-text-muted);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+/*
+ * A hairline wash at the top of inner pages. It ties them to the hero band on
+ * the home page and gives the sticky header something to become glass against,
+ * without the weight of a full coloured band on a page that is mostly prose.
+ *
+ * It is painted on the layout, not on <main>: the header is transparent until
+ * you scroll, so a wash starting below it would draw a hard tinted line across
+ * the page exactly at the header's lower edge.
+ */
+.tl-layout {
+  background:
+    linear-gradient(var(--tl-color-brand-subtle) 0, transparent var(--tl-space-10))
+    no-repeat;
+}
+
+/*
+ * Section headings inside an inner page. Without this they fall back to the
+ * browser's default, which beside the redesigned page title reads as an
+ * unstyled leftover.
+ */
+.tl-page h2 {
+  margin: 0;
+  font-size: var(--tl-text-xl);
+  line-height: var(--tl-leading-tight);
+  letter-spacing: var(--tl-tracking-tight);
+  font-weight: var(--tl-weight-semibold);
 }
 
 .tl-muted {
   color: var(--tl-color-text-muted);
 }
 
-/* --- Header --------------------------------------------------------------- */
-
-.tl-header {
-  border-block-end: 1px solid var(--tl-color-border);
-  background: var(--tl-color-surface);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.tl-header__inner {
-  display: flex;
-  align-items: center;
-  gap: var(--tl-space-4);
-  min-height: 4rem;
-  flex-wrap: wrap;
-}
-
-.tl-header__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--tl-space-2);
-  font-weight: var(--tl-weight-semibold);
-  color: var(--tl-color-text);
-  text-decoration: none;
-}
-
-.tl-header__mark {
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: var(--tl-radius-md);
-  background: var(--tl-color-brand);
-  color: var(--tl-color-on-brand);
-  font-weight: var(--tl-weight-semibold);
-}
-
-.tl-header__nav {
-  display: flex;
-  gap: var(--tl-space-4);
-  /* Pushes the actions to the far edge without a spacer element. */
-  margin-inline-end: auto;
-}
-
-.tl-header__nav a {
-  color: var(--tl-color-text-muted);
-  text-decoration: none;
-  font-size: var(--tl-text-sm);
-  font-weight: var(--tl-weight-medium);
-}
-
-.tl-header__nav a:hover {
-  color: var(--tl-color-text);
-}
-
-.tl-header__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--tl-space-2);
-}
-
-/*
- * Below 48rem the nav wraps to its own full-width row rather than being hidden
- * behind a menu button. At three links, a drawer is more taps for no benefit.
- */
-@media (max-width: 48rem) {
-  .tl-header__nav {
-    order: 3;
-    width: 100%;
-    margin-inline-end: 0;
-    padding-block-end: var(--tl-space-2);
-    overflow-x: auto;
-  }
-}
-
-/* --- Footer --------------------------------------------------------------- */
-
-.tl-footer {
-  border-block-start: 1px solid var(--tl-color-border);
-  background: var(--tl-color-surface-sunken);
-  padding-block: var(--tl-space-6);
-  margin-block-start: var(--tl-space-8);
-}
-
-.tl-footer__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: var(--tl-space-5);
-}
-
-.tl-footer__heading {
-  margin: 0 0 var(--tl-space-2);
-  font-size: var(--tl-text-sm);
-  font-weight: var(--tl-weight-semibold);
-}
-
-.tl-footer__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--tl-space-1);
-}
-
-.tl-footer__list a {
-  color: var(--tl-color-text-muted);
-  text-decoration: none;
-  font-size: var(--tl-text-sm);
-}
-
-.tl-footer__list a:hover {
-  color: var(--tl-color-text);
-  text-decoration: underline;
-}
-
-.tl-footer__note {
-  margin-block-start: var(--tl-space-5);
-  padding-block-start: var(--tl-space-4);
-  border-block-start: 1px solid var(--tl-color-border);
-  font-size: var(--tl-text-sm);
-  color: var(--tl-color-text-subtle);
-  max-width: 68ch;
-}
-
 /* --- Auth pages ----------------------------------------------------------- */
 
+/*
+ * The auth screens sit on the same tinted ground as the marketing hero, so
+ * arriving from the site does not feel like landing on a different product.
+ * A faint brand glow is layered over it; it is decorative and behind a
+ * `background-image`, so it cannot affect contrast of anything on the panel.
+ */
 .tl-auth {
   display: grid;
   place-items: center;
   min-height: 100dvh;
-  padding: var(--tl-space-4);
-  background: var(--tl-color-background);
+  padding: var(--tl-space-5) var(--tl-space-4);
+  background:
+    radial-gradient(60rem 32rem at 50% -10%, rgb(34 184 214 / 0.14), transparent 70%),
+    var(--tl-gradient-brand-soft);
 }
 
 .tl-auth__panel {
@@ -182,24 +113,30 @@
   max-width: 28rem;
   background: var(--tl-color-surface);
   border: 1px solid var(--tl-color-border);
-  border-radius: var(--tl-radius-lg);
-  box-shadow: var(--tl-shadow-md);
+  border-radius: var(--tl-radius-2xl);
+  box-shadow: var(--tl-shadow-xl);
   padding: var(--tl-space-6);
+}
+
+@media (min-width: 30rem) {
+  .tl-auth__panel {
+    padding: var(--tl-space-7) var(--tl-space-6);
+  }
 }
 
 .tl-auth__brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--tl-space-2);
-  margin-block-end: var(--tl-space-5);
-  font-weight: var(--tl-weight-semibold);
-  color: var(--tl-color-text);
+  margin-block-end: var(--tl-space-6);
   text-decoration: none;
+  border-radius: var(--tl-radius-md);
 }
 
 .tl-auth__title {
-  margin: 0 0 var(--tl-space-1);
+  margin: 0 0 var(--tl-space-2);
   font-size: var(--tl-text-2xl);
+  font-weight: var(--tl-weight-bold);
+  letter-spacing: var(--tl-tracking-tight);
 }
 
 .tl-auth__subtitle {
@@ -242,7 +179,7 @@
 
 .tl-choice-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
   gap: var(--tl-space-2);
 }
 
@@ -306,7 +243,7 @@
 
 .tl-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
   gap: var(--tl-space-4);
   align-items: start;
 }
@@ -362,31 +299,4 @@
 
 .tl-breadcrumb a {
   color: var(--tl-color-text-muted);
-}
-
-/* --- Home page ------------------------------------------------------------ */
-
-.tl-hero {
-  padding-block: var(--tl-space-8);
-  display: grid;
-  gap: var(--tl-space-4);
-  max-width: 46rem;
-}
-
-.tl-hero h1 {
-  margin: 0;
-  font-size: var(--tl-text-3xl);
-  line-height: var(--tl-leading-tight);
-}
-
-.tl-hero__lead {
-  margin: 0;
-  font-size: var(--tl-text-lg);
-  color: var(--tl-color-text-muted);
-}
-
-.tl-hero__actions {
-  display: flex;
-  gap: var(--tl-space-3);
-  flex-wrap: wrap;
 }
