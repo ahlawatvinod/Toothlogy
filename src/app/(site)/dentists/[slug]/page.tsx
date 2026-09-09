@@ -17,6 +17,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getPublicDentistProfile } from '@/platform/dentists/service';
+import { listPublicPriceList } from '@/platform/pricing/service';
+import { describePrice, describeSuggestedRange } from '@/platform/pricing/display';
+import { resolvePriceList } from '@/platform/pricing/resolution';
 import { formatMoney, money } from '@/platform/money';
 import { LANGUAGE_BY_CODE } from '@/registry/globalization';
 import { Badge, Card, CardBody, CardHeader } from '@/design-system';
@@ -62,6 +65,28 @@ export default async function PublicDentistPage({
   const profile = await getPublicDentistProfile(slug);
 
   if (!profile) notFound();
+
+  /*
+   * Published prices, grouped by category.
+   *
+   * `resolvePriceList` collapses a general price and a clinic override for the
+   * same treatment into one entry — without it the same crown would appear
+   * twice at two prices, which is worse than showing no price at all.
+   */
+  const priceList = await listPublicPriceList(slug);
+  const priceEntries = priceList
+    ? [...resolvePriceList(priceList.rows, null).values()]
+        .map((entry) => entry.row)
+        .filter((row): row is NonNullable<typeof row> => row !== null)
+    : [];
+
+  const pricesByCategory = new Map<string, typeof priceEntries>();
+  for (const row of priceEntries) {
+    const key = row.service.category.name;
+    const bucket = pricesByCategory.get(key);
+    if (bucket) bucket.push(row);
+    else pricesByCategory.set(key, [row]);
+  }
 
   const name = profile.user.displayName ?? 'Dentist';
   const yearsPractising = profile.practisingSince
@@ -166,6 +191,113 @@ export default async function PublicDentistPage({
                 money(BigInt(profile.consultationFeeMinor), profile.consultationCurrency),
                 'en-IN',
               )}
+            </p>
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {/*
+       * PRICES, WITH THEIR PROVENANCE.
+       *
+       * Each figure is this dentist's own. The market range is shown beside it,
+       * explicitly labelled, and never in place of it — a suggested range
+       * rendered as a clinic's price is a number no dentist agreed to
+       * (specification §13, Constitution P9).
+       *
+       * The section is absent entirely when nothing is published, rather than
+       * showing an empty table: "no prices listed" and "this dentist is free"
+       * must not look alike.
+       */}
+      {pricesByCategory.size > 0 ? (
+        <Card label="Treatment prices">
+          <CardHeader>
+            <div className="tl-card__title-row">
+              <strong>Treatment prices</strong>
+              <Badge tone="neutral">Set by this clinic</Badge>
+            </div>
+          </CardHeader>
+          <CardBody>
+            {[...pricesByCategory.entries()].map(([categoryName, rows]) => (
+              <section key={categoryName} className="tl-publicprices__group">
+                <h2 className="tl-publicprices__category">{categoryName}</h2>
+                <ul className="tl-publicprices__list">
+                  {rows.map((row) => {
+                    const suggested = describeSuggestedRange({
+                      minMinor: row.service.suggestedMinMinor,
+                      maxMinor: row.service.suggestedMaxMinor,
+                      currency: row.service.suggestedCurrency ?? 'INR',
+                      openEnded: row.service.suggestedIsOpenEnded,
+                      isCustomQuote: row.service.isCustomQuote,
+                    });
+
+                    return (
+                      <li key={row.id} className="tl-publicprices__item">
+                        <div className="tl-publicprices__head">
+                          <h3 className="tl-publicprices__name">{row.service.name}</h3>
+                          {suggested ? (
+                            <p className="tl-publicprices__suggested">
+                              {suggested.label} {suggested.value}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <dl className="tl-publicprices__prices">
+                          {row.variantPrices
+                            .filter((price) => price.isEnabled)
+                            .map((price) => {
+                              const display = describePrice({
+                                minMinor: price.minMinor,
+                                maxMinor: price.maxMinor,
+                                actualMinor: price.actualMinor,
+                                discountedMinor: price.discountedMinor,
+                                packageMinor: price.packageMinor,
+                                currency: price.currency,
+                                isCustomQuote: price.isCustomQuote,
+                                unitLabel: price.unit.shortLabel,
+                              });
+
+                              return (
+                                <div key={price.id}>
+                                  <dt>{price.variant?.name ?? 'Price'}</dt>
+                                  <dd>
+                                    <span className="tl-price">
+                                      <strong>{display.primary ?? display.text}</strong>
+                                      {display.rangeEnd ? (
+                                        <>
+                                          <span aria-hidden="true">–</span>
+                                          <span className="tl-visually-hidden">to</span>
+                                          <strong>{display.rangeEnd}</strong>
+                                          {display.openEnded ? '+' : null}
+                                        </>
+                                      ) : null}
+                                      {display.strikethrough ? (
+                                        <s className="tl-price__was">
+                                          <span className="tl-visually-hidden">was </span>
+                                          {display.strikethrough}
+                                        </s>
+                                      ) : null}
+                                      {display.unitLabel ? (
+                                        <span className="tl-price__unit">{display.unitLabel}</span>
+                                      ) : null}
+                                    </span>
+                                  </dd>
+                                </div>
+                              );
+                            })}
+                        </dl>
+
+                        {row.note ? <p className="tl-publicprices__note">{row.note}</p> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+
+            <p className="tl-muted" style={{ fontSize: 'var(--tl-text-sm)', marginBlockEnd: 0 }}>
+              Prices are set by this clinic and may change. A suggested range, where shown, is a
+              market reference for India and not this clinic&rsquo;s price. Confirm the final cost
+              with the clinic before treatment.
             </p>
           </CardBody>
         </Card>

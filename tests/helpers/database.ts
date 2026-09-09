@@ -59,6 +59,17 @@ export const describeIntegration: typeof describe | typeof describe.skip = hasTe
  * the suite slow for no benefit.
  */
 const MUTABLE_TABLES = [
+  // Dentist pricing. The master catalogue tables — service_categories,
+  // catalogue_services, service_variants, service_synonyms, price_units — are
+  // reference data seeded by prisma/seed.mts and are deliberately NOT listed,
+  // for the same reason countries and specialties are not: tests depend on
+  // them, and re-seeding before every test would make the suite slow for no
+  // benefit.
+  'price_history',
+  'package_items',
+  'dentist_packages',
+  'dentist_variant_prices',
+  'dentist_service_prices',
   'in_app_notifications',
   'notification_records',
   'login_attempts',
@@ -68,6 +79,12 @@ const MUTABLE_TABLES = [
   'account_deletion_requests',
   'saved_locations',
   'business_hours',
+  'service_offerings',
+  'dentist_practices',
+  'qualifications',
+  'dentist_specialties',
+  'verification_requests',
+  'dentist_profiles',
   'locations',
   'invitations',
   'sessions',

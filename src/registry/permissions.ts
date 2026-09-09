@@ -168,6 +168,31 @@ export const PERMISSIONS: readonly Permission[] = [
     sensitivity: 'internal',
   },
 
+  {
+    key: 'tl.clinic.catalogue.read',
+    description:
+      'Read the master treatment catalogue, including draft and archived entries. The public read needs no permission; this covers the administration view.',
+    divisionId: 'TL-DIV-05-CLINICS',
+    scope: 'global',
+    sensitivity: 'internal',
+  },
+  {
+    key: 'tl.clinic.catalogue.manage',
+    description:
+      'Create and edit master treatment categories, services, variants and their suggested price ranges. Staff-only and deliberately separate from tl.clinic.service.manage: a dentist who could edit the master range could move the reference their own price is compared against.',
+    divisionId: 'TL-DIV-05-CLINICS',
+    scope: 'global',
+    sensitivity: 'confidential',
+  },
+  {
+    key: 'tl.dentist.pricing.manage.self',
+    description:
+      'Create and edit your own treatment prices, at your own confirmed clinics. Scoped to self: the dentist profile is resolved from the session, never from the request.',
+    divisionId: 'TL-DIV-04-DENTISTS',
+    scope: 'self',
+    sensitivity: 'internal',
+  },
+
   // --- Division 26: Reviews & Trust (Phase 3 verification) ----------------
   {
     key: 'tl.verification.request.review',

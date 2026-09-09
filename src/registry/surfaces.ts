@@ -36,6 +36,20 @@ export const PAGES: readonly Page[] = [
     certificationId: 'TL-FE-HOME-001',
   },
   {
+    id: 'TL-PAGE-PRICELIST-001',
+    name: 'My Price List',
+    description:
+      'A dentist’s own treatment prices, per variant and optionally per clinic. Desktop renders a table and mobile a card list — two layouts from one data set, because a price table narrowed to a phone hides the price column.',
+    status: 'implemented',
+    phase: 3,
+    route: '/account/price-list',
+    moduleId: 'TL-CLINIC-PRICING-001',
+    audience: 'authenticated',
+    permissions: ['tl.dentist.pricing.manage.self'],
+    indexable: false,
+    certificationId: null,
+  },
+  {
     id: 'TL-PAGE-DESIGNSYSTEM-001',
     name: 'Design System Reference',
     description:

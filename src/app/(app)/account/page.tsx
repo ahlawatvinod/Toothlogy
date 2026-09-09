@@ -174,12 +174,25 @@ export default async function AccountPage() {
                     ? 'Your profile is not yet appearing in patient search. Open it to see exactly what is missing.'
                     : 'Create your professional profile so patients can find you.'}
               </p>
-              <Link
-                className="tl-button tl-button--secondary tl-button--md"
-                href="/account/dentist-profile"
-              >
-                {dentistProfile ? 'Manage your profile' : 'Create your profile'}
-              </Link>
+              <div className="tl-hero__actions">
+                <Link
+                  className="tl-button tl-button--secondary tl-button--md"
+                  href="/account/dentist-profile"
+                >
+                  {dentistProfile ? 'Manage your profile' : 'Create your profile'}
+                </Link>
+                {/* Only offered once a profile exists: prices hang off the
+                    professional profile, and a price editor that cannot save
+                    anything is a dead end. */}
+                {dentistProfile ? (
+                  <Link
+                    className="tl-button tl-button--ghost tl-button--md"
+                    href="/account/price-list"
+                  >
+                    My price list
+                  </Link>
+                ) : null}
+              </div>
             </CardBody>
           </Card>
         ) : null}

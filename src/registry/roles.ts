@@ -63,7 +63,11 @@ export const ROLES: readonly Role[] = [
     name: 'Dentist',
     description:
       'A practising dentist with a professional profile. Manages their own profile and credentials; verification is decided by staff, never by the applicant.',
-    permissions: ['tl.core.organization.read', 'tl.dentist.profile.manage.self'],
+    permissions: [
+      'tl.core.organization.read',
+      'tl.dentist.profile.manage.self',
+      'tl.dentist.pricing.manage.self',
+    ],
     inherits: ['user'],
     assignable: true,
   },
@@ -150,6 +154,8 @@ export const ROLES: readonly Role[] = [
       'tl.devops.health.read',
       'tl.verification.request.review',
       'tl.verification.request.revoke',
+      'tl.clinic.catalogue.read',
+      'tl.clinic.catalogue.manage',
     ],
     inherits: ['user'],
     assignable: true,

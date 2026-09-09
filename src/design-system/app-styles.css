@@ -330,3 +330,479 @@
 .tl-breadcrumb a {
   color: var(--tl-color-text-muted);
 }
+
+/* --- Price list ----------------------------------------------------------
+ *
+ * The dentist's editor and the patient's view share the price rendering
+ * (`.tl-price`) so a figure looks identical on both sides of the platform.
+ *
+ * Desktop gets a table and mobile gets cards, and they swap at 56rem. This is
+ * two layouts, not one that shrinks: a price table narrowed to a phone hides
+ * the price column behind a horizontal scroll, which is the one column anybody
+ * opened the page for.
+ */
+
+.tl-pricelist {
+  display: grid;
+  gap: var(--tl-space-5);
+}
+
+.tl-pricelist__toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: var(--tl-space-4);
+  align-items: end;
+  padding: var(--tl-space-4);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-color-surface);
+}
+
+.tl-pricelist__suggest {
+  padding: var(--tl-space-4);
+  border: 1px dashed var(--tl-color-border-strong);
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-color-surface-sunken);
+}
+
+.tl-pricelist__suggest-title {
+  margin: 0 0 var(--tl-space-3);
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-semibold);
+  letter-spacing: var(--tl-tracking-wide);
+  text-transform: uppercase;
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-pricelist__suggest-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tl-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+  min-height: var(--tl-touch-target);
+  padding: var(--tl-space-2) var(--tl-space-4);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-color-surface);
+  color: var(--tl-color-text);
+  font: inherit;
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--tl-duration-fast) var(--tl-ease),
+    background-color var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-chip:hover {
+  border-color: var(--tl-color-brand);
+  background: var(--tl-color-brand-subtle);
+}
+
+.tl-chip svg {
+  color: var(--tl-color-accent);
+}
+
+.tl-chip__meta {
+  color: var(--tl-color-text-subtle);
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-normal);
+}
+
+/* --- The rendered price -------------------------------------------------- */
+
+.tl-price {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25em;
+  /* Tabular figures so a column of prices aligns on the decimal point. */
+  font-variant-numeric: tabular-nums;
+}
+
+.tl-price--muted {
+  color: var(--tl-color-text-muted);
+  font-style: italic;
+}
+
+.tl-price__prefix,
+.tl-price__unit {
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-normal);
+  color: var(--tl-color-text-muted);
+}
+
+/* The old price is struck through AND muted AND smaller. Strike-through alone
+   is a single visual signal, and it is the one that survives worst on a low
+   contrast screen. */
+.tl-price__was {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-pricelist__service {
+  display: block;
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-pricelist__category {
+  display: block;
+  font-size: var(--tl-text-xs);
+  font-weight: var(--tl-weight-normal);
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-pricelist__suggested {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+  white-space: nowrap;
+}
+
+/* --- Mobile cards --------------------------------------------------------- */
+
+.tl-pricelist__cards {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: var(--tl-space-3);
+}
+
+.tl-pricecard {
+  display: grid;
+  gap: var(--tl-space-3);
+  justify-items: start;
+  padding: var(--tl-space-4);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-color-surface);
+}
+
+.tl-pricecard__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--tl-space-3);
+  inline-size: 100%;
+}
+
+.tl-pricecard__title {
+  margin: 0;
+  font-size: var(--tl-text-base);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-pricecard__category {
+  margin: 0;
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-pricecard__prices {
+  display: grid;
+  gap: var(--tl-space-2);
+  margin: 0;
+  inline-size: 100%;
+}
+
+.tl-pricecard__prices > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--tl-space-3);
+  padding-block-end: var(--tl-space-2);
+  border-block-end: 1px solid var(--tl-color-border);
+}
+
+.tl-pricecard__prices > div:last-child {
+  padding-block-end: 0;
+  border-block-end: none;
+}
+
+.tl-pricecard__prices dt {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-pricecard__prices dd {
+  margin: 0;
+}
+
+.tl-pricecard__meta {
+  margin: 0;
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+}
+
+@media (max-width: 56rem) {
+  .tl-pricelist__table {
+    display: none;
+  }
+
+  .tl-pricelist__cards {
+    display: grid;
+  }
+}
+
+/* --- Editor drawer -------------------------------------------------------- */
+
+.tl-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  justify-items: end;
+  background: rgb(8 22 30 / 0.45);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .tl-drawer {
+    backdrop-filter: blur(2px);
+  }
+}
+
+.tl-drawer__panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  inline-size: min(32rem, 100%);
+  block-size: 100%;
+  background: var(--tl-color-surface);
+  border-inline-start: 1px solid var(--tl-color-border);
+  box-shadow: var(--tl-shadow-xl);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-drawer__panel {
+    animation: tl-drawer-in var(--tl-duration-normal) var(--tl-ease-out);
+  }
+}
+
+@keyframes tl-drawer-in {
+  from {
+    transform: translateX(2rem);
+    opacity: 0;
+  }
+}
+
+.tl-drawer__header,
+.tl-drawer__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-3);
+  padding: var(--tl-space-4) var(--tl-space-5);
+}
+
+.tl-drawer__header {
+  justify-content: space-between;
+  border-block-end: 1px solid var(--tl-color-border);
+}
+
+.tl-drawer__footer {
+  justify-content: flex-end;
+  border-block-start: 1px solid var(--tl-color-border);
+  background: var(--tl-color-surface-sunken);
+}
+
+.tl-drawer__title {
+  margin: 0;
+  font-size: var(--tl-text-xl);
+  font-weight: var(--tl-weight-semibold);
+  letter-spacing: var(--tl-tracking-tight);
+}
+
+.tl-drawer__body {
+  display: grid;
+  gap: var(--tl-space-5);
+  align-content: start;
+  padding: var(--tl-space-5);
+  overflow-y: auto;
+}
+
+.tl-drawer__suggested {
+  margin: 0;
+  padding: var(--tl-space-3) var(--tl-space-4);
+  border-radius: var(--tl-radius-lg);
+  background: var(--tl-color-brand-subtle);
+  color: var(--tl-color-brand-strong);
+  font-size: var(--tl-text-sm);
+}
+
+@media (max-width: 40rem) {
+  .tl-drawer {
+    justify-items: stretch;
+    align-items: end;
+  }
+
+  /* On a phone the drawer becomes a bottom sheet: a side panel on a 390px
+     screen is the whole screen anyway, and a sheet is the gesture people
+     expect there (specification §21). */
+  .tl-drawer__panel {
+    block-size: min(90dvh, 44rem);
+    border-inline-start: none;
+    border-block-start: 1px solid var(--tl-color-border);
+    border-start-start-radius: var(--tl-radius-2xl);
+    border-start-end-radius: var(--tl-radius-2xl);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tl-drawer__panel {
+      animation-name: tl-sheet-in;
+    }
+  }
+}
+
+@keyframes tl-sheet-in {
+  from {
+    transform: translateY(2rem);
+    opacity: 0;
+  }
+}
+
+.tl-variant-grid {
+  display: grid;
+  gap: var(--tl-space-4);
+}
+
+.tl-variant {
+  display: grid;
+  gap: var(--tl-space-3);
+  padding: var(--tl-space-4);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-lg);
+}
+
+.tl-variant__name {
+  margin: 0;
+  font-weight: var(--tl-weight-semibold);
+  font-size: var(--tl-text-sm);
+}
+
+.tl-variant__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+  gap: var(--tl-space-3);
+}
+
+/* --- Empty state ---------------------------------------------------------- */
+
+.tl-empty {
+  display: grid;
+  gap: var(--tl-space-2);
+  justify-items: center;
+  text-align: center;
+  padding: var(--tl-space-8) var(--tl-space-5);
+  border: 1px dashed var(--tl-color-border-strong);
+  border-radius: var(--tl-radius-xl);
+  background: var(--tl-color-surface);
+}
+
+.tl-empty__title {
+  margin: 0;
+  font-size: var(--tl-text-lg);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-empty__text {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--tl-color-text-muted);
+  font-size: var(--tl-text-sm);
+}
+
+/* --- Public price list ---------------------------------------------------
+ *
+ * The patient's view of a dentist's prices. Shares `.tl-price` with the
+ * dentist's editor so a figure looks identical on both sides.
+ *
+ * The suggested range is deliberately quieter than the clinic's own price —
+ * smaller, muted, and labelled — because the clinic's figure is the one the
+ * patient is deciding on.
+ */
+
+.tl-publicprices__group + .tl-publicprices__group {
+  margin-block-start: var(--tl-space-6);
+}
+
+.tl-publicprices__category {
+  margin: 0 0 var(--tl-space-3);
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-semibold);
+  letter-spacing: var(--tl-tracking-wide);
+  text-transform: uppercase;
+  color: var(--tl-color-accent);
+}
+
+.tl-publicprices__list {
+  display: grid;
+  gap: var(--tl-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tl-publicprices__item {
+  padding-block-end: var(--tl-space-4);
+  border-block-end: 1px solid var(--tl-color-border);
+}
+
+.tl-publicprices__list > .tl-publicprices__item:last-child {
+  padding-block-end: 0;
+  border-block-end: none;
+}
+
+.tl-publicprices__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--tl-space-3);
+  flex-wrap: wrap;
+}
+
+.tl-publicprices__name {
+  margin: 0;
+  font-size: var(--tl-text-base);
+  font-weight: var(--tl-weight-semibold);
+}
+
+.tl-publicprices__suggested {
+  margin: 0;
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+}
+
+.tl-publicprices__prices {
+  display: grid;
+  gap: var(--tl-space-2);
+  margin: var(--tl-space-3) 0 0;
+}
+
+.tl-publicprices__prices > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--tl-space-4);
+}
+
+.tl-publicprices__prices dt {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}
+
+.tl-publicprices__prices dd {
+  margin: 0;
+  text-align: end;
+}
+
+.tl-publicprices__note {
+  margin: var(--tl-space-3) 0 0;
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}

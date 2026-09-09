@@ -280,6 +280,28 @@ export const MODULES: readonly Module[] = [
     dependsOn: ['TL-CORE-RBAC-001', 'TL-CORE-KERNEL-001'],
   },
   {
+    id: 'TL-CLINIC-CATALOGUE-001',
+    name: 'Master Treatment Catalogue',
+    description:
+      'The platform-owned catalogue of dental treatments, their variants, patient-facing synonyms and suggested market price ranges. Read by everyone, written only by staff, and deliberately separate from what any dentist charges.',
+    status: 'implemented',
+    phase: 3,
+    divisionId: 'TL-DIV-05-CLINICS',
+    pillars: ['DISCOVER', 'TRUST', 'LEARN'],
+    dependsOn: ['TL-CORE-RBAC-001', 'TL-CORE-KERNEL-001'],
+  },
+  {
+    id: 'TL-CLINIC-PRICING-001',
+    name: 'Dentist Price List',
+    description:
+      'A dentist’s own prices, per treatment, per variant and optionally per clinic, with the clinic-then-dentist-then-catalogue fallback, deterministic price display, change history and bulk editing. The master range never overwrites a dentist’s price and is never displayed as one.',
+    status: 'implemented',
+    phase: 3,
+    divisionId: 'TL-DIV-05-CLINICS',
+    pillars: ['DISCOVER', 'TRUST', 'BOOK'],
+    dependsOn: ['TL-CLINIC-CATALOGUE-001', 'TL-DENTIST-PROFILE-001', 'TL-SECURITY-AUDIT-001'],
+  },
+  {
     id: 'TL-DENTIST-VERIFICATION-001',
     name: 'Credential Verification',
     description:

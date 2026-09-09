@@ -154,10 +154,30 @@ lifecycle; evidence-backed, expiring, revocable verification; a review console;
 practice claims requiring clinic confirmation; public profile pages with
 structured data.
 
+🟠 **Treatment catalogue and dentist pricing.** The master catalogue (17
+categories, 56 treatments, 39 variants, 181 search synonyms, 14 pricing units)
+and a dentist's own price list, with clinic-specific overrides, deterministic
+price display, append-only change history and a patient-facing view on the
+public profile. Master catalogue and dentist pricing are separate tables, so
+re-seeding market ranges cannot overwrite a price a dentist set (§6 of the
+module spec), and a suggested range is never rendered without its label.
+
+> **Not verified against a database.** The migration
+> `20260909120000_phase_3_treatment_catalogue_pricing` has not been applied
+> anywhere, and `tests/integration/pricing.test.ts` (19 tests covering
+> ownership, IDOR, clinic isolation, scope fallback and price history) has
+> never executed — it skips without `DATABASE_URL`, and no PostgreSQL was
+> available in the environment it was written in. The 141 domain tests and 17
+> UI tests do run. Until someone applies the migration, seeds, and runs that
+> integration suite green, this feature is 🟠 and not 🟢, whatever the code
+> looks like (Constitution P8).
+
 **Not built:** clinic verification submission UI 🔵 (the model supports
-organizations; only the dentist path has a UI), service/treatment catalogue
-management 🔵 (schema only), document upload for certificates 🔵, dentist
-dashboard analytics 🔴.
+organizations; only the dentist path has a UI), document upload for
+certificates 🔵, dentist dashboard analytics 🔴, package pricing UI 🔵 (schema
+and entities exist; no editor), CSV import/export wiring 🔵 (parser, serialiser
+and bulk-change planner are built and tested; no route or button yet), master
+catalogue admin UI 🔵 (the API exists; administration is API-only).
 
 ### Phases 4–12 🔴
 

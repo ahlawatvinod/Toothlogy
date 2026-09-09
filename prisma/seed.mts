@@ -23,6 +23,12 @@ import { PrismaClient } from '@prisma/client';
 import { COUNTRIES } from '../src/registry/globalization.ts';
 import { NOTIFICATIONS } from '../src/registry/events.ts';
 import { DENTAL_SPECIALTIES } from '../src/platform/dentists/specialties.ts';
+import {
+  CATALOGUE,
+  CATALOGUE_CURRENCY,
+  rupeesToMinor,
+} from '../src/platform/catalogue/catalogue-data.ts';
+import { PRICE_UNITS } from '../src/platform/catalogue/units.ts';
 
 const prisma = new PrismaClient();
 
@@ -328,6 +334,199 @@ async function seedSpecialties(): Promise<number> {
   return SPECIALTIES.length;
 }
 
+/**
+ * Pricing units and the master treatment catalogue.
+ *
+ * REFERENCE DATA, NOT DEMO DATA
+ * This creates categories, treatments, variants, synonyms and the market price
+ * ranges for each. It creates no dentist's prices. A seeded price attributed to
+ * a real clinic would be a number nobody agreed to, sitting on a public page —
+ * the exact failure the whole pricing module is shaped to prevent.
+ *
+ * Idempotent by upsert on natural keys, like every other seed here, so re-running
+ * it after a restore changes nothing.
+ *
+ * SUGGESTED RANGES ARE REFRESHED ON EVERY RUN, DENTIST PRICES ARE NOT TOUCHED.
+ * The two live in different tables precisely so that updating the market range
+ * cannot overwrite what a dentist deliberately set (specification §6).
+ */
+async function seedPriceUnits(): Promise<number> {
+  for (const [index, unit] of PRICE_UNITS.entries()) {
+    await prisma.priceUnit.upsert({
+      where: { key: unit.key },
+      create: {
+        id: seedId('unit', unit.key),
+        key: unit.key,
+        name: unit.name,
+        shortLabel: unit.shortLabel,
+        sortOrder: index,
+      },
+      update: { name: unit.name, shortLabel: unit.shortLabel, sortOrder: index },
+    });
+  }
+  return PRICE_UNITS.length;
+}
+
+/** Lower-cased and stripped, matching `normalize` in platform/pricing/search. */
+function normalizeKeyword(term: string): string {
+  return term
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function seedCatalogue(): Promise<{
+  categories: number;
+  services: number;
+  variants: number;
+  synonyms: number;
+  links: number;
+}> {
+  const units = await prisma.priceUnit.findMany();
+  const unitIdByKey = new Map(units.map((unit) => [unit.key, unit.id]));
+
+  let services = 0;
+  let variants = 0;
+  let synonyms = 0;
+  let links = 0;
+
+  // Categories first: a service needs its category id.
+  for (const [index, category] of CATALOGUE.entries()) {
+    await prisma.serviceCategory.upsert({
+      where: { slug: category.slug },
+      create: {
+        id: seedId('scat', category.slug),
+        slug: category.slug,
+        name: category.name,
+        patientDescription: category.patientDescription ?? null,
+        sortOrder: index,
+      },
+      update: {
+        name: category.name,
+        patientDescription: category.patientDescription ?? null,
+        sortOrder: index,
+      },
+    });
+  }
+
+  const categoryRows = await prisma.serviceCategory.findMany();
+  const categoryIdBySlug = new Map(categoryRows.map((row) => [row.slug, row.id]));
+
+  for (const category of CATALOGUE) {
+    const categoryId = categoryIdBySlug.get(category.slug);
+    if (!categoryId) throw new Error(`Category '${category.slug}' was not seeded.`);
+
+    for (const [index, service] of category.services.entries()) {
+      const unitId = unitIdByKey.get(service.unit);
+      if (!unitId) throw new Error(`Service '${service.slug}' uses unknown unit '${service.unit}'.`);
+
+      const priceFields = {
+        suggestedMinMinor: service.min === undefined ? null : rupeesToMinor(service.min),
+        suggestedMaxMinor: service.max === undefined ? null : rupeesToMinor(service.max),
+        suggestedCurrency: service.min === undefined ? null : CATALOGUE_CURRENCY,
+        suggestedIsOpenEnded: service.openEnded ?? false,
+        isCustomQuote: service.customQuote ?? false,
+        isPackage: service.isPackage ?? false,
+      };
+
+      await prisma.catalogueService.upsert({
+        where: { slug: service.slug },
+        create: {
+          id: seedId('csvc', service.slug),
+          slug: service.slug,
+          name: service.name,
+          categoryId,
+          defaultUnitId: unitId,
+          patientDescription: service.patientDescription ?? null,
+          sortOrder: index,
+          ...priceFields,
+        },
+        update: {
+          name: service.name,
+          categoryId,
+          defaultUnitId: unitId,
+          patientDescription: service.patientDescription ?? null,
+          sortOrder: index,
+          ...priceFields,
+        },
+      });
+      services += 1;
+
+      const serviceRow = await prisma.catalogueService.findUniqueOrThrow({
+        where: { slug: service.slug },
+      });
+
+      for (const [variantIndex, variant] of (service.variants ?? []).entries()) {
+        await prisma.serviceVariant.upsert({
+          where: { serviceId_slug: { serviceId: serviceRow.id, slug: variant.slug } },
+          create: {
+            id: seedId('svar', service.slug, variant.slug),
+            serviceId: serviceRow.id,
+            slug: variant.slug,
+            name: variant.name,
+            description: variant.description ?? null,
+            suggestedMinMinor: variant.min === undefined ? null : rupeesToMinor(variant.min),
+            suggestedMaxMinor: variant.max === undefined ? null : rupeesToMinor(variant.max),
+            suggestedCurrency: variant.min === undefined ? null : CATALOGUE_CURRENCY,
+            suggestedIsOpenEnded: variant.openEnded ?? false,
+            isCustomQuote: variant.customQuote ?? false,
+            sortOrder: variantIndex,
+          },
+          update: {
+            name: variant.name,
+            description: variant.description ?? null,
+            suggestedMinMinor: variant.min === undefined ? null : rupeesToMinor(variant.min),
+            suggestedMaxMinor: variant.max === undefined ? null : rupeesToMinor(variant.max),
+            suggestedCurrency: variant.min === undefined ? null : CATALOGUE_CURRENCY,
+            suggestedIsOpenEnded: variant.openEnded ?? false,
+            isCustomQuote: variant.customQuote ?? false,
+            sortOrder: variantIndex,
+          },
+        });
+        variants += 1;
+      }
+
+      for (const keyword of service.synonyms ?? []) {
+        const normalized = normalizeKeyword(keyword);
+        if (!normalized) continue;
+        await prisma.serviceSynonym.upsert({
+          where: { serviceId_normalized: { serviceId: serviceRow.id, normalized } },
+          create: {
+            id: seedId('ssyn', service.slug, normalized),
+            serviceId: serviceRow.id,
+            keyword,
+            normalized,
+          },
+          update: { keyword },
+        });
+        synonyms += 1;
+      }
+
+      for (const otherSlug of service.alsoIn ?? []) {
+        const otherId = categoryIdBySlug.get(otherSlug);
+        if (!otherId) throw new Error(`'${service.slug}' links to unknown category '${otherSlug}'.`);
+        await prisma.serviceCategoryLink.upsert({
+          where: {
+            serviceId_categoryId: { serviceId: serviceRow.id, categoryId: otherId },
+          },
+          create: {
+            id: seedId('scln', service.slug, otherSlug),
+            serviceId: serviceRow.id,
+            categoryId: otherId,
+          },
+          update: {},
+        });
+        links += 1;
+      }
+    }
+  }
+
+  return { categories: CATALOGUE.length, services, variants, synonyms, links };
+}
+
 async function main(): Promise<void> {
   console.log('Seeding Toothlogy reference data...\n');
 
@@ -350,7 +549,17 @@ async function main(): Promise<void> {
   const specialties = await seedSpecialties();
   console.log(`  dental specialties     ${specialties}`);
 
-  console.log('\nSeed complete. No users, clinics or appointments were created.');
+  const units = await seedPriceUnits();
+  console.log(`  pricing units          ${units}`);
+
+  const catalogue = await seedCatalogue();
+  console.log(`  service categories     ${catalogue.categories}`);
+  console.log(`  catalogue services     ${catalogue.services}`);
+  console.log(`  service variants       ${catalogue.variants}`);
+  console.log(`  search synonyms        ${catalogue.synonyms}`);
+  console.log(`  cross-category links   ${catalogue.links}`);
+
+  console.log('\nSeed complete. No users, clinics, appointments or dentist prices were created.');
 }
 
 main()

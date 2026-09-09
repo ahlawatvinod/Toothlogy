@@ -865,6 +865,8 @@ model Location {
   businessHours    BusinessHours[]
   dentistPractices DentistPractice[]
   serviceOfferings ServiceOffering[]
+  servicePrices    DentistServicePrice[]
+  packages         DentistPackage[]
 
   @@unique([organizationId, slug])
   @@index([latitude, longitude])
@@ -1320,6 +1322,8 @@ model DentistProfile {
   specialties    DentistSpecialty[]
   practices      DentistPractice[]
   verifications  VerificationRequest[]
+  servicePrices  DentistServicePrice[]
+  packages       DentistPackage[]
 
   @@index([status, isDiscoverable])
   @@index([isVerified])
@@ -1527,4 +1531,480 @@ model ServiceOffering {
 
   @@index([locationId, isActive])
   @@map("service_offerings")
+}
+
+// ===========================================================================
+// TREATMENT CATALOGUE AND PRICING (Division 05 — Clinics, Phase 3)
+// ===========================================================================
+//
+// Two halves that must never be confused with each other:
+//
+//   MASTER CATALOGUE            what a treatment is, and what it typically
+//   (ServiceCategory,           costs in this market. Platform-owned. A
+//    CatalogueService,          dentist can read it and cannot change it.
+//    ServiceVariant,
+//    ServiceSynonym, PriceUnit)
+//
+//   DENTIST PRICING             what THIS dentist charges at THIS clinic.
+//   (DentistServicePrice,       Dentist-owned. The master range never
+//    DentistVariantPrice,       overwrites it, and it is never presented as
+//    DentistPackage)            though it were the master range.
+//
+// Keeping them in separate tables rather than copying suggested prices into a
+// dentist's rows is what makes that guarantee structural. If the suggested
+// range were denormalised onto the dentist's row, then every re-seed of the
+// catalogue would silently rewrite prices that a dentist set deliberately —
+// and a patient would be quoted a number no clinic ever agreed to.
+//
+// WHY MONEY IS BigInt HERE
+// The older columns on DentistProfile use Int. These tables are the pricing
+// system of record that treatment plans, quotations and invoices will later be
+// built on, where a full-mouth rehabilitation in paise leaves Int's ~₹21,00,000
+// ceiling uncomfortably close. BigInt maps to a TS `bigint`, which is exactly
+// what `Money.amountMinor` already is, so it also removes a conversion.
+// Never a float, never a bare number (Constitution §4).
+
+/// Lifecycle shared by catalogue records.
+///
+/// ARCHIVED rather than deleted: a dentist's historical price rows reference
+/// these, and a hard delete would either orphan them or cascade away a price
+/// history that a patient may have been quoted from.
+enum CatalogueStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+/// A grouping of treatments, e.g. "Root Canal Treatment".
+model ServiceCategory {
+  id String @id
+
+  name String
+  slug String @unique
+
+  description String?
+  /// Patient-facing one-liner. Separate from `description` because the
+  /// clinical framing and the framing a nervous patient should read are
+  /// different pieces of writing.
+  patientDescription String?
+
+  /// Manual ordering. Alphabetical would put "X-Ray & Diagnostics" before
+  /// "Consultation", which is the reverse of the order care happens in.
+  sortOrder Int @default(0)
+
+  status CatalogueStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  services      CatalogueService[]
+  serviceLinks  ServiceCategoryLink[]
+
+  @@index([status, sortOrder])
+  @@map("service_categories")
+}
+
+/// A treatment in the master catalogue.
+///
+/// ONE CANONICAL RECORD PER TREATMENT.
+/// Some treatments legitimately appear in more than one clinical context —
+/// "Emergency Consultation" belongs under both Consultation & Diagnosis and
+/// Emergency Dentistry. Duplicating the record would let the two copies drift
+/// apart in price, description and synonyms, and would double every treatment
+/// in search results. So a service has ONE primary category and any number of
+/// additional contexts through ServiceCategoryLink.
+model CatalogueService {
+  id String @id
+
+  /// The category this service primarily belongs to. Not null: every service
+  /// has exactly one home, which is what makes "exactly one primary" a
+  /// property of the schema rather than of a convention.
+  categoryId String
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+
+  name String
+  slug String @unique
+
+  description String?
+  /// Plain-language explanation shown to patients.
+  patientDescription String?
+
+  /// Default unit for this treatment, e.g. per tooth for a veneer. A dentist
+  /// may override it on their own price row.
+  defaultUnitId String?
+  defaultUnit   PriceUnit? @relation(fields: [defaultUnitId], references: [id])
+
+  /// The market's typical range — a reference point, never a quote. Null when
+  /// the treatment is quoted case by case.
+  suggestedMinMinor  BigInt?
+  suggestedMaxMinor  BigInt?
+  suggestedCurrency  String?
+
+  /// True where the market range has no real ceiling — the "₹10,000–₹40,000+"
+  /// of the source catalogue. Dropping the "+" and storing a hard maximum
+  /// would quietly promise an upper bound that does not exist; dropping the
+  /// maximum instead would throw away a useful figure. So both are kept and
+  /// the display appends the "+".
+  suggestedIsOpenEnded Boolean @default(false)
+
+  /// True when there is no meaningful range, e.g. a smile makeover. The UI
+  /// must render "Custom quote" rather than a fabricated number.
+  isCustomQuote Boolean @default(false)
+
+  /// True when this service is sold as a bundle, e.g. RCT + Crown.
+  isPackage Boolean @default(false)
+
+  sortOrder Int             @default(0)
+  status    CatalogueStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  variants       ServiceVariant[]
+  synonyms       ServiceSynonym[]
+  categoryLinks  ServiceCategoryLink[]
+  dentistPrices  DentistServicePrice[]
+  packageItems   PackageItem[]
+
+  @@index([categoryId, status, sortOrder])
+  @@index([status])
+  @@map("catalogue_services")
+}
+
+/// An additional clinical context a service appears under.
+///
+/// See the note on CatalogueService: this is what lets one canonical record be
+/// listed in several categories without duplicating it.
+model ServiceCategoryLink {
+  id String @id
+
+  serviceId String
+  service   CatalogueService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  @@unique([serviceId, categoryId])
+  @@index([categoryId])
+  @@map("service_category_links")
+}
+
+/// A variant of a treatment, e.g. Zirconia vs PFM for a crown.
+///
+/// Variants carry their own suggested range because they genuinely differ:
+/// an anterior root canal and a molar root canal are not the same job at the
+/// same price. A null range falls back to the parent service's.
+model ServiceVariant {
+  id String @id
+
+  serviceId String
+  service   CatalogueService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  name String
+  slug String
+
+  description String?
+
+  suggestedMinMinor BigInt?
+  suggestedMaxMinor BigInt?
+  suggestedCurrency String?
+  /// See CatalogueService.suggestedIsOpenEnded.
+  suggestedIsOpenEnded Boolean @default(false)
+
+  isCustomQuote Boolean @default(false)
+
+  sortOrder Int             @default(0)
+  status    CatalogueStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  dentistPrices DentistVariantPrice[]
+  packageItems  PackageItem[]
+
+  @@unique([serviceId, slug])
+  @@index([serviceId, status, sortOrder])
+  @@map("service_variants")
+}
+
+/// A search keyword for a service: "RCT" finds "Root Canal Treatment".
+///
+/// Patients do not search in clinical vocabulary. Without this, someone
+/// searching "cap" finds nothing, concludes the clinic does not fit crowns,
+/// and leaves — which is a discovery failure caused entirely by terminology.
+model ServiceSynonym {
+  id String @id
+
+  serviceId String
+  service   CatalogueService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  keyword String
+
+  /// Lowercased, punctuation-stripped form the search actually matches on.
+  /// Stored rather than computed per query so it can be indexed.
+  normalized String
+
+  @@unique([serviceId, normalized])
+  @@index([normalized])
+  @@map("service_synonyms")
+}
+
+/// A pricing unit, e.g. per tooth, per quadrant, per arch.
+///
+/// A table rather than an enum. Dentistry prices things in units that vary by
+/// market and by practice, and adding "per implant fixture" must not require a
+/// migration and a deploy.
+model PriceUnit {
+  id String @id
+
+  key  String @unique
+  name String
+  /// Rendered after a price, e.g. "/tooth". Empty for units that read badly
+  /// inline, such as a package price.
+  shortLabel String
+
+  sortOrder Int             @default(0)
+  status    CatalogueStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services       CatalogueService[]
+  variantPrices  DentistVariantPrice[]
+
+  @@index([status, sortOrder])
+  @@map("price_units")
+}
+
+/// A dentist's decision to offer one catalogue service, optionally at one
+/// specific clinic.
+///
+/// SCOPE RESOLUTION
+/// A dentist may set a global price and then override it per clinic, because
+/// the same treatment genuinely costs different amounts in different cities.
+/// Reading a price therefore falls back:
+///
+///     clinic-specific row → dentist-global row → master suggested range
+///
+/// WHY scopeKey EXISTS
+/// The natural key is (dentist, service, location) where a null location means
+/// "global". In PostgreSQL a UNIQUE constraint treats NULLs as distinct, so
+/// that constraint would permit unlimited duplicate global rows — the exact
+/// case that must be unique. `scopeKey` holds the location id, or the literal
+/// '_global', so one ordinary unique constraint covers both scopes. It is
+/// maintained by the pricing service and never set by a caller.
+model DentistServicePrice {
+  id String @id
+
+  dentistProfileId String
+  dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service   CatalogueService @relation(fields: [serviceId], references: [id])
+
+  /// Null means this price applies at every clinic the dentist practises at.
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  /// `locationId`, or '_global'. See the note above.
+  scopeKey String
+
+  isEnabled Boolean @default(true)
+
+  /// Whether patients see this row at all. Distinct from `isEnabled`: a clinic
+  /// may offer a treatment but decline to publish its price, which is a real
+  /// commercial choice and not the same as not offering it.
+  isPublicVisible Boolean @default(true)
+
+  /// Free-text note shown to patients, e.g. "price depends on canal count".
+  note String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  variantPrices DentistVariantPrice[]
+  history       PriceHistory[]
+
+  @@unique([dentistProfileId, serviceId, scopeKey])
+  @@index([dentistProfileId, isEnabled])
+  @@index([locationId, isEnabled])
+  @@index([serviceId])
+  @@map("dentist_service_prices")
+}
+
+/// The actual numbers, one row per variant (or one row with a null variant for
+/// a service that has none).
+///
+/// Several price fields rather than one, because a clinic's answer to "what
+/// does this cost" is genuinely several different answers, and flattening them
+/// loses the distinction between "₹12,000" and "from ₹12,000" and "₹10,999,
+/// normally ₹12,000". §26 of the specification turns these fields into exactly
+/// one rendered string, deterministically.
+model DentistVariantPrice {
+  id String @id
+
+  dentistServicePriceId String
+  dentistServicePrice   DentistServicePrice @relation(fields: [dentistServicePriceId], references: [id], onDelete: Cascade)
+
+  /// Null when the service is priced as a whole with no variants.
+  variantId String?
+  variant   ServiceVariant? @relation(fields: [variantId], references: [id])
+
+  /// `variantId`, or '_base'. Same reason as DentistServicePrice.scopeKey:
+  /// a null variant must be unique per service row, and NULLs are distinct in
+  /// a PostgreSQL unique constraint.
+  variantKey String
+
+  unitId String
+  unit   PriceUnit @relation(fields: [unitId], references: [id])
+
+  /// All in minor units. Every one is optional because a clinic may publish a
+  /// range, a firm price, a discounted price, or nothing but "ask us".
+  minMinor        BigInt?
+  maxMinor        BigInt?
+  actualMinor     BigInt?
+  discountedMinor BigInt?
+  packageMinor    BigInt?
+  /// Charged on top, e.g. a lab fee. Shown separately so it is never folded
+  /// silently into the headline price.
+  additionalMinor BigInt?
+
+  currency String
+
+  /// When true every amount above is ignored for display and the patient is
+  /// shown "Custom quote". A treatment that genuinely cannot be priced without
+  /// examining the patient must be able to say so.
+  isCustomQuote Boolean @default(false)
+
+  isEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  history PriceHistory[]
+
+  @@unique([dentistServicePriceId, variantKey])
+  @@index([variantId])
+  @@map("dentist_variant_prices")
+}
+
+/// A bundle a dentist sells at a single price, e.g. RCT + Crown.
+model DentistPackage {
+  id String @id
+
+  dentistProfileId String
+  dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+
+  /// Null means the package is offered at every clinic.
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  name String
+  slug String
+
+  description String?
+  /// What the patient is agreeing to: validity, exclusions, revision policy.
+  terms String?
+
+  priceMinor BigInt
+  currency   String
+
+  /// What the components would cost separately, so the saving is verifiable
+  /// rather than asserted. Computed by the service from the component prices.
+  componentTotalMinor BigInt?
+
+  validFrom  DateTime?
+  validUntil DateTime?
+
+  status          CatalogueStatus @default(DRAFT)
+  isPublicVisible Boolean         @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  items PackageItem[]
+
+  @@unique([dentistProfileId, slug])
+  @@index([dentistProfileId, status])
+  @@index([locationId, status])
+  @@map("dentist_packages")
+}
+
+/// One line of a package.
+model PackageItem {
+  id String @id
+
+  packageId String
+  package   DentistPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service   CatalogueService @relation(fields: [serviceId], references: [id])
+
+  variantId String?
+  variant   ServiceVariant? @relation(fields: [variantId], references: [id])
+
+  quantity Int @default(1)
+
+  /// False records something deliberately EXCLUDED, e.g. "crown not included".
+  /// Listing exclusions beside inclusions is what stops a package price from
+  /// being read as covering more than it does.
+  isIncluded Boolean @default(true)
+
+  note String?
+
+  sortOrder Int @default(0)
+
+  @@index([packageId, sortOrder])
+  @@index([serviceId])
+  @@map("package_items")
+}
+
+/// An append-only record of every price change.
+///
+/// SEPARATE FROM AuditEvent ON PURPOSE.
+/// `AuditEvent` is the platform's security trail: who did what, queried by
+/// actor and action, with context in a JSON column. This table is a product
+/// feature — the dentist's own "₹11,000 → ₹12,000, 9 Sep 2026" history, which
+/// has to be listed per service and per variant. Serving that from a JSON
+/// column would mean scanning the entire audit log. Both are written; they
+/// answer different questions for different readers.
+model PriceHistory {
+  id String @id
+
+  dentistServicePriceId String
+  dentistServicePrice   DentistServicePrice @relation(fields: [dentistServicePriceId], references: [id], onDelete: Cascade)
+
+  dentistVariantPriceId String?
+  dentistVariantPrice   DentistVariantPrice? @relation(fields: [dentistVariantPriceId], references: [id], onDelete: SetNull)
+
+  /// The user who made the change. Not a foreign key: the history must survive
+  /// the deletion of the account that made it, or a clinic could erase its own
+  /// pricing history by removing a staff member.
+  changedByUserId String
+
+  /// Which field moved. One row per field, so a single edit that changes two
+  /// prices produces two readable lines rather than one opaque diff.
+  field String
+
+  previousMinor BigInt?
+  newMinor      BigInt?
+  currency      String?
+
+  /// Non-monetary changes, e.g. unit or enabled state, recorded as text.
+  previousText String?
+  newText      String?
+
+  changedAt DateTime @default(now())
+
+  @@index([dentistServicePriceId, changedAt])
+  @@index([dentistVariantPriceId, changedAt])
+  @@map("price_history")
 }

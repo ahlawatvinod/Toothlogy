@@ -52,6 +52,19 @@ export const ID_PREFIXES = {
   file: 'fil',
   notificationPreference: 'nfp',
   request: 'req',
+
+  // Division 05 — treatment catalogue and pricing (Phase 3).
+  serviceCategory: 'scat',
+  catalogueService: 'csvc',
+  serviceCategoryLink: 'scln',
+  serviceVariant: 'svar',
+  serviceSynonym: 'ssyn',
+  priceUnit: 'unit',
+  dentistServicePrice: 'dsp',
+  dentistVariantPrice: 'dvp',
+  dentistPackage: 'pkg',
+  packageItem: 'pki',
+  priceHistory: 'phi',
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIXES)[keyof typeof ID_PREFIXES];
