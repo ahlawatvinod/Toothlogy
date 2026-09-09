@@ -1,27 +1,74 @@
 /**
- * Banner-backed hero and promotional bands.
+ * Approved-banner sections: hero, promotional split, and the closing call to
+ * action.
  *
- * Each of these renders `null` when its approved banner has not been
- * delivered, and the page falls back to what it already had. So the homepage
- * is correct with no banners, correct with all three, and correct with any
- * subset — which matters, because assets arrive one at a time.
+ * NO TEXT SITS ON TOP OF A PHOTOGRAPH HERE.
  *
- * The overlay is HTML positioned over the image with a CSS scrim behind the
- * text. Nothing is composited into the file, and no crop is baked in: the
- * banner's own frame narrows on small screens and `object-position` chooses
- * what survives, rather than a second image being cut for mobile.
+ * An earlier version overlaid the copy with a darkening scrim. It read well
+ * over a flat gradient and would have been wrong over the real artwork: these
+ * compositions are full-bleed and busy — a clinician at each edge of the hero
+ * banner, a patient's face filling the left of the CTA banner — so any overlay
+ * is written across something the image exists to show, and the scrim dims a
+ * clinical photograph that was lit deliberately.
+ *
+ * Putting the copy BESIDE the image instead removes the problem rather than
+ * tuning it: nothing is covered, nothing is dimmed, no crop is implied, and
+ * the image is shown whole. It is also what §2, §5 and §11 of the brief ask
+ * for.
+ *
+ * Every section renders `null` until its approved file is present, so the page
+ * is correct with none of them, all of them, or any subset.
  */
 
 import Link from 'next/link';
-import { BannerImage } from '@/components/media/asset-image';
-import { hasAsset } from '@/platform/media';
+import NextImage from 'next/image';
+import { resolveAsset } from '@/platform/media';
+import { cn } from '@/design-system';
 import { Reveal } from '@/components/motion/reveal';
 
 /**
- * The homepage hero, backed by the approved clinic banner.
+ * The approved image presented as a card.
  *
- * `eager` because it is the largest thing above the fold; everything else on
- * the page loads lazily (specification §23).
+ * Rounded, bordered, lifted — the "premium visual card rather than a random
+ * image inserted into the page" the brief asks for. The frame is styled; the
+ * file is not touched.
+ */
+function ImageCard({
+  slug,
+  eager = false,
+  sizes,
+  className,
+}: {
+  readonly slug: string;
+  readonly eager?: boolean;
+  readonly sizes: string;
+  readonly className?: string;
+}) {
+  const asset = resolveAsset(slug);
+  if (!asset) return null;
+
+  return (
+    <figure className={cn('tl-imagecard', className)}>
+      <NextImage
+        src={asset.src}
+        alt={asset.alt}
+        width={asset.width}
+        height={asset.height}
+        sizes={sizes}
+        loading={eager ? 'eager' : 'lazy'}
+        preload={eager}
+        className="tl-imagecard__img"
+      />
+    </figure>
+  );
+}
+
+/**
+ * Homepage hero: copy left, approved banner right.
+ *
+ * Returns null when the banner is absent, and the page keeps the illustrated
+ * gradient hero it already has. Both are complete designs carrying identical
+ * headline, copy and calls to action.
  */
 export function BannerHero({
   badge,
@@ -36,72 +83,98 @@ export function BannerHero({
   readonly actions: React.ReactNode;
   readonly note?: string;
 }) {
-  if (!hasAsset('banner-dental-hospital')) return null;
+  if (!resolveAsset('banner-dental-hospital')) return null;
 
   return (
-    <section className="tl-hero-banner" aria-labelledby="hero-heading">
-      {/*
-        * Copy on the left.
-        *
-        * This banner is symmetric — a clinician at each edge and the tooth in
-        * the middle — so there is no empty quarter to write into. The left is
-        * the least costly: the scrim sits over the male clinician, who reads
-        * as atmosphere behind the text, while the central tooth and the second
-        * clinician stay completely clear. Nothing is cropped out.
-        */}
-      <BannerImage slug="banner-dental-hospital" eager position="center" align="start">
-        <p className="tl-hero__badge">
-          <span className="tl-hero__badge-dot" aria-hidden="true" />
-          {badge}
-        </p>
-        <h1 className="tl-hero__title tl-hero__title--on-banner" id="hero-heading">
-          {title}
-        </h1>
-        <p className="tl-hero__lead tl-hero__lead--on-banner">{lead}</p>
-        <div className="tl-hero__actions">{actions}</div>
-        {note ? <p className="tl-hero__note tl-hero__note--on-banner">{note}</p> : null}
-      </BannerImage>
+    <section className="tl-hero tl-hero--split" aria-labelledby="hero-heading">
+      <div className="tl-container tl-hero__inner">
+        {/*
+         * Staggered entrance. Each element carries its own delay so the
+         * headline settles before the paragraph, which settles before the
+         * buttons — the order the eye reads them in. `Reveal` puts the whole
+         * thing behind `prefers-reduced-motion` and behind a scripting check.
+         */}
+        <div className="tl-hero__copy">
+          <Reveal><p className="tl-hero__badge">
+            <span className="tl-hero__badge-dot" aria-hidden="true" />
+            {badge}
+          </p></Reveal>
+
+          <Reveal delay={80}>
+            <h1 className="tl-hero__title" id="hero-heading">{title}</h1>
+          </Reveal>
+
+          <Reveal delay={160}>
+            <p className="tl-hero__lead">{lead}</p>
+          </Reveal>
+
+          <Reveal delay={240} className="tl-hero__actions">{actions}</Reveal>
+
+          {note ? (
+            <Reveal delay={320}><p className="tl-hero__note">{note}</p></Reveal>
+          ) : null}
+        </div>
+
+        <Reveal variant="scale" delay={200} className="tl-hero__figure">
+          <ImageCard
+            slug="banner-dental-hospital"
+            eager
+            sizes="(max-width: 64rem) 100vw, 56vw"
+          />
+        </Reveal>
+      </div>
     </section>
   );
 }
 
 /**
- * A full-width promotional band between sections.
+ * Promotional split: content one side, approved banner the other.
  *
- * Deliberately carries no call to action of its own: it introduces the section
- * that follows it, and a second competing button beside the real ones is how a
- * page stops having a primary action.
+ * Roughly 45/55 in the content's favour on desktop, and content-first when it
+ * stacks, so the reader gets the point before the picture.
  */
 export function PromotionalBanner({
   slug,
+  eyebrow,
   heading,
   lead,
+  cta,
 }: {
   readonly slug: string;
+  readonly eyebrow: string;
   readonly heading: string;
   readonly lead: string;
+  readonly cta?: { href: string; label: string };
 }) {
-  if (!hasAsset(slug)) return null;
+  if (!resolveAsset(slug)) return null;
 
   return (
-    <Reveal as="section" className="tl-banner-band" aria-label={heading}>
-      {/* Left: the treatment insets this banner exists to show sit centre and
-          right, and the dental chair on the left is the part that can carry
-          text without losing anything. */}
-      <BannerImage slug={slug} position="center" align="start">
-        <h2 className="tl-banner-band__title">{heading}</h2>
-        <p className="tl-banner-band__lead">{lead}</p>
-      </BannerImage>
-    </Reveal>
+    <section className="tl-section tl-section--soft" aria-labelledby="promo-heading">
+      <div className="tl-container tl-promo">
+        <Reveal className="tl-promo__body">
+          <p className="tl-eyebrow">{eyebrow}</p>
+          <h2 className="tl-section__title" id="promo-heading">{heading}</h2>
+          <p className="tl-section__lead">{lead}</p>
+          {cta ? (
+            <Link className="tl-button tl-button--primary tl-button--md" href={cta.href}>
+              {cta.label}
+            </Link>
+          ) : null}
+        </Reveal>
+
+        <Reveal variant="scale" delay={120}>
+          <ImageCard slug={slug} sizes="(max-width: 64rem) 100vw, 55vw" />
+        </Reveal>
+      </div>
+    </section>
   );
 }
 
 /**
- * The closing call to action, backed by the approved patient banner.
+ * Closing call to action: copy and buttons above, approved banner below.
  *
- * Returns null when the banner is absent so the caller can fall back to the
- * gradient CTA it already has — both are complete designs, and neither is a
- * degraded version of the other.
+ * The image is visually dominant without competing with the buttons, because
+ * it is not behind them (§11).
  */
 export function BannerCta({
   title,
@@ -114,35 +187,35 @@ export function BannerCta({
   readonly primary: { href: string; label: string };
   readonly secondary: { href: string; label: string };
 }) {
-  if (!hasAsset('banner-dental-cta')) return null;
+  if (!resolveAsset('banner-dental-cta')) return null;
 
   return (
-    <section className="tl-banner-cta" aria-labelledby="cta-heading">
-      {/*
-        * Copy on the RIGHT, unlike the other two.
-        *
-        * The patient's face is on the left of this composition and is the
-        * whole point of it — a smiling patient mid-treatment is what a closing
-        * call to action is for. Writing over her would throw that away, so the
-        * text goes over the clinic interior on the right instead.
-        */}
-      <BannerImage slug="banner-dental-cta" position="center" align="end">
-        <h2 className="tl-cta__title" id="cta-heading">
-          {title}
-        </h2>
-        <p className="tl-cta__lead tl-cta__lead--on-banner">{lead}</p>
-        <div className="tl-cta__actions tl-cta__actions--start">
-          <Link className="tl-button tl-button--on-brand tl-button--lg" href={primary.href}>
-            {primary.label}
-          </Link>
-          <Link
-            className="tl-button tl-button--on-brand-ghost tl-button--lg"
-            href={secondary.href}
-          >
-            {secondary.label}
-          </Link>
-        </div>
-      </BannerImage>
+    <section className="tl-section" aria-labelledby="cta-heading">
+      <div className="tl-container">
+        <Reveal variant="scale" className="tl-cta tl-cta--framed">
+          <div className="tl-cta__body">
+            <Reveal>
+              <h2 className="tl-cta__title" id="cta-heading">{title}</h2>
+            </Reveal>
+            <Reveal delay={90}><p className="tl-cta__lead">{lead}</p></Reveal>
+            <Reveal delay={180} className="tl-cta__actions">
+              <Link className="tl-button tl-button--on-brand tl-button--lg" href={primary.href}>
+                {primary.label}
+              </Link>
+              <Link
+                className="tl-button tl-button--on-brand-ghost tl-button--lg"
+                href={secondary.href}
+              >
+                {secondary.label}
+              </Link>
+            </Reveal>
+          </div>
+
+          <Reveal variant="scale" delay={260}>
+            <ImageCard slug="banner-dental-cta" sizes="(max-width: 64rem) 100vw, 62rem" />
+          </Reveal>
+        </Reveal>
+      </div>
     </section>
   );
 }

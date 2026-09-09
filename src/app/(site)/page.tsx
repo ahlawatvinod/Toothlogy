@@ -35,6 +35,7 @@ import { Counter } from '@/components/motion/counter';
 import { Feature, SectionHeading, Tile } from '@/components/site/sections';
 import { BannerCta, BannerHero, PromotionalBanner } from '@/components/site/banner-hero';
 import { LabFeature } from '@/components/site/lab-feature';
+import { ProtectiveCare } from '@/components/site/protective-care';
 import { hasAsset } from '@/platform/media';
 
 export const metadata: Metadata = {
@@ -125,13 +126,21 @@ export default function HomePage() {
         }
         lead="Toothlogy is a global dental ecosystem connecting patients, dentists, clinics, colleges, students and suppliers — built so competence is discoverable, not just marketing budgets."
         note="Accounts, clinics and dentist verification are live today. Search and booking arrive in Phase 4 — see what works below."
+        /*
+         * Standard button variants, not the inverted "on-brand" ones.
+         *
+         * Those exist for white text on a coloured band. The split hero sits
+         * on the site's normal pale ground, where a white button on white is
+         * invisible — which is exactly what it was until this was caught by
+         * looking at the rendered page.
+         */
         actions={
           <>
-            <Link className="tl-button tl-button--on-brand tl-button--lg" href="/register">
+            <Link className="tl-button tl-button--primary tl-button--lg" href="/register">
               Create an account
             </Link>
             <Link
-              className="tl-button tl-button--on-brand-ghost tl-button--lg"
+              className="tl-button tl-button--secondary tl-button--lg"
               href="/register?role=dentist"
             >
               List your practice
@@ -273,8 +282,10 @@ export default function HomePage() {
       {/* Introduces the section above. Absent until the banner is delivered. */}
       <PromotionalBanner
         slug="banner-dental-promotional"
+        eyebrow="Dental care, connected"
         heading="Every treatment, one catalogue"
-        lead="From a routine check-up to an implant, each treatment carries a plain-language description and a market price range."
+        lead="From a routine check-up to an implant, each treatment carries a plain-language description and the market price range it usually falls in — so you can see what something costs before you ask."
+        cta={{ href: '/find', label: 'Browse treatments' }}
       />
 
       {/* ================= WHY TOOTHLOGY ================= */}
@@ -306,7 +317,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Full-width split feature. Absent until its photograph is delivered. */}
+      {/* Both absent until their photographs are delivered. */}
+      <ProtectiveCare />
       <LabFeature />
 
       {/* ================= WHAT WORKS TODAY ================= */}

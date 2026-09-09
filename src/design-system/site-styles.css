@@ -1528,225 +1528,133 @@
   }
 }
 
-/* --- Banner-backed hero and bands ------------------------------------------
+/* --- Approved images presented as cards ------------------------------------
  *
- * These only ever apply when an approved banner has been delivered; the
- * components render nothing otherwise. All of it sizes and overlays the frame
- * — the source file is untouched.
+ * No copy sits on top of a photograph anywhere on the site. These
+ * compositions are full-bleed and busy, so an overlay always covers something
+ * the image exists to show, and a scrim dims a clinical photograph that was
+ * lit deliberately. The copy goes beside the image instead.
+ *
+ * All of this styles the FRAME. The file is untouched.
  */
 
-/*
- * The banner hero starts BELOW the header rather than under it.
- *
- * The gradient hero is pulled up under the transparent header, which works
- * because its ground is pale and the dark nav links stay legible on it. A
- * photograph is not pale and not predictable: the same nav links disappear
- * into it, and the fix would be a second "on dark" header state that every
- * page then has to reason about. Starting below the header removes the
- * problem rather than compensating for it, and a full-bleed band under a
- * clean header is the stronger composition anyway.
- */
-.tl-hero-banner {
-  margin-block-start: 0;
+.tl-imagecard {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-2xl);
+  background: var(--tl-color-surface-sunken);
+  box-shadow: var(--tl-shadow-lg);
+  transition:
+    transform var(--tl-duration-normal) var(--tl-ease-out),
+    box-shadow var(--tl-duration-normal) var(--tl-ease-out);
 }
 
-/*
- * Height is driven by the content, not by a fixed ratio.
- *
- * A hard `aspect-ratio` clips the overlaid copy the moment it wraps to one
- * more line — which it does at every narrow width, and did here. The image is
- * absolutely positioned and covers whatever height the text needs, so the
- * ratio is a floor rather than a cage.
- */
-.tl-hero-banner .tl-banner,
-.tl-banner-cta .tl-banner,
-.tl-banner-band .tl-banner {
-  aspect-ratio: auto;
-}
-
-.tl-hero-banner .tl-banner {
-  min-block-size: min(34rem, 78vh);
-}
-
-.tl-hero-banner .tl-banner__content {
-  max-inline-size: var(--tl-container-max);
-  gap: var(--tl-space-5);
-  padding-block: var(--tl-space-9);
-}
-
-.tl-hero-banner .tl-hero__badge {
-  /* On a photograph the glass badge needs a solid ground to stay legible. */
-  background: rgb(255 255 255 / 0.92);
-  border-color: rgb(255 255 255 / 0.5);
-}
-
-.tl-hero__title--on-banner,
-.tl-hero__lead--on-banner,
-.tl-hero__note--on-banner {
-  color: #ffffff;
-  max-inline-size: 34rem;
-}
-
-.tl-hero__lead--on-banner {
-  color: rgb(255 255 255 / 0.92);
-}
-
-.tl-hero__note--on-banner {
-  color: rgb(255 255 255 / 0.75);
-}
-
-/* On a photograph the gradient fill loses too much contrast, so the emphasised
-   words become a solid light tint instead. */
-.tl-gradient-text--on-banner {
-  background: none;
-  -webkit-text-fill-color: currentColor;
-  color: #9fe6f5;
-}
-
-/* Focus rings on a photograph need the inverted treatment, same as the
-   coloured CTA band. */
-.tl-hero-banner :focus-visible,
-.tl-banner-cta :focus-visible,
-.tl-banner-band :focus-visible {
-  box-shadow:
-    0 0 0 2px rgb(8 30 41 / 0.9),
-    0 0 0 4px #ffffff;
-}
-
-/* --- Promotional band ------------------------------------------------------ */
-
-.tl-banner-band {
+.tl-imagecard__img {
   display: block;
-  margin-block: var(--tl-space-8);
+  inline-size: 100%;
+  block-size: auto;
+  /* The intrinsic ratio is preserved: no cropping, no stretching, and the
+     whole approved composition stays visible at every width. */
 }
 
-.tl-banner-band .tl-banner {
-  min-block-size: 18rem;
-}
-
-.tl-banner-band .tl-banner__content {
-  padding-block: var(--tl-space-8);
-}
-
-.tl-banner-band__title {
-  margin: 0;
-  font-size: var(--tl-text-3xl);
-  font-weight: var(--tl-weight-bold);
-  letter-spacing: var(--tl-tracking-tight);
-  line-height: 1.14;
-  color: #ffffff;
-  max-inline-size: 20ch;
-  text-wrap: balance;
-}
-
-.tl-banner-band__lead {
-  margin: 0;
-  max-inline-size: 46ch;
-  font-size: var(--tl-text-lg);
-  line-height: var(--tl-leading-relaxed);
-  color: rgb(255 255 255 / 0.88);
-  text-wrap: pretty;
-}
-
-/* --- Banner-backed CTA ----------------------------------------------------- */
-
-.tl-banner-cta {
-  margin-block: var(--tl-space-9);
-}
-
-.tl-banner-cta .tl-banner {
-  min-block-size: 24rem;
-}
-
-.tl-banner-cta .tl-banner__content {
-  padding-block: var(--tl-space-9);
-}
-
-.tl-banner-cta .tl-cta__title {
-  color: #ffffff;
-  max-inline-size: 18ch;
-}
-
-.tl-cta__lead--on-banner {
-  margin-inline: 0;
-  text-align: start;
-  max-inline-size: 44ch;
-}
-
-.tl-cta__actions--start {
-  justify-content: flex-start;
-}
-
-@media (max-width: 48rem) {
-  /* The overlaid copy stacks and grows here, and content already drives the
-     height, so these only raise the floor. */
-  .tl-hero-banner .tl-banner {
-    min-block-size: 32rem;
-  }
-
-  .tl-banner-cta .tl-banner,
-  .tl-banner-band .tl-banner {
-    min-block-size: 22rem;
-  }
-
-  .tl-banner-band__title {
-    font-size: var(--tl-text-2xl);
-  }
-
-  /*
-   * On a phone the scrim runs top-to-bottom rather than left-to-right: the
-   * copy sits over the whole width, so a horizontal fade leaves the right-hand
-   * half of every line on bare photograph.
-   */
-  .tl-banner__scrim {
-    background: linear-gradient(
-      180deg,
-      rgb(8 30 41 / 0.72) 0%,
-      rgb(8 30 41 / 0.6) 55%,
-      rgb(8 30 41 / 0.68) 100%
-    );
+/* Hover lift of 1.5%, at the low end of what the brief allows. Enough to
+   register as interactive, small enough that a face does not visibly shift. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .tl-imagecard:hover {
+    transform: scale(1.015);
+    box-shadow: var(--tl-shadow-xl);
   }
 }
 
-/* --- Banner overlay side ---------------------------------------------------
+/* --- Split hero ------------------------------------------------------------ */
+
+/*
+ * The image gets the larger share here, unlike the illustrated hero.
  *
- * The scrim always darkens the half the copy sits on, and the other half of
- * the photograph is left alone. Which side that is depends on the banner —
- * see the notes at each call site.
+ * The approved banner is a 3.2:1 composition with a clinician at each edge;
+ * squeezed into the narrower column it renders as a thin strip in which
+ * neither face is legible.
  */
-
-.tl-banner--end .tl-banner__content {
-  justify-items: end;
-  text-align: end;
+.tl-hero--split .tl-hero__inner {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: var(--tl-space-7);
 }
 
-.tl-banner--end .tl-banner__scrim {
-  background: linear-gradient(
-    260deg,
-    rgb(8 30 41 / 0.78) 0%,
-    rgb(8 30 41 / 0.55) 45%,
-    rgb(8 30 41 / 0.15) 100%
-  );
+.tl-hero--split .tl-hero__copy {
+  max-width: 30rem;
 }
 
-.tl-banner--end .tl-cta__lead--on-banner,
-.tl-banner--end .tl-cta__title {
-  margin-inline-start: auto;
+.tl-hero__figure {
+  display: block;
+  inline-size: 100%;
 }
 
-.tl-banner--end .tl-cta__actions--start {
-  justify-content: flex-end;
-}
-
-/* On a phone the copy spans the full width and the scrim is vertical, so the
-   side alignment stops meaning anything and would only ragged-edge the text. */
-@media (max-width: 48rem) {
-  .tl-banner--end .tl-banner__content {
-    justify-items: start;
-    text-align: start;
-  }
-
-  .tl-banner--end .tl-cta__actions--start {
-    justify-content: flex-start;
+@media (max-width: 64rem) {
+  /* Stacked, copy first: the reader gets the point before the picture. The
+     figure keeps a generous width so the composition stays legible. */
+  .tl-hero--split .tl-hero__figure {
+    order: 2;
+    max-inline-size: 40rem;
+    margin-inline: auto;
   }
 }
+
+/* --- Promotional split ----------------------------------------------------- */
+
+.tl-promo {
+  display: grid;
+  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  gap: var(--tl-space-8);
+  align-items: center;
+}
+
+.tl-promo__body {
+  display: grid;
+  gap: var(--tl-space-4);
+  justify-items: start;
+}
+
+.tl-promo__body .tl-section__title,
+.tl-promo__body .tl-section__lead {
+  margin: 0;
+}
+
+@media (max-width: 64rem) {
+  .tl-promo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tl-space-6);
+  }
+}
+
+/* --- Framed call to action -------------------------------------------------- */
+
+.tl-cta--framed {
+  display: grid;
+  gap: var(--tl-space-7);
+  padding: var(--tl-space-9) var(--tl-space-6);
+  text-align: center;
+}
+
+.tl-cta__body {
+  display: grid;
+  gap: var(--tl-space-4);
+  justify-items: center;
+}
+
+/* Inside the brand-gradient panel the image card needs a light edge rather
+   than the neutral border it carries on a white section. */
+.tl-cta--framed .tl-imagecard {
+  border-color: rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.08);
+  max-inline-size: 62rem;
+  margin-inline: auto;
+}
+
+@media (max-width: 40rem) {
+  .tl-cta--framed {
+    padding: var(--tl-space-8) var(--tl-space-4);
+  }
+}
+
