@@ -25,6 +25,7 @@
  */
 
 import Link from 'next/link';
+import { motion, useReducedMotion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
@@ -71,6 +72,7 @@ function isActive(pathname: string, href: string): boolean {
 
 export function SiteNav({ links, actions, menuActions, menuMeta, brand }: SiteNavProps) {
   const pathname = usePathname();
+  const reduceMotion = useReducedMotion();
   const scrolled = useScrolled();
   const menuId = useId();
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -115,7 +117,17 @@ export function SiteNav({ links, actions, menuActions, menuMeta, brand }: SiteNa
 
   return (
     <header className="tl-header" data-scrolled={scrolled} data-menu-open={open}>
-      <div className="tl-container tl-container--wide tl-header__inner">
+      {/*
+       * Step 1 of the hero entrance: the bar drops in before anything under
+       * it moves. It runs on mount, so it plays once per full page load
+       * rather than on every client-side navigation.
+       */}
+      <motion.div
+        className="tl-container tl-container--wide tl-header__inner"
+        initial={reduceMotion ? false : { opacity: 0, y: -14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
+      >
         {brand}
 
         {/*
@@ -152,7 +164,7 @@ export function SiteNav({ links, actions, menuActions, menuMeta, brand }: SiteNa
             <span />
           </span>
         </button>
-      </div>
+      </motion.div>
 
       {/*
        * Rendered only while open rather than hidden with CSS, so its links never

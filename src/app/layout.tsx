@@ -89,6 +89,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         {/*
+         * Framer Motion writes its `initial` state into the server-rendered
+         * HTML — `opacity: 0` on the header bar, the hero image and its cards —
+         * and then animates it away on mount. With scripting off nothing ever
+         * mounts, so without this those elements stay invisible for good.
+         *
+         * `Reveal` solves the same problem by scoping its hidden state to
+         * `.tl-js`; a library that inlines styles cannot be scoped that way, so
+         * the guard has to outrank the inline style instead.
+         */}
+        <noscript>
+          <style>{
+            '.tl-header__inner,.tl-showcase,.tl-float,.tl-float__tooth' +
+            '{opacity:1!important;transform:none!important}'
+          }</style>
+        </noscript>
+
+        {/*
          * The skip link targets #main, which each route group's layout provides
          * on its <main> element. Without it, a keyboard or screen-reader user
          * tabs through the entire navigation on every single page.

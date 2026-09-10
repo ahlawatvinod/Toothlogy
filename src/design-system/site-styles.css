@@ -2205,23 +2205,16 @@
   block-size: 1.5rem;
 }
 
-/* Each drifts on the same cycle, offset so they never move in lockstep —
-   simultaneous movement reads as the whole panel wobbling. */
-@media (prefers-reduced-motion: no-preference) {
-  .tl-js .tl-float,
-  .tl-js .tl-float__tooth {
-    animation: tl-drift 6.5s var(--tl-ease) infinite;
-  }
-
-  .tl-js .tl-float--two    { animation-delay: -1.6s; }
-  .tl-js .tl-float--metric { animation-delay: -3.2s; }
-  .tl-js .tl-float__tooth  { animation-delay: -4.8s; }
-}
-
-@keyframes tl-drift {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50%      { transform: translate3d(0, -5px, 0); }
-}
+/*
+ * The cards' entrance and their drift are BOTH driven by Framer Motion, in
+ * `hero-carousel.tsx`, and deliberately not from here.
+ *
+ * A CSS animation sits above inline styles in the cascade, so a `tl-drift`
+ * keyframe on these elements would overwrite the inline transform Framer
+ * writes and the entrance would never be seen. One system has to own
+ * `transform` on a given element; here it is the one that also has to
+ * sequence the entrance.
+ */
 
 /* --- Trust strip ------------------------------------------------------------
  *
@@ -2425,7 +2418,20 @@
     position: static;
     max-inline-size: none;
     margin-block-start: var(--tl-space-3);
-    animation: none;
+  }
+
+  /*
+   * Cancel the drift once the cards are stacked in the flow.
+   *
+   * Three boxes in a vertical list bobbing on different phases makes the gaps
+   * between them pulse, which reads as jitter rather than as float. `!important`
+   * is the point: it is the only thing that outranks the inline transform
+   * Framer Motion writes, and the alternative is a media-query hook whose
+   * first client render would disagree with the server's.
+   */
+  .tl-float,
+  .tl-float__tooth {
+    transform: none !important;
   }
 
   .tl-float--metric { padding-inline-end: var(--tl-space-4); }

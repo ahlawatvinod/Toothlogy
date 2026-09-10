@@ -29,6 +29,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import NextImage from 'next/image';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { Icon, type IconName } from '@/design-system';
 
 export interface HeroSlide {
   readonly slug: string;
@@ -38,6 +39,24 @@ export interface HeroSlide {
   readonly height: number;
   /** Short human label for the thumbnail's accessible name. */
   readonly label: string;
+}
+
+/**
+ * A floating glass card over the frame.
+ *
+ * Passed as data rather than as rendered nodes so each card can be a motion
+ * element: the entrance stagger and the drift both animate `transform`, and a
+ * CSS animation beats an inline transform, so the two cannot be split across
+ * systems without one silently winning.
+ */
+export interface HeroCard {
+  /** Also selects the position modifier class. */
+  readonly key: 'one' | 'two' | 'metric';
+  readonly icon: IconName;
+  /** The metric card's disc is filled, matching the reference. */
+  readonly solid?: boolean;
+  readonly title: string;
+  readonly text: string;
 }
 
 /** How long a slide rests before the next one arrives. */
@@ -126,11 +145,10 @@ export function HeroCarouselProvider({
 /**
  * The framed image with its floating furniture.
  *
- * `overlay` is the floating-card layer, passed in from the server component so
- * the cards' copy stays in the page's own source rather than being duplicated
- * inside a client bundle.
+ * The whole block slides in from the right on load, which is step 6 of the
+ * brief's entrance sequence; the cards follow it in, staggered.
  */
-export function HeroCarousel({ overlay }: { readonly overlay?: React.ReactNode }) {
+export function HeroCarousel({ cards = [] }: { readonly cards?: readonly HeroCard[] }) {
   const carousel = useCarousel();
   const setPaused = useContext(PauseContext);
   const reduceMotion = useReducedMotion();
@@ -146,9 +164,28 @@ export function HeroCarousel({ overlay }: { readonly overlay?: React.ReactNode }
     go(next);
   };
 
+  /*
+   * The entrance runs once on mount.
+   *
+   * Reduced motion passes `initial: false` rather than dropping the props.
+   * Dropping them looks equivalent and is not: the server does not know the
+   * visitor's motion preference, so it renders the animated branch and bakes
+   * `opacity: 0` into the HTML. With no `animate` arriving after hydration
+   * nothing ever clears it, and a visitor who asked for less motion gets an
+   * invisible hero. `initial: false` renders straight at the resting state.
+   */
+  const enter = {
+    initial: reduceMotion ? (false as const) : { opacity: 0, x: 48 },
+    animate: { opacity: 1, x: 0 },
+    transition: reduceMotion
+      ? { duration: 0 }
+      : { duration: 0.7, delay: 0.15, ease: [0.22, 0.61, 0.36, 1] as const },
+  };
+
   return (
-    <div
+    <motion.div
       className="tl-showcase"
+      {...enter}
       onPointerEnter={() => setPaused(true)}
       onPointerLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -236,7 +273,13 @@ export function HeroCarousel({ overlay }: { readonly overlay?: React.ReactNode }
 
       {/* Floating cards sit OUTSIDE the frame: inside it the frame's own
           overflow would clip the parts that overhang its corners. */}
-      {overlay}
+      {cards.map((card, position) => (
+        <FloatingCard key={card.key} card={card} order={position} reduceMotion={!!reduceMotion} />
+      ))}
+
+      {cards.length > 0 ? (
+        <FloatingTooth order={cards.length} reduceMotion={!!reduceMotion} />
+      ) : null}
 
       {many ? (
         <>
@@ -284,7 +327,77 @@ export function HeroCarousel({ overlay }: { readonly overlay?: React.ReactNode }
           </div>
         </>
       ) : null}
-    </div>
+    </motion.div>
+  );
+}
+
+/**
+ * The entrance, then the drift, on one element.
+ *
+ * Both animate `transform`, so they have to come from the same system —
+ * per-property transitions let the scale settle first and the float start
+ * afterwards, looping for as long as the page is open.
+ */
+function floatMotion(order: number, reduceMotion: boolean) {
+  // See the note on `enter` above: reduced motion still has to send `animate`,
+  // or the server-rendered `opacity: 0` is never cleared.
+  if (reduceMotion) {
+    return { initial: false as const, animate: { opacity: 1, scale: 1, y: 0 } };
+  }
+  const delay = 0.55 + order * 0.12;
+  return {
+    initial: { opacity: 0, scale: 0.94 },
+    animate: { opacity: 1, scale: 1, y: [0, -5, 0] },
+    transition: {
+      opacity: { delay, duration: 0.45 },
+      scale: { delay, duration: 0.45, ease: [0.22, 0.61, 0.36, 1] as const },
+      // Offset per card so they never rise and fall in lockstep, which reads
+      // as the whole panel wobbling rather than as three separate cards.
+      y: {
+        delay: delay + 0.45,
+        duration: 6,
+        repeat: Infinity,
+        ease: 'easeInOut' as const,
+        times: [0, 0.5, 1],
+      },
+    },
+  };
+}
+
+function FloatingCard({
+  card,
+  order,
+  reduceMotion,
+}: {
+  readonly card: HeroCard;
+  readonly order: number;
+  readonly reduceMotion: boolean;
+}) {
+  return (
+    <motion.p className={`tl-float tl-float--${card.key}`} {...floatMotion(order, reduceMotion)}>
+      <span className={card.solid ? 'tl-float__icon tl-float__icon--solid' : 'tl-float__icon'}>
+        <Icon name={card.icon} />
+      </span>
+      <span>
+        <strong>{card.title}</strong>
+        {card.text}
+      </span>
+    </motion.p>
+  );
+}
+
+/** The glowing tooth badge at the frame's right edge. Decorative. */
+function FloatingTooth({
+  order,
+  reduceMotion,
+}: {
+  readonly order: number;
+  readonly reduceMotion: boolean;
+}) {
+  return (
+    <motion.span className="tl-float__tooth" aria-hidden="true" {...floatMotion(order, reduceMotion)}>
+      <Icon name="tooth" />
+    </motion.span>
   );
 }
 

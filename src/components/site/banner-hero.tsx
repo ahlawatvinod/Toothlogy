@@ -22,7 +22,6 @@
 
 import Link from 'next/link';
 import NextImage from 'next/image';
-import { Icon } from '@/design-system';
 import { resolveAsset } from '@/platform/media';
 import { cn } from '@/design-system';
 import { Reveal } from '@/components/motion/reveal';
@@ -133,52 +132,43 @@ export function BannerHero({
           ) : null}
         </div>
 
-        <Reveal variant="scale" delay={200} className="tl-hero__figure">
+        {/*
+         * No `Reveal` wrapper: the carousel animates its own entrance with
+         * Framer Motion (slide in from the right), and two systems fading the
+         * same subtree in would double the opacity ramp.
+         */}
+        <div className="tl-hero__figure">
           <HeroCarousel
-            overlay={
-              <>
-                {/*
-                 * Floating glass cards.
-                 *
-                 * The reference shows a star and "4.8 Average Rating" on the
-                 * third one. Toothlogy has no reviews — they are Phase 5 — so
-                 * that card carries a figure counted from the catalogue as the
-                 * page renders instead. An invented rating on a health
-                 * platform is the one number a patient would actually act on.
-                 */}
-                <p className="tl-float tl-float--one">
-                  <span className="tl-float__icon"><Icon name="shieldCheck" /></span>
-                  <span>
-                    <strong>Verified dentists</strong>
-                    Only qualified &amp; council-checked professionals.
-                  </span>
-                </p>
-
-                <p className="tl-float tl-float--two">
-                  <span className="tl-float__icon"><Icon name="tooth" /></span>
-                  <span>
-                    <strong>Expert care</strong>
-                    Every recognised specialty, in one place.
-                  </span>
-                </p>
-
-                <p className="tl-float tl-float--metric">
-                  <span className="tl-float__icon tl-float__icon--solid">
-                    <Icon name="sparkles" />
-                  </span>
-                  <span>
-                    <strong>{metric.value}</strong>
-                    {metric.label}
-                  </span>
-                </p>
-
-                <span className="tl-float__tooth" aria-hidden="true">
-                  <Icon name="tooth" />
-                </span>
-              </>
-            }
+            cards={[
+              {
+                key: 'one',
+                icon: 'shieldCheck',
+                title: 'Verified dentists',
+                text: 'Only qualified \u0026 council-checked professionals.',
+              },
+              {
+                key: 'two',
+                icon: 'tooth',
+                title: 'Expert care',
+                text: 'Every recognised specialty, in one place.',
+              },
+              /*
+               * The reference shows a star and "4.8 Average Rating" here.
+               * Toothlogy has no reviews — they are Phase 5 — so this card
+               * carries a figure counted from the catalogue as the page
+               * renders instead. An invented rating on a health platform is
+               * the one number a patient would actually act on.
+               */
+              {
+                key: 'metric',
+                icon: 'sparkles',
+                solid: true,
+                title: String(metric.value),
+                text: metric.label,
+              },
+            ]}
           />
-        </Reveal>
+        </div>
       </div>
     </section>
   );

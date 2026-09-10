@@ -32,6 +32,7 @@ import { Badge, Icon, type IconName } from '@/design-system';
 import { LogoMark } from '@/components/brand/logo';
 import { HeroTooth } from '@/components/brand/hero-tooth';
 import { Reveal } from '@/components/motion/reveal';
+import { MotionCta } from '@/components/motion/motion-cta';
 import { Counter } from '@/components/motion/counter';
 import { Feature, SectionHeading, Tile } from '@/components/site/sections';
 import { BannerCta, BannerHero, PromotionalBanner } from '@/components/site/banner-hero';
@@ -195,7 +196,7 @@ export default function HomePage() {
          */
         actions={
           <>
-            <Link className="tl-button tl-button--gradient tl-button--lg" href="/register">
+            <MotionCta className="tl-button tl-button--gradient tl-button--lg" href="/register">
               {/*
                * The reference puts a magnifier here. It is not used: this page
                * deliberately has no search, and a magnifier on the primary
@@ -204,14 +205,14 @@ export default function HomePage() {
                */}
               <Icon name="users" />
               Create an account
-            </Link>
-            <Link
+            </MotionCta>
+            <MotionCta
               className="tl-button tl-button--outline tl-button--lg"
               href="/register?role=dentist"
             >
               <Icon name="building" />
               List your practice
-            </Link>
+            </MotionCta>
           </>
         }
       />
