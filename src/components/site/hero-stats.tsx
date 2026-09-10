@@ -19,6 +19,7 @@
 import { Icon, type IconName } from '@/design-system';
 import { Counter } from '@/components/motion/counter';
 import { Reveal } from '@/components/motion/reveal';
+import { HeroCarouselNav } from './hero-carousel';
 
 export interface HeroStat {
   readonly icon: IconName;
@@ -30,7 +31,7 @@ export interface HeroStat {
 
 export function HeroStats({ stats }: { readonly stats: readonly HeroStat[] }) {
   return (
-    <div className="tl-container">
+    <div className="tl-container tl-container--wide">
       <Reveal className="tl-trust">
         <ul className="tl-trust__list">
           {stats.map((stat, index) => (
@@ -43,11 +44,24 @@ export function HeroStats({ stats }: { readonly stats: readonly HeroStat[] }) {
                   <Counter value={stat.value} suffix={stat.suffix} />
                 </span>
                 <span className="tl-trust__label">{stat.label}</span>
+                {/*
+                 * The qualifier the reference does not have. It stays because
+                 * it is what stops a counted figure from reading as a claim:
+                 * "29 modules registered" alone would imply twenty-nine
+                 * working modules, and eighteen of them are built.
+                 */}
                 <span className="tl-trust__meta">{stat.meta}</span>
               </span>
             </Reveal>
           ))}
         </ul>
+
+        {/*
+         * The previous/next pair the reference puts at this end of the bar.
+         * It drives the hero carousel, and renders nothing when there is no
+         * carousel to drive — a control that moves nothing does not ship.
+         */}
+        <HeroCarouselNav />
       </Reveal>
     </div>
   );

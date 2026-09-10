@@ -39,7 +39,8 @@ import { LabFeature } from '@/components/site/lab-feature';
 import { ProtectiveCare } from '@/components/site/protective-care';
 import { ComfortCare } from '@/components/site/comfort-care';
 import { HeroStats, type HeroStat } from '@/components/site/hero-stats';
-import { hasAsset } from '@/platform/media';
+import { HeroCarouselProvider, type HeroSlide } from '@/components/site/hero-carousel';
+import { hasAsset, resolveAsset } from '@/platform/media';
 
 export const metadata: Metadata = {
   title: 'Toothlogy — find the right dentist',
@@ -77,6 +78,26 @@ const SPECIALTY_ICONS: Readonly<Record<string, IconName>> = {
   cosmetic_dentistry: 'sparkles',
 };
 
+/**
+ * The hero carousel's running order.
+ *
+ * Slugs only: whether a slide appears is decided by whether its approved file
+ * has been delivered, which `resolveAsset` answers from the committed
+ * manifest. Nothing here can put a missing image on the page, and a slug whose
+ * file arrives later joins the carousel with no code change.
+ *
+ * The clinic banner leads because it is the composition the reference hero
+ * shows, and because it is the only one carrying both clinicians.
+ */
+const HERO_SLIDE_ORDER: ReadonlyArray<{ slug: string; label: string }> = [
+  { slug: 'banner-dental-hospital', label: 'Dentists and a dental clinic' },
+  { slug: 'temporary-crown', label: 'Crown treatment' },
+  { slug: 'dental-lab-custom-appliance', label: 'Dental laboratory' },
+  { slug: 'sports-mouthguard', label: 'Sports mouthguard' },
+  { slug: 'special-needs-care', label: 'Special-needs dental care' },
+  { slug: 'iv-sedation', label: 'Sedation dentistry' },
+];
+
 /** What the platform does for a patient, as it stands today. */
 const WHY_TOOTHLOGY: ReadonlyArray<{ icon: IconName; title: string; text: string }> = [
   {
@@ -105,6 +126,14 @@ export default function HomePage() {
   const summary = registrySummary();
   const enabledLanguages = LANGUAGES.filter((language) => language.enabled).length;
 
+  // Only the slides whose approved file is actually present.
+  const heroSlides: HeroSlide[] = HERO_SLIDE_ORDER.flatMap(({ slug, label }) => {
+    const asset = resolveAsset(slug);
+    return asset
+      ? [{ slug, src: asset.src, alt: asset.alt, width: asset.width, height: asset.height, label }]
+      : [];
+  });
+
   return (
     <>
       {/*
@@ -116,13 +145,40 @@ export default function HomePage() {
        * action are identical, so nothing about the page's meaning depends on
        * whether a file has arrived.
        */}
+      {/*
+       * The carousel index lives above both the hero and the statistics bar,
+       * because the reference puts the previous/next buttons at the end of the
+       * bar rather than on the image. Server children are passed straight
+       * through the client provider, so nothing below becomes a client
+       * component by being wrapped.
+       */}
+      <HeroCarouselProvider slides={heroSlides}>
       <BannerHero
+        slides={heroSlides}
+        metric={{ value: DENTAL_SPECIALTIES.length, label: 'Specialties covered' }}
         badge="Better care · Healthier smiles · Brighter future"
+        /*
+         * The line breaks are explicit.
+         *
+         * The reference sets this headline as four specific lines, and the
+         * measure that produces them by wrapping alone is a 370-378px window —
+         * eight pixels wide, which holds only while Manrope loads. If the font
+         * falls back the box stays the same and the headline reflows into
+         * something that is not the design. These breaks give the reference's
+         * composition in any font, and `.tl-hero__title br` is display:none
+         * below the two-column breakpoint, where the copy needs to reflow.
+         */
         title={
           <>
-            Help every good dentist be{' '}
+            {/* The explicit space after each break matters: JSX drops the
+                newline between elements, so with the breaks hidden on small
+                screens the words would run together as "Help everygood". */}
+            Help every<br />{' '}
+            good dentist<br />{' '}
+            be{' '}
             <span className="tl-gradient-text tl-gradient-text--on-banner">
-              found by the right patient
+              found by the<br />{' '}
+              right patient
             </span>
             .
           </>
@@ -140,12 +196,20 @@ export default function HomePage() {
         actions={
           <>
             <Link className="tl-button tl-button--gradient tl-button--lg" href="/register">
+              {/*
+               * The reference puts a magnifier here. It is not used: this page
+               * deliberately has no search, and a magnifier on the primary
+               * action would advertise one. `users` says "account", which is
+               * what the button actually does.
+               */}
+              <Icon name="users" />
               Create an account
             </Link>
             <Link
               className="tl-button tl-button--outline tl-button--lg"
               href="/register?role=dentist"
             >
+              <Icon name="building" />
               List your practice
             </Link>
           </>
@@ -242,7 +306,7 @@ export default function HomePage() {
        * Trust strip. Real counts only — see the note in hero-stats.tsx for why
        * the reference's dentist/clinic/rating figures are not used.
        */}
-      <section className="tl-section tl-section--tight" aria-label="Toothlogy at a glance">
+      <section className="tl-section tl-section--flush" aria-label="Toothlogy at a glance">
         <HeroStats
           stats={
             [
@@ -264,16 +328,11 @@ export default function HomePage() {
                 label: 'Countries configured',
                 meta: 'Currency, tax and locale per country',
               },
-              {
-                icon: 'shieldCheck',
-                value: summary.apis.implemented,
-                label: 'APIs live',
-                meta: `of ${summary.apis.total} registered`,
-              },
             ] satisfies HeroStat[]
           }
         />
       </section>
+      </HeroCarouselProvider>
 
       {/* ================= SPECIALTIES ================= */}
       <section className="tl-section" aria-labelledby="specialties-heading">

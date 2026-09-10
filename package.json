@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "framer-motion": "^13.2.0",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -50,7 +51,7 @@
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.11"
   },
-  "description": "Toothlogy \u2014 global dental ecosystem. Phase 0 foundation.",
+  "description": "Toothlogy — global dental ecosystem. Phase 0 foundation.",
   "engines": {
     "node": ">=20.9.0"
   },

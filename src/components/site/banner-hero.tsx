@@ -26,6 +26,7 @@ import { Icon } from '@/design-system';
 import { resolveAsset } from '@/platform/media';
 import { cn } from '@/design-system';
 import { Reveal } from '@/components/motion/reveal';
+import { HeroCarousel, type HeroSlide } from './hero-carousel';
 
 /**
  * The approved image presented as a card.
@@ -77,18 +78,34 @@ export function BannerHero({
   lead,
   actions,
   note,
+  slides,
+  metric,
 }: {
   readonly badge: string;
   readonly title: React.ReactNode;
   readonly lead: string;
   readonly actions: React.ReactNode;
   readonly note?: string;
+  readonly slides: readonly HeroSlide[];
+  /** A counted figure for the small card over the image. Never invented. */
+  readonly metric: { readonly value: number; readonly label: string };
 }) {
-  if (!resolveAsset('banner-dental-hospital')) return null;
+  if (slides.length === 0) return null;
 
   return (
     <section className="tl-hero tl-hero--split" aria-labelledby="hero-heading">
-      <div className="tl-container tl-hero__inner">
+      {/*
+       * Background atmosphere, matching the reference: a cyan wash entering
+       * from the left, a cooler blue one from the upper right, and two soft
+       * organic curves. All decorative, all behind the content, and all in
+       * CSS — there is no photographic decoration here to go missing.
+       */}
+      <div className="tl-hero__atmosphere" aria-hidden="true">
+        <span className="tl-hero__curve tl-hero__curve--one" />
+        <span className="tl-hero__curve tl-hero__curve--two" />
+      </div>
+
+      <div className="tl-container tl-container--wide tl-hero__inner">
         {/*
          * Staggered entrance. Each element carries its own delay so the
          * headline settles before the paragraph, which settles before the
@@ -117,49 +134,50 @@ export function BannerHero({
         </div>
 
         <Reveal variant="scale" delay={200} className="tl-hero__figure">
-          {/* Atmospheric glow behind the banner. Decorative and aria-hidden. */}
-          <div className="tl-hero__glow-blob" aria-hidden="true" />
+          <HeroCarousel
+            overlay={
+              <>
+                {/*
+                 * Floating glass cards.
+                 *
+                 * The reference shows a star and "4.8 Average Rating" on the
+                 * third one. Toothlogy has no reviews — they are Phase 5 — so
+                 * that card carries a figure counted from the catalogue as the
+                 * page renders instead. An invented rating on a health
+                 * platform is the one number a patient would actually act on.
+                 */}
+                <p className="tl-float tl-float--one">
+                  <span className="tl-float__icon"><Icon name="shieldCheck" /></span>
+                  <span>
+                    <strong>Verified dentists</strong>
+                    Only qualified &amp; council-checked professionals.
+                  </span>
+                </p>
 
-          <div className="tl-hero__banner-wrap">
-            <ImageCard
-              slug="banner-dental-hospital"
-              eager
-              sizes="(max-width: 64rem) 100vw, 56vw"
-              className="tl-hero__banner"
-            />
+                <p className="tl-float tl-float--two">
+                  <span className="tl-float__icon"><Icon name="tooth" /></span>
+                  <span>
+                    <strong>Expert care</strong>
+                    Every recognised specialty, in one place.
+                  </span>
+                </p>
 
-            {/*
-             * Floating glass cards.
-             *
-             * These state capabilities the platform genuinely enforces in code.
-             * They are deliberately NOT statistics: there is no dentist count,
-             * no clinic count and no average rating to show, and inventing one
-             * on a health platform is a number a patient would act on
-             * (Constitution P9). The real figures live in the strip below,
-             * counted from the registry as the page renders.
-             */}
-            <p className="tl-hero__chip tl-hero__chip--one">
-              <Icon name="shieldCheck" />
-              <span>
-                <strong>Verified dentists</strong>
-                Qualifications checked against the issuing council&rsquo;s register.
-              </span>
-            </p>
-            <p className="tl-hero__chip tl-hero__chip--two">
-              <Icon name="scale" />
-              <span>
-                <strong>Merit over spend</strong>
-                Every promoted result is labelled as one.
-              </span>
-            </p>
-            <p className="tl-hero__chip tl-hero__chip--three">
-              <Icon name="lock" />
-              <span>
-                <strong>Records stay yours</strong>
-                Access is explicit, revocable and audited.
-              </span>
-            </p>
-          </div>
+                <p className="tl-float tl-float--metric">
+                  <span className="tl-float__icon tl-float__icon--solid">
+                    <Icon name="sparkles" />
+                  </span>
+                  <span>
+                    <strong>{metric.value}</strong>
+                    {metric.label}
+                  </span>
+                </p>
+
+                <span className="tl-float__tooth" aria-hidden="true">
+                  <Icon name="tooth" />
+                </span>
+              </>
+            }
+          />
         </Reveal>
       </div>
     </section>

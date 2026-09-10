@@ -115,7 +115,7 @@ export function SiteNav({ links, actions, menuActions, menuMeta, brand }: SiteNa
 
   return (
     <header className="tl-header" data-scrolled={scrolled} data-menu-open={open}>
-      <div className="tl-container tl-header__inner">
+      <div className="tl-container tl-container--wide tl-header__inner">
         {brand}
 
         {/*

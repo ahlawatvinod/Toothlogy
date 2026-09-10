@@ -15,7 +15,7 @@
 import Link from 'next/link';
 import { currentPrincipal } from '@/platform/auth/server';
 import { isAuthenticated } from '@/platform/rbac';
-import { ThemeToggle } from '@/design-system';
+import { Icon, ThemeToggle } from '@/design-system';
 import { Logo } from '@/components/brand/logo';
 import { SignOutButton } from './sign-out-button';
 import { SiteNav, type NavLink } from './site-nav';
@@ -47,6 +47,11 @@ export async function SiteHeader() {
       brand={brand}
       actions={
         <>
+          {/* Names the control that follows it, as the reference navbar does.
+              Decorative: the radiogroup already carries the label "Theme". */}
+          <span className="tl-header__appearance-icon" aria-hidden="true">
+            <Icon name="sun" />
+          </span>
           <ThemeToggle />
           {signedIn ? (
             <>

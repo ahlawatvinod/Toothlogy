@@ -26,6 +26,18 @@
   }
 }
 
+/*
+ * The wider track.
+ *
+ * The reference design runs its navbar, hero and stats bar on one wider
+ * measure than body copy — roughly 100px gutters at 1440 — so those three
+ * surfaces line up with each other. Reading prose stays on `.tl-container`,
+ * because a 1248px measure is too long a line to read comfortably.
+ */
+.tl-container--wide {
+  max-width: var(--tl-container-wide);
+}
+
 .tl-stack > * + * {
   margin-block-start: var(--tl-space-4);
 }

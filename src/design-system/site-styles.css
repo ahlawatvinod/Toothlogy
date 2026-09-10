@@ -66,6 +66,12 @@
   padding-block: var(--tl-space-8);
 }
 
+/* Sits immediately under the section above it, the way the reference's stats
+   bar tucks under the hero rather than starting a new movement. */
+.tl-section--flush {
+  padding-block: var(--tl-space-5) var(--tl-space-8);
+}
+
 /* A tinted band. Used to break the page into movements so it does not read as
    one uninterrupted column of white cards. */
 .tl-section--sunken {
@@ -1629,18 +1635,54 @@
  */
 .tl-hero--split .tl-hero__inner {
   /*
-   * 42/58. The banner is the focal point and wants the larger share, but the
-   * copy column still has to fit both calls to action on one line — at 0.78fr
-   * it did not, and they stacked, which reads as a mistake rather than as a
-   * choice.
+   * 45/55, the copy end of the reference's 40-45% / 55-60% split.
+   *
+   * The image is the focal point and wants the larger share, but the copy
+   * column still has to fit both calls to action on one line. Adding the
+   * reference's button icons pushed that row to about 513px, so at 42% it
+   * wrapped — which reads as a mistake rather than as a choice.
    */
-  grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: center;
   gap: var(--tl-space-6);
 }
 
 .tl-hero--split .tl-hero__copy {
-  max-width: 30rem;
+  max-width: 34rem;
+}
+
+/* The prose keeps the reference's comfortable ~500px measure even though the
+   column around it is wider for the buttons' sake. */
+.tl-hero--split .tl-hero__lead,
+.tl-hero--split .tl-hero__note {
+  max-width: 31rem;
+}
+
+/*
+ * The headline runs on a deliberately narrow measure so it breaks into the
+ * reference's four lines — "Help every / good dentist / be found by the /
+ * right patient." — instead of three long ones.
+ *
+ * `balance` is dropped with it. Balancing redistributes words to even the
+ * line lengths, which is the opposite of what a measure-driven break wants:
+ * it was the reason the headline set as three even lines however narrow the
+ * column got.
+ */
+.tl-hero--split .tl-hero__title {
+  /* Measured off the reference: ~52px at a 1440 design width, about 10%
+     smaller than the site's default display size. */
+  font-size: clamp(2.5rem, 1.7rem + 3.3vw, 3.25rem);
+  /* The breaks are authored in the markup, so balancing — which redistributes
+     words to even the line lengths — has to be off or it fights them. */
+  text-wrap: wrap;
+}
+
+/* Below the two-column breakpoint the headline gets the full width and has to
+   reflow to it, so the authored breaks are dropped. */
+@media (max-width: 64rem) {
+  .tl-hero--split .tl-hero__title br {
+    display: none;
+  }
 }
 
 .tl-hero__figure {
@@ -1762,106 +1804,306 @@
 
 
 /* ==========================================================================
-   HERO — banner, atmosphere and floating cards
+   HERO — atmosphere, image carousel and floating cards
    ==========================================================================
 
-   The banner is the page's focal point, so it gets the width, the glow and the
-   only looping animation on the site. Everything here is presentation over the
-   approved photograph; the file itself is untouched.
+   Built to the supplied reference composition: copy left at ~42%, a framed
+   image carousel right at ~58%, glass cards overhanging its corners, a
+   thumbnail rail straddling its lower edge, and pagination beneath.
+
+   Everything decorative here is CSS. The reference's blurred foliage at the
+   frame edges would need photographic assets that do not exist in this
+   repository, so the atmosphere is built from gradients instead of from
+   images that would otherwise be missing.
    ========================================================================== */
 
 /*
- * A white-to-pale-blue ground with two soft colour fields, rather than flat
- * white. Both fields are radial gradients on the section's own background —
- * no extra elements, nothing to lay out, nothing for a screen reader to meet.
+ * The background, in four layers rather than one flat colour:
+ *   1. a cyan field entering from the left,
+ *   2. a cooler blue field from the upper right,
+ *   3. a wide diffuse glow sitting behind the image frame,
+ *   4. the pale wash underneath, which is the only themed layer.
+ * All four are on the section's own background, so there is nothing extra to
+ * lay out and nothing for a screen reader to meet.
  */
 .tl-hero--split {
   position: relative;
   isolation: isolate;
   overflow: clip;
   background:
-    radial-gradient(48rem 30rem at 78% 18%, rgb(34 184 214 / 0.13), transparent 68%),
-    radial-gradient(40rem 26rem at 8% 82%, rgb(14 143 138 / 0.10), transparent 70%),
+    radial-gradient(38rem 30rem at 2% 40%, rgb(34 184 214 / 0.16), transparent 62%),
+    radial-gradient(46rem 32rem at 96% 8%, rgb(52 140 220 / 0.16), transparent 66%),
+    radial-gradient(44rem 26rem at 72% 42%, rgb(34 184 214 / 0.14), transparent 70%),
     var(--tl-hero-wash);
-  padding-block: var(--tl-space-8) var(--tl-space-9);
+  padding-block: var(--tl-space-8) var(--tl-space-7);
 }
 
-/*
- * One organic curve, drawn as an oversized rotated ellipse bleeding off the
- * right edge. It reads as the swept shape in the brand artwork without being a
- * second image to load.
- */
-.tl-hero--split::before {
-  content: "";
+/* The soft organic curves. Oversized rotated ellipses bleeding off the edges,
+   which is what gives the ground its swept, non-linear feel. */
+.tl-hero__atmosphere {
   position: absolute;
   z-index: -1;
-  inset-block-start: -30%;
-  inset-inline-end: -18%;
-  inline-size: 70%;
-  block-size: 130%;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.tl-hero__curve {
+  position: absolute;
+  display: block;
   border-radius: 45%;
   background: var(--tl-hero-curve);
+}
+
+.tl-hero__curve--one {
+  inset-block-start: -34%;
+  inset-inline-end: -16%;
+  inline-size: 66%;
+  block-size: 128%;
   transform: rotate(-12deg);
+}
+
+.tl-hero__curve--two {
+  inset-block-end: -46%;
+  inset-inline-start: -20%;
+  inline-size: 54%;
+  block-size: 96%;
+  opacity: 0.7;
+  transform: rotate(9deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-js .tl-hero__curve--one { animation: tl-sway 22s var(--tl-ease) infinite; }
+  .tl-js .tl-hero__curve--two { animation: tl-sway 26s var(--tl-ease) -8s infinite reverse; }
+}
+
+/* Very slow and very small: the ground should feel alive, not animated. */
+@keyframes tl-sway {
+  0%, 100% { transform: rotate(-12deg) translate3d(0, 0, 0); }
+  50%      { transform: rotate(-12deg) translate3d(-1.5%, 2%, 0); }
 }
 
 .tl-hero__figure {
   position: relative;
-  /* Room for the cards that sit above and below the banner. Without it they
-     are clipped by the section's `overflow: clip`. */
-  padding-block: var(--tl-space-7);
+  min-inline-size: 0;
 }
 
-/* Atmospheric glow behind the banner. */
-.tl-hero__glow-blob {
+/* --- The image carousel ----------------------------------------------------
+ *
+ * The padding is structural: the cards overhang the frame's top corners and
+ * the rail and dots hang below it, and all of them are positioned against
+ * this box rather than against the frame, whose own overflow would clip them.
+ */
+
+.tl-showcase {
+  position: relative;
+  padding-block: 3.25rem 4.75rem;
+}
+
+/* Diffuse glow behind the frame — layer 3 of the reference's atmosphere, but
+   anchored to the image so it tracks the frame at every width. */
+.tl-showcase__glow {
   position: absolute;
   z-index: -1;
-  inset: -12% -8%;
+  inset: 8% -10% 12%;
   border-radius: var(--tl-radius-full);
   background: radial-gradient(
     circle at 50% 50%,
-    rgb(34 184 214 / 0.30) 0%,
-    rgb(14 143 138 / 0.14) 45%,
+    rgb(34 184 214 / 0.32) 0%,
+    rgb(52 140 220 / 0.16) 46%,
     transparent 72%
   );
-  filter: blur(28px);
+  filter: blur(30px);
 }
 
-.tl-hero__banner-wrap {
+.tl-showcase__frame {
   position: relative;
-}
-
-.tl-hero__banner {
-  border-radius: var(--tl-radius-2xl);
+  aspect-ratio: 2.6;
+  overflow: hidden;
+  border: 1px solid var(--tl-frame-border);
+  border-radius: var(--tl-radius-frame);
+  background: var(--tl-color-surface-sunken);
   box-shadow:
-    0 2px 6px rgb(13 40 56 / 0.08),
-    0 24px 60px rgb(15 109 140 / 0.22);
+    0 2px 6px rgb(13 40 56 / 0.06),
+    0 24px 60px rgb(15 109 140 / 0.20);
 }
 
 /*
- * A very slow, very small vertical drift. 8px over 6 seconds is below the
- * threshold at which motion draws the eye away from the copy — which is the
- * point: it should register as depth, not as something moving.
+ * 2.6:1 is a considered number, not the reference's.
+ *
+ * The reference frame is about 1.95:1. The approved clinic banner is 3.2:1
+ * with a clinician at each extreme edge, so cover-cropping it to 1.95 removes
+ * both of them — the one thing the photograph exists to show. 2.6 is the
+ * tightest frame that still contains both people whole.
  */
-@media (prefers-reduced-motion: no-preference) {
-  .tl-hero__banner {
-    animation: tl-drift 6s var(--tl-ease) infinite;
+.tl-showcase__stage {
+  position: absolute;
+  inset: 0;
+}
+
+.tl-showcase__slide {
+  position: absolute;
+  inset: 0;
+}
+
+.tl-showcase__img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* --- Slider controls -------------------------------------------------------- */
+
+.tl-showcase__arrow {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 50%;
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--tl-glass-border);
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-glass-bg-strong);
+  color: var(--tl-color-text);
+  box-shadow: var(--tl-shadow-md);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background var(--tl-duration-fast) var(--tl-ease),
+    opacity var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-showcase__arrow svg {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+}
+
+.tl-showcase__arrow--prev { inset-inline-start: 0.75rem; }
+.tl-showcase__arrow--next { inset-inline-end: 0.75rem; }
+
+.tl-showcase__arrow:hover { background: var(--tl-color-surface); }
+
+/*
+ * Dimmed until wanted, never hidden.
+ *
+ * `opacity` rather than `display`, because a control that does not exist until
+ * hover cannot be reached by keyboard or touch at all — and the arrows are the
+ * only way to drive the carousel backwards on a phone.
+ */
+@media (hover: hover) {
+  .tl-showcase__arrow { opacity: 0.55; }
+
+  .tl-showcase:hover .tl-showcase__arrow,
+  .tl-showcase__arrow:focus-visible {
+    opacity: 1;
   }
 }
 
-@keyframes tl-drift {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -8px, 0); }
+/* --- Thumbnail rail --------------------------------------------------------- */
+
+.tl-showcase__rail {
+  position: absolute;
+  z-index: 4;
+  inset-block-end: 2.25rem;
+  inset-inline-start: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--tl-space-2);
+  max-inline-size: calc(100% - 2rem);
+  padding: var(--tl-space-2) var(--tl-space-3);
+  border: 1px solid var(--tl-glass-border);
+  border-radius: var(--tl-radius-2xl);
+  background: var(--tl-glass-bg-strong);
+  box-shadow: var(--tl-shadow-lg);
+  overflow-x: auto;
+  scrollbar-width: none;
+  transform: translateX(-50%);
 }
 
-/* --- Floating glass cards -------------------------------------------------- */
+.tl-showcase__rail::-webkit-scrollbar { display: none; }
 
-.tl-hero__chip {
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .tl-showcase__rail {
+    -webkit-backdrop-filter: var(--tl-glass-blur);
+    backdrop-filter: var(--tl-glass-blur);
+  }
+}
+
+.tl-showcase__thumb {
+  flex: none;
+  display: block;
+  inline-size: 3rem;
+  block-size: 3rem;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-color-surface-sunken);
+  opacity: 0.65;
+  cursor: pointer;
+  transition:
+    opacity var(--tl-duration-fast) var(--tl-ease),
+    transform var(--tl-duration-fast) var(--tl-ease),
+    border-color var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-showcase__thumb-img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.tl-showcase__thumb:hover { opacity: 0.9; }
+
+.tl-showcase__thumb--active {
+  opacity: 1;
+  border-color: var(--tl-color-accent);
+  box-shadow: 0 0 0 3px rgb(34 184 214 / 0.22);
+  transform: scale(1.1);
+}
+
+/* --- Pagination dots -------------------------------------------------------- */
+
+.tl-showcase__dots {
   position: absolute;
-  z-index: 2;
+  inset-block-end: 0.75rem;
+  inset-inline-start: 50%;
+  display: flex;
+  gap: var(--tl-space-2);
+  transform: translateX(-50%);
+}
+
+.tl-showcase__dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-color-border-strong);
+  cursor: pointer;
+  transition:
+    background var(--tl-duration-fast) var(--tl-ease),
+    inline-size var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-showcase__dot--active {
+  inline-size: 1.25rem;
+  background: var(--tl-color-accent);
+}
+
+/* --- Floating glass cards --------------------------------------------------- */
+
+.tl-float {
+  position: absolute;
+  z-index: 5;
   display: flex;
   align-items: flex-start;
   gap: var(--tl-space-3);
-  max-inline-size: 14rem;
+  max-inline-size: 13.5rem;
   margin: 0;
   padding: var(--tl-space-3) var(--tl-space-4);
   border: 1px solid var(--tl-glass-border);
@@ -1875,13 +2117,13 @@
 }
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .tl-hero__chip {
+  .tl-float {
     -webkit-backdrop-filter: var(--tl-glass-blur);
     backdrop-filter: var(--tl-glass-blur);
   }
 }
 
-.tl-hero__chip strong {
+.tl-float strong {
   display: block;
   margin-block-end: 0.125rem;
   font-size: var(--tl-text-sm);
@@ -1889,86 +2131,111 @@
   color: var(--tl-color-text);
 }
 
-.tl-hero__chip svg {
+.tl-float__icon {
+  display: grid;
+  place-items: center;
   flex: none;
-  inline-size: 1.1rem;
-  block-size: 1.1rem;
-  margin-block-start: 0.1rem;
-  color: var(--tl-color-accent);
+  inline-size: 1.9rem;
+  block-size: 1.9rem;
+  border-radius: 0.6rem;
+  background: rgb(34 184 214 / 0.14);
+  color: var(--tl-color-brand);
+}
+
+.tl-float__icon svg {
+  inline-size: 1.05rem;
+  block-size: 1.05rem;
+}
+
+.tl-float__icon--solid {
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-gradient-brand);
+  color: #ffffff;
 }
 
 /*
- * The cards sit ABOVE and BELOW the banner, not across it.
+ * Card placement.
  *
- * This composition has a clinician at each end and the tooth in the middle,
- * which leaves no interior region a 15rem card can occupy without covering a
- * face — and covering the faces is the one thing a card must not do on a
- * banner whose whole job is to show two clinicians. So they clear the image
- * vertically and only clip its corners.
+ * The two headline cards overhang the frame's top corners exactly as the
+ * reference has them. The metric card does NOT sit over the middle of the
+ * image where the reference puts its rating card: this is a carousel, the
+ * slides are photographs of patients and clinicians, and a card pinned to the
+ * centre lands on somebody's face on at least one of them. It hangs off the
+ * lower-left corner instead — same size, same treatment, nothing covered.
  */
-.tl-hero--split .tl-hero__chip {
-  /* Reset every inset first, so only the two named below take effect. */
-  inset: auto;
+.tl-float--one    { inset-block-start: 0.25rem; inset-inline-start: -1rem; }
+.tl-float--two    { inset-block-start: 0;       inset-inline-end: -1rem; }
+
+.tl-float--metric {
+  /* Clear of the rail, which straddles the frame's lower edge below it. */
+  inset-block-end: 7rem;
+  inset-inline-start: -1rem;
+  align-items: center;
+  max-inline-size: none;
+  padding-inline-end: var(--tl-space-5);
 }
 
-.tl-hero--split .tl-hero__chip--one   { inset-block-start: -2.75rem; inset-inline-start: -1.5rem; }
-.tl-hero--split .tl-hero__chip--two   { inset-block-end: -2.5rem;    inset-inline-end: -1.5rem; }
-.tl-hero--split .tl-hero__chip--three { inset-block-end: -3.25rem;   inset-inline-start: 14%; }
+.tl-float--metric strong {
+  font-size: var(--tl-text-xl);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
 
-/* Each drifts on the same 6s cycle, offset so they never move in lockstep —
+/* The glowing tooth badge at the frame's right edge. */
+.tl-float__tooth {
+  position: absolute;
+  z-index: 5;
+  inset-block-end: 5.5rem;
+  inset-inline-end: -1.25rem;
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  border: 1px solid var(--tl-glass-border);
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-glass-bg-strong);
+  color: var(--tl-color-accent);
+  box-shadow:
+    var(--tl-shadow-md),
+    0 0 24px rgb(34 184 214 / 0.45);
+}
+
+.tl-float__tooth svg {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+
+/* Each drifts on the same cycle, offset so they never move in lockstep —
    simultaneous movement reads as the whole panel wobbling. */
 @media (prefers-reduced-motion: no-preference) {
-  .tl-hero__chip { animation: tl-drift 6.5s var(--tl-ease) infinite; }
-  .tl-hero__chip--two   { animation-delay: -2.2s; }
-  .tl-hero__chip--three { animation-delay: -4.4s; }
+  .tl-js .tl-float,
+  .tl-js .tl-float__tooth {
+    animation: tl-drift 6.5s var(--tl-ease) infinite;
+  }
+
+  .tl-js .tl-float--two    { animation-delay: -1.6s; }
+  .tl-js .tl-float--metric { animation-delay: -3.2s; }
+  .tl-js .tl-float__tooth  { animation-delay: -4.8s; }
 }
 
-@media (max-width: 64rem) {
-  .tl-hero--split .tl-hero__chip--one   { inset-inline-start: 0; }
-  .tl-hero--split .tl-hero__chip--two   { inset-inline-end: 0; }
-  .tl-hero--split .tl-hero__chip--three { display: none; }
-}
-
-/*
- * Below 48rem the cards come out of the corners and sit under the banner as a
- * normal row. Pinned to a 320px-wide image they overlap each other and the
- * clinicians' faces, and shrinking them far enough to fit makes them
- * unreadable — so they stop floating rather than become decoration.
- */
-@media (max-width: 48rem) {
-  /* The figure's vertical padding only existed to give the floating cards
-     room to overhang. Once they sit in the flow it is dead space. */
-  .tl-hero--split .tl-hero__figure {
-    padding-block: 0;
-  }
-
-  .tl-hero__banner-wrap {
-    display: grid;
-    gap: var(--tl-space-3);
-  }
-
-  .tl-hero__chip {
-    position: static;
-    max-inline-size: none;
-    animation: none;
-  }
-
-  /* Hidden between 48rem and 64rem because three pinned cards overlap a
-     narrowing banner. In the flow they simply stack, so it comes back. */
-  .tl-hero--split .tl-hero__chip--three {
-    display: flex;
-  }
+@keyframes tl-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(0, -5px, 0); }
 }
 
 /* --- Trust strip ------------------------------------------------------------
  *
- * A single glass panel under the hero. Vertical rules separate the figures on
- * desktop and disappear when the row wraps, because a divider hanging under a
- * wrapped item reads as an error rather than as structure.
+ * The reference's stats bar: one wide translucent panel, figures packed to the
+ * left behind circular icons and separated by hairline rules, and the
+ * carousel's previous/next pair at the far right.
  */
 
 .tl-trust {
-  padding: var(--tl-space-5) var(--tl-space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tl-space-5);
+  padding: var(--tl-space-4) var(--tl-space-5);
   border: 1px solid var(--tl-glass-border);
   border-radius: var(--tl-radius-2xl);
   background: var(--tl-glass-bg-strong);
@@ -1983,9 +2250,11 @@
 }
 
 .tl-trust__list {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--tl-space-4);
+  min-inline-size: 0;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1995,13 +2264,19 @@
   display: flex;
   align-items: center;
   gap: var(--tl-space-3);
-  padding-inline: var(--tl-space-2);
+  padding-inline-end: var(--tl-space-4);
 }
 
 .tl-trust__item + .tl-trust__item {
+  padding-inline-start: var(--tl-space-4);
   border-inline-start: 1px solid var(--tl-color-border);
 }
 
+/*
+ * A pale disc with a coloured glyph, as in the reference — not the solid
+ * gradient chip used elsewhere on the site. Three saturated discs in a row
+ * out-weigh the figures they are supposed to introduce.
+ */
 .tl-trust__icon {
   display: grid;
   place-items: center;
@@ -2009,14 +2284,13 @@
   inline-size: 2.75rem;
   block-size: 2.75rem;
   border-radius: var(--tl-radius-full);
-  background: var(--tl-gradient-brand);
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgb(15 109 140 / 0.28);
+  background: rgb(34 184 214 / 0.14);
+  color: var(--tl-color-brand);
 }
 
 .tl-trust__icon svg {
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
 }
 
 .tl-trust__text {
@@ -2027,15 +2301,15 @@
 .tl-trust__value {
   font-size: var(--tl-text-2xl);
   font-weight: var(--tl-weight-bold);
-  line-height: 1.1;
+  line-height: 1.15;
   letter-spacing: var(--tl-tracking-tight);
   font-variant-numeric: tabular-nums;
-  color: var(--tl-color-brand);
+  color: var(--tl-color-text);
 }
 
 .tl-trust__label {
   font-size: var(--tl-text-sm);
-  font-weight: var(--tl-weight-semibold);
+  color: var(--tl-color-text-muted);
 }
 
 .tl-trust__meta {
@@ -2044,41 +2318,190 @@
   text-wrap: pretty;
 }
 
+/* --- The carousel's previous/next pair -------------------------------------- */
+
+.tl-trust__nav {
+  display: flex;
+  flex: none;
+  gap: var(--tl-space-2);
+}
+
+.tl-trust__navbutton {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  padding: 0;
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-full);
+  background: rgb(34 184 214 / 0.08);
+  color: var(--tl-color-brand);
+  cursor: pointer;
+  transition:
+    background var(--tl-duration-fast) var(--tl-ease),
+    color var(--tl-duration-fast) var(--tl-ease);
+}
+
+.tl-trust__navbutton svg {
+  inline-size: 1.05rem;
+  block-size: 1.05rem;
+}
+
+.tl-trust__navbutton:hover {
+  background: var(--tl-color-brand);
+  color: #ffffff;
+}
+
+/* --- Hero and stats bar: responsive ----------------------------------------
+ *
+ * Not a shrunk desktop. The frame keeps its aspect but the cards leave the
+ * corners, the rail leaves the image, and the stats bar stops being one row.
+ */
+
+/* Tablet: still two columns of copy and image, but tighter. */
+@media (max-width: 75rem) {
+  .tl-float {
+    max-inline-size: 11.5rem;
+    padding: var(--tl-space-2) var(--tl-space-3);
+  }
+
+  .tl-float--one, .tl-float--two { inset-inline-start: auto; inset-inline-end: auto; }
+  .tl-float--one { inset-inline-start: -0.5rem; }
+  .tl-float--two { inset-inline-end: -0.5rem; }
+}
+
 @media (max-width: 64rem) {
+  /*
+   * Single column. Required as a two-class selector: `.tl-hero--split
+   * .tl-hero__inner` outranks the plain `.tl-hero__inner` rule in the earlier
+   * media query, and without this the hero stayed two-column all the way
+   * down — at 320px that rendered the image 136px wide.
+   */
+  .tl-hero--split .tl-hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--tl-space-6);
+  }
+
+  /* Copy first: the reader gets the point before the picture. */
+  .tl-hero--split .tl-hero__figure {
+    order: 2;
+    inline-size: 100%;
+    max-inline-size: 44rem;
+    margin-inline: auto;
+  }
+
+  .tl-hero--split .tl-hero__copy {
+    max-width: none;
+  }
+
+  /* Three stats no longer fit one row beside the arrows. */
+  .tl-trust {
+    flex-wrap: wrap;
+    gap: var(--tl-space-4);
+  }
+
   .tl-trust__list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--tl-space-5);
+    gap: var(--tl-space-3);
+  }
+}
+
+/*
+ * Below 48rem the cards come out of the corners and the rail comes off the
+ * image. Pinned to a 320px-wide frame they overlap each other and the
+ * clinicians' faces, and shrinking them far enough to fit makes them
+ * unreadable — so they stop floating rather than become decoration.
+ */
+@media (max-width: 48rem) {
+  .tl-showcase {
+    padding-block: 0 0;
   }
 
-  /* Only the second item in each row keeps a rule; the third starts a new row
-     and a leading border there would hang off nothing. */
-  .tl-trust__item + .tl-trust__item {
-    border-inline-start: none;
+  .tl-showcase__frame {
+    aspect-ratio: 2.2;
   }
 
-  .tl-trust__item:nth-child(even) {
-    border-inline-start: 1px solid var(--tl-color-border);
+  /* In the flow, under the image, as a normal stack. */
+  .tl-float {
+    position: static;
+    max-inline-size: none;
+    margin-block-start: var(--tl-space-3);
+    animation: none;
+  }
+
+  .tl-float--metric { padding-inline-end: var(--tl-space-4); }
+
+  /* A decorative glyph with nowhere to float. */
+  .tl-float__tooth { display: none; }
+
+  /* The rail sits under the frame rather than across it, and scrolls if the
+     thumbnails outrun the width. */
+  .tl-showcase__rail {
+    position: static;
+    max-inline-size: none;
+    margin-block-start: var(--tl-space-3);
+    justify-content: flex-start;
+    transform: none;
+  }
+
+  .tl-showcase__dots {
+    position: static;
+    margin-block-start: var(--tl-space-3);
+    justify-content: center;
+    transform: none;
+  }
+
+  .tl-showcase__thumb {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
   }
 }
 
 @media (max-width: 40rem) {
   .tl-trust {
-    padding: var(--tl-space-4) var(--tl-space-3);
+    padding: var(--tl-space-4);
   }
 
   .tl-trust__list {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--tl-space-4);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    inline-size: 100%;
   }
 
-  .tl-trust__item:nth-child(even) {
-    border-inline-start: none;
+  .tl-trust__item {
+    padding-inline: 0;
   }
 
+  /* A leading rule on a stacked item hangs off nothing; a rule above it is
+     the structure the row separator was providing. */
   .tl-trust__item + .tl-trust__item {
     padding-block-start: var(--tl-space-4);
+    padding-inline-start: 0;
+    margin-block-start: var(--tl-space-4);
+    border-inline-start: none;
     border-block-start: 1px solid var(--tl-color-border);
   }
+
+  .tl-trust__nav {
+    align-self: flex-end;
+  }
+}
+
+/* The sun glyph the reference sets before the appearance control. */
+.tl-header__appearance-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--tl-color-accent);
+}
+
+.tl-header__appearance-icon svg {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+}
+
+@media (max-width: 64rem) {
+  .tl-header__appearance-icon { display: none; }
 }
 
 /* --- Gradient primary button ------------------------------------------------
@@ -2088,7 +2511,16 @@
  * application would make the design louder without making any of them clearer.
  */
 .tl-button--gradient {
-  background: linear-gradient(100deg, var(--tl-color-accent) 0%, var(--tl-color-brand) 60%, var(--tl-color-brand-strong) 100%);
+  /*
+   * Blue into cyan, left to right, as the reference has it — but stopped at
+   * #1080b4 rather than carried on to the reference's bright #22c0d6.
+   *
+   * White on that cyan measures about 2.2:1. The reference is a rendered
+   * mock-up and never had to pass anything; this is the primary action on a
+   * health platform, and 4.5:1 is the floor for its label. The hue is the
+   * reference's; the value is as light as the contrast allows.
+   */
+  background: linear-gradient(100deg, #0d5f96 0%, #0f74a8 55%, #0f7cb0 100%);
   color: #ffffff;
   border-color: transparent;
   box-shadow: var(--tl-shadow-brand);
