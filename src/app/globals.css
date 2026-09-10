@@ -136,6 +136,18 @@
   --tl-radius-md: 0.5rem;
   --tl-radius-lg: 0.75rem;
   --tl-radius-xl: 1.125rem;
+  /*
+   * Hero spacing, kept here because two files have to agree on it.
+   *
+   * `clearance` is the distance from the hero section's own top edge down to
+   * the bottom of the navbar pill: the hero is pulled up under the transparent
+   * header, so its top padding has to pay that back before any of it becomes
+   * visible breathing room. `top-gap` is the breathing room itself, and is the
+   * only one of the two that changes with the viewport.
+   */
+  --tl-hero-header-clearance: 3.75rem;
+  --tl-hero-top-gap: 3.5rem;
+
   --tl-radius-2xl: 1.75rem;
   /* The hero image frame. The reference's corner is noticeably softer than a
      card's, closer to 30px than to the 2xl step. */

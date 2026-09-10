@@ -72,6 +72,12 @@
   padding-block: var(--tl-space-5) var(--tl-space-8);
 }
 
+@media (max-width: 64rem) {
+  .tl-section--flush {
+    padding-block: var(--tl-space-4) var(--tl-space-7);
+  }
+}
+
 /* A tinted band. Used to break the page into movements so it does not read as
    one uninterrupted column of white cards. */
 .tl-section--sunken {
@@ -283,7 +289,7 @@
   display: flex;
   align-items: center;
   gap: var(--tl-space-5);
-  min-height: 4.5rem;
+  min-height: 4.25rem;
 }
 
 .tl-header__brand {
@@ -1651,6 +1657,24 @@
   max-width: 34rem;
 }
 
+/*
+ * Hero rhythm: badge 30, heading 26, description 28, note 22.
+ *
+ * `.tl-hero__copy` sets one uniform 24px grid gap, which is right for the
+ * illustrated hero and flat here — the brief wants the space to grow into the
+ * heading and open up again before the buttons. Each row carries its own top
+ * margin instead, matched by what it contains rather than by its position, so
+ * inserting or reordering a row cannot silently shift the others.
+ */
+.tl-hero--split .tl-hero__copy {
+  gap: 0;
+}
+
+.tl-hero--split .tl-hero__copy > :has(.tl-hero__title) { margin-block-start: 1.875rem; }
+.tl-hero--split .tl-hero__copy > :has(.tl-hero__lead)  { margin-block-start: 1.625rem; }
+.tl-hero--split .tl-hero__actions                      { margin-block-start: 1.75rem; }
+.tl-hero--split .tl-hero__copy > :has(.tl-hero__note)  { margin-block-start: 1.375rem; }
+
 /* The prose keeps the reference's comfortable ~500px measure even though the
    column around it is wider for the buttons' sake. */
 .tl-hero--split .tl-hero__lead,
@@ -1835,7 +1859,14 @@
     radial-gradient(46rem 32rem at 96% 8%, rgb(52 140 220 / 0.16), transparent 66%),
     radial-gradient(44rem 26rem at 72% 42%, rgb(34 184 214 / 0.14), transparent 70%),
     var(--tl-hero-wash);
-  padding-block: var(--tl-space-8) var(--tl-space-7);
+  /*
+   * The 4px gap this replaces was the whole complaint: the split hero's own
+   * padding overrode the base `.tl-hero` rule, which had been paying back the
+   * negative margin that pulls the section under the transparent header. The
+   * badge ended up starting 4px below the navbar pill.
+   */
+  padding-block: calc(var(--tl-hero-header-clearance) + var(--tl-hero-top-gap))
+    var(--tl-space-6);
 }
 
 /* The soft organic curves. Oversized rotated ellipses bleeding off the edges,
@@ -1886,6 +1917,19 @@
 .tl-hero__figure {
   position: relative;
   min-inline-size: 0;
+}
+
+/*
+ * Lift the image so its centre lands on the middle of the heading and
+ * description rather than the middle of the whole column.
+ *
+ * The grid centres both columns against each other, and the copy column runs
+ * on past the buttons into the supporting note — which drags its centre, and
+ * with it the image, about 28px below the block the image is meant to sit
+ * beside. A bottom margin on a centred grid item raises it by half itself.
+ */
+.tl-hero--split .tl-hero__figure {
+  margin-block-end: 3.5rem;
 }
 
 /* --- The image carousel ----------------------------------------------------
@@ -2364,6 +2408,18 @@
 }
 
 @media (max-width: 64rem) {
+  /* Tablet: less air above the badge, but never none. */
+  .tl-hero--split {
+    --tl-hero-top-gap: 2.75rem;
+    padding-block-end: var(--tl-space-5);
+  }
+
+  /* The figure sits in the flow here rather than beside the copy, so the
+     optical nudge below has nothing left to correct. */
+  .tl-hero--split .tl-hero__figure {
+    margin-block-end: 0;
+  }
+
   /*
    * Single column. Required as a two-class selector: `.tl-hero--split
    * .tl-hero__inner` outranks the plain `.tl-hero__inner` rule in the earlier
@@ -2463,6 +2519,12 @@
 }
 
 @media (max-width: 40rem) {
+  /* Phone tier. Separate from the 48rem breakpoint above, which is about the
+     cards leaving the corners rather than about vertical rhythm. */
+  .tl-hero--split {
+    --tl-hero-top-gap: 2rem;
+  }
+
   .tl-trust {
     padding: var(--tl-space-4);
   }
