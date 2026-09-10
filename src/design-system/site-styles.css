@@ -921,17 +921,35 @@
     grid-column: 1 / -1;
   }
 
-  .tl-tile__icon {
+  /*
+   * Scoped to the same `:has()` parent as the blanket rule above, and that
+   * scoping IS the fix.
+   *
+   * `.tl-tile:has(> .tl-tile__icon) > *` scores (0,2,0) — `:has()` takes the
+   * specificity of its argument. A bare `.tl-tile__icon` scores (0,1,0), so
+   * the blanket `grid-column: 1 / -1` beat the icon's own `grid-column: 1`.
+   * The icon spanned both tracks, the first track collapsed to 0px with
+   * nothing left in it, and the title — which did outrank the blanket rule —
+   * was placed in track 2 and drawn straight across the icon. Every card
+   * title had its first letter struck through by its own icon.
+   *
+   * The explicit `grid-row: 1` is gone with it. Rows are left to
+   * auto-placement so that a tile which also has a photograph puts the image
+   * on the first row and drops the icon and title onto the second, rather
+   * than pinning all three into row 1 on top of each other.
+   */
+  .tl-tile:has(> .tl-tile__icon) > .tl-tile__icon {
     grid-column: 1;
-    grid-row: 1;
     inline-size: 2.25rem;
     block-size: 2.25rem;
     margin-block-end: 0;
   }
 
-  .tl-tile:has(> .tl-tile__icon) .tl-tile__title {
+  .tl-tile:has(> .tl-tile__icon) > .tl-tile__title {
     grid-column: 2;
-    grid-row: 1;
+    /* A grid child will not shrink below its content without this, which is
+       what turns a long unbroken title into overflow rather than a wrap. */
+    min-inline-size: 0;
     align-self: center;
   }
 
