@@ -153,6 +153,20 @@ test('practice: receive → confirm → check in → start → complete; the lea
   await expect(page.getByText(patient.name).first()).toBeVisible();
 
   const status = async () => (await prisma.appointment.findUniqueOrThrow({ where: { id: state.rebookedId } })).status;
+
+  // Fixture step: check-in opens 60 minutes before the appointment (the
+  // product rule, unchanged). Run late in the day, the next free slot is
+  // tomorrow, so move this appointment to start in 30 minutes — same length,
+  // same diary buffer — so the journey can be walked now.
+  const booked = await prisma.appointment.findUniqueOrThrow({ where: { id: state.rebookedId } });
+  if (booked.startsAt.getTime() - Date.now() > 60 * 60_000) {
+    const shift = Date.now() + 30 * 60_000 - booked.startsAt.getTime();
+    await prisma.appointment.update({
+      where: { id: booked.id },
+      data: { startsAt: new Date(booked.startsAt.getTime() + shift), endsAt: new Date(booked.endsAt.getTime() + shift), occupiedUntil: new Date(booked.occupiedUntil.getTime() + shift) },
+    });
+  }
+
   await page.goto(`/account/practice/appointments/${state.rebookedId}`);
   for (const [button, expected] of [
     ['Confirm', 'CONFIRMED'],

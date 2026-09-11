@@ -13,7 +13,7 @@ import { currentPrincipal } from '@/platform/auth/server';
 import { can, isAuthenticated } from '@/platform/rbac';
 import { MODERATE, moderationQueue } from '@/platform/community/service';
 import { Badge, Card, CardBody, CardHeader, EmptyState } from '@/design-system';
-import { PostActions } from '../../../(site)/community/[id]/post-actions';
+import { ModerationNoticeProvider, PostActions } from '../../../(site)/community/[id]/post-actions';
 
 export const metadata: Metadata = { title: 'Community (staff)', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -32,6 +32,8 @@ export default async function AdminCommunityPage() {
         <p className="tl-page__lead">Hide what breaks the rules — spam, abuse, dangerous health claims, private details — and say why. Restore what does not.</p>
       </header>
 
+      {/* Confirmations show here: a hidden post's report leaves the list on refresh. */}
+      <ModerationNoticeProvider>
       <Card label="Open reports">
         <CardHeader>
           <strong>Open reports ({reports.length})</strong>
@@ -96,6 +98,7 @@ export default async function AdminCommunityPage() {
           )}
         </CardBody>
       </Card>
+      </ModerationNoticeProvider>
     </div>
   );
 }

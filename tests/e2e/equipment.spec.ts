@@ -146,11 +146,17 @@ test('the business schedules and completes the visit; the practice sees the repo
   // React's change tracking does not see (checked by hand: the page works with
   // real input). Set it as the browser does for a real change, then click.
   // Retried: a refresh from the previous step can remount the form (and its
-  // state) just after the value is set.
+  // state) just after the value is set. Each attempt clears the field first:
+  // if the first attempt landed before hydration, React took that value as
+  // the field's starting value, and setting the same value again would not
+  // count as a change.
   await expect(async () => {
     await contract.getByLabel('Visit on').evaluate((element, value) => {
       const input = element as HTMLInputElement;
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      setValue.call(input, '');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      setValue.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }, `${day(3)}T10:30`);
     await expect(contract.getByRole('button', { name: 'Schedule' })).toBeEnabled({ timeout: 2_000 });

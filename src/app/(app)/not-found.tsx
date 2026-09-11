@@ -3,10 +3,10 @@
  * organization's pages, or anyone for a record they have no grant to.
  *
  * Rendered inside this group's layout, so the header and navigation stay and
- * only the page content is replaced. (Falling through to the root not-found
- * re-rendered the root layout on the client, and with it the pre-paint theme
- * script — the development "Encountered a script tag" warning.) A real <h1>,
- * so the page announces what happened like every other page does.
+ * only the page content is replaced, with the real 404 status and a real <h1>
+ * so the page announces what happened like every other page does. (The
+ * development-only "Encountered a script tag" console warning still appears
+ * here; see Known limitations in docs/BUILD-STATUS.md.)
  */
 
 import Link from 'next/link';

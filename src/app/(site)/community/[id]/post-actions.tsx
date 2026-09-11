@@ -5,10 +5,31 @@
 
 'use client';
 
-import { useState } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, Button, Field, Input } from '@/design-system';
 import { api, newIdempotencyKey } from '@/lib/api-client';
+
+type Notice = { tone: 'success' | 'danger'; text: string };
+
+/**
+ * Where a page wants confirmations shown when the post acted on can leave the
+ * page — the moderation queue, where a hidden post's report stops being open
+ * and its item disappears on refresh, taking an item-level notice with it.
+ */
+const PageNotice = createContext<((notice: Notice) => void) | null>(null);
+
+export function ModerationNoticeProvider({ children }: { children: ReactNode }) {
+  const [notice, setNotice] = useState<Notice | null>(null);
+  return (
+    <PageNotice.Provider value={setNotice}>
+      <div role="status" aria-live="polite">
+        {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
+      </div>
+      {children}
+    </PageNotice.Provider>
+  );
+}
 
 const REASONS = [
   ['SPAM', 'Spam or advertising'],
@@ -67,19 +88,24 @@ export function PostActions({
   accept?: { questionId: string; accepted: boolean };
 }) {
   const router = useRouter();
+  const pageNotice = useContext(PageNotice);
   const [panel, setPanel] = useState<'report' | 'hide' | null>(null);
   const [reason, setReason] = useState('SPAM');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   async function send(key: string, url: string, body: Record<string, unknown>, done: string, after?: () => void) {
     setBusy(key);
     setNotice(null);
     const result = await api.post(url, body);
     setBusy(null);
+    // A failure stays beside the post: the post is still there to retry.
     if (!result.ok) return setNotice({ tone: 'danger', text: result.message });
-    setNotice({ tone: 'success', text: done });
+    // A success goes to the page's notice when there is one, so it outlives
+    // the post leaving the list on refresh.
+    if (pageNotice) pageNotice({ tone: 'success', text: done });
+    else setNotice({ tone: 'success', text: done });
     setPanel(null);
     after?.();
     router.refresh();

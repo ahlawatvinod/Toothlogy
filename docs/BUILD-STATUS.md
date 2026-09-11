@@ -911,6 +911,27 @@ Build        next build OK, 365 routes
 Smoke        page HSTS 9/9, JSON 404, wrong sign-in 401, TTFB 62–438 ms
 ```
 
+**Second follow-up, same day: pending tasks and bugs.**
+- **Built:** treatment plans (migration 28), scheduled monthly statements, a
+  review invitation on the visit-complete notice, review and message events,
+  route-group 404 pages with headings, and a faster `/find` with a
+  "Searching…" state.
+- **Tooling:** visual regression tests and a load-test script.
+- **Fixed:** two product bugs caught by our own tests — soft 404s, and a
+  moderation confirmation that vanished.
+- **Still open:** the development-only script-tag warning; its cause is not
+  yet identified.
+
+```
+Static       tsc 0, eslint 0, registry 18/18
+Tests        unit 398/398 (32 files); integration 264/264 (33 files)
+E2E          79/79 on the final code (full run 74 + targeted reruns 10)
+Build        next build OK, 369 routes
+Smoke        page HSTS 9/9, JSON 404, 401, unknown clinic 404, TTFB 36–146 ms
+Load         20 users × 30 s: 623 req, 0 errors, p95 1909 ms (dev machine)
+Migrations   28 applied on development and test, no drift
+```
+
 Integration tests run against a real database rather than a mocked ORM, because
 a mock cannot verify a unique constraint, a transaction rollback, or the atomic
 single-use token consumption that stops two people redeeming one password-reset
@@ -925,7 +946,7 @@ link.
 | No email, SMS, push or payment provider | Nothing leaves the platform except in-app notices; invitations return a link to share by hand | Phase 1 providers |
 | Geocoding is city-level without a maps provider | "Find on map" gives an approximate city-centre pin, and the form says so | Phase 1 providers |
 | No malware scanner configured | Uploads are recorded as not scanned; set `FILE_SCAN_REQUIRED` to hold them instead | Phase 1 providers |
-| Dev console shows "Encountered a script tag…" when an account page answers not-found to a non-member | Development-only warning from the pre-paint theme script re-rendering on the client; no user-visible effect found | Phase 2 |
+| Dev console shows "Encountered a script tag…" when an account page answers not-found to a non-member | Development-only warning (production React does not emit it). It persists after the 404 pages moved inside their route groups, and no hydration mismatch accompanies it; the cause is not yet identified. The 404 itself is correct: status 404, heading, account navigation (browser-tested) | Phase 2 |
 | Locations created before 2026-09-10 have `req_`-prefixed ids | Cosmetic: ids are opaque; new rows use `loc_` and `bhr_` | — |
 | Triage rules (`/which-dentist`) not yet clinically reviewed | The page says so; CLINICAL REVIEW REQUIRED | Clinical reviewer |
 | The development server compiles each route on first use (30–80 s under load) | Cold-route timeouts in E2E; rerun on warm routes. Not seen on the production build | Test environment |
