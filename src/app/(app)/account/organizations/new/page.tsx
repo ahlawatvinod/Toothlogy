@@ -38,7 +38,7 @@ export default async function NewOrganizationPage() {
       }));
 
   return (
-    <div className="tl-container tl-page" style={{ maxWidth: '40rem' }}>
+    <div className="tl-page" style={{ maxWidth: '40rem' }}>
       <nav aria-label="Breadcrumb" className="tl-breadcrumb">
         <Link href="/account">Account</Link>
         <span aria-hidden="true"> / </span>

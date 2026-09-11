@@ -91,6 +91,57 @@ model User {
   savedLocations         SavedLocation[]
   accountDeletionRequest AccountDeletionRequest?
 
+  // --- Phase 1 completion ---
+  /// Profile photo. A FileObject id, served through the authorized file route.
+  avatarFileId   String?
+  /// Set when the erasure job has scrubbed this account's personal data. The
+  /// row survives so audit history and clinical records keep a referent.
+  erasedAt       DateTime?
+  preference     UserPreference?
+  recoveryCodes  RecoveryCode[]
+  securityEvents SecurityEvent[]
+
+  // --- Phase 4 ---
+  patientAppointments    Appointment[]       @relation("PatientAppointments")
+  dependents             Dependent[]
+  waitlistEntries        WaitlistEntry[]
+  patientLeads           Lead[]              @relation("PatientLeads")
+  assignedLeads          Lead[]              @relation("AssignedLeads")
+  studentEnquiries       AdmissionEnquiry[]  @relation("StudentEnquiries")
+  assignedEnquiries      AdmissionEnquiry[]  @relation("AssignedEnquiries")
+  organizedCamps         Camp[]              @relation("OrganizedCamps")
+  campRegistrations      CampRegistration[]  @relation("CampRegistrations")
+  quoteRequests          QuoteRequest[]      @relation("QuoteRequests")
+  communityQuestions     CommunityQuestion[] @relation("CommunityQuestions")
+  communityAnswers       CommunityAnswer[]   @relation("CommunityAnswers")
+  patientReviews         Review[]            @relation("PatientReviews")
+  patientThreads         MessageThread[]     @relation("PatientThreads")
+  supportRequests        SupportTicket[]     @relation("SupportRequests")
+  supportAssignments     SupportTicket[]     @relation("SupportAssignments")
+  outreachAssigned       OutreachTask[]      @relation("OutreachAssignee")
+  // --- Dental record and prescriptions (Phase 6) ---
+  recordEntries          RecordEntry[]       @relation("RecordEntries")
+  recordEntriesAuthored  RecordEntry[]       @relation("RecordEntriesAuthored")
+  recordGrants           RecordAccessGrant[] @relation("RecordGrants")
+  prescriptions          Prescription[]      @relation("PatientPrescriptions")
+  prescriptionsIssued    Prescription[]      @relation("PrescriptionsIssued")
+  treatmentPlans         TreatmentPlan[]     @relation("TreatmentPlansPatient")
+  treatmentPlansAuthored TreatmentPlan[]     @relation("TreatmentPlansAuthored")
+  // --- Knowledge (Phase 7) ---
+  articlesAuthored       Article[]           @relation("ArticlesAuthored")
+  articlesReviewed       Article[]           @relation("ArticlesReviewed")
+  // --- Careers (Phase 8) ---
+  jobApplications        JobApplication[]    @relation("JobApplications")
+  enrolments             Enrolment[]         @relation("StudentEnrolments")
+  // --- Marketplace orders (Phase 9) ---
+  cartItems              CartItem[]          @relation("CartItems")
+  ordersPlaced           Order[]             @relation("OrdersPlaced")
+  // --- Prime (Phase 10) ---
+  memberships            Membership[]        @relation("Memberships")
+
+  // --- India data ---
+  premadeFrom ExtractedRecord? @relation("ExtractedPremadeUser")
+
   @@index([status])
   @@index([createdAt])
   @@map("users")
@@ -98,6 +149,9 @@ model User {
 
 enum UserStatus {
   ACTIVE
+  /// Pre-made from extracted public data. Cannot sign in until the person
+  /// proves the email address AND the mobile number on it (activation).
+  PENDING_ACTIVATION
   /// Suspended by an administrator. Sessions are revoked; data is retained.
   SUSPENDED
   /// Self-deactivated. Reversible by the user.
@@ -127,6 +181,18 @@ model Credential {
   /// OTP attempt limiting (see src/platform/auth/otp.ts).
   attemptsRemaining Int?
   expiresAt         DateTime?
+
+  /// SENSITIVE. TOTP only: the shared secret, AES-256-GCM encrypted. It has to
+  /// be recoverable to verify a code, so unlike a password it cannot be hashed;
+  /// encryption keeps a database read from yielding a working second factor.
+  encryptedSecret String?
+  /// TOTP enrolment is two-step: set up, then proven with a working code. An
+  /// unconfirmed secret is never asked for at login, so a half-finished setup
+  /// cannot lock the user out.
+  confirmedAt     DateTime?
+  /// TOTP replay protection: the last accepted 30-second time step. A code
+  /// observed over a shoulder cannot be reused inside its own window.
+  lastUsedStep    Int?
 
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
@@ -165,8 +231,8 @@ model Session {
   expiresAt DateTime
   revokedAt DateTime?
 
-  createdAt      DateTime @default(now())
-  lastActiveAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
 
   @@index([userId, revokedAt])
   @@index([expiresAt])
@@ -233,6 +299,26 @@ model Organization {
   addressId String?  @unique
   address   Address? @relation(fields: [addressId], references: [id])
 
+  // --- Phase 1 completion ---
+  description          String?
+  website              String?
+  phone                String?
+  email                String?
+  /// Public logo. A FileObject id with PUBLIC sensitivity.
+  logoFileId           String?
+  /// Company or practice registration number, and the tax identifier (GSTIN in
+  /// India, VAT number in the EU). Evidence for verification; shown on invoices.
+  registrationNumber   String?
+  taxIdentifier        String?
+  /// The accountable owner. Distinct from "an administrator": ownership is
+  /// transferred deliberately, and only the owner can do it.
+  ownerUserId          String?
+  /// Enterprise hierarchy — a dental chain or hospital group and its member
+  /// organizations (Phase 12). Null for a standalone organization.
+  parentOrganizationId String?
+  parent               Organization?  @relation("OrganizationHierarchy", fields: [parentOrganizationId], references: [id])
+  children             Organization[] @relation("OrganizationHierarchy")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -244,7 +330,58 @@ model Organization {
   invitations Invitation[]
   locations   Location[]
 
+  // --- Phase 4 ---
+  appointments             Appointment[]
+  leads                    Lead[]
+  wallet                   Wallet?
+  sponsoredCampaigns       SponsoredCampaign[]
+  premadeFrom              ExtractedRecord?      @relation("ExtractedPremadeOrganization")
+  outreachTasks            OutreachTask[]
+  // --- Education ---
+  collegeProfile           CollegeProfile?
+  courses                  Course[]
+  admissionEnquiries       AdmissionEnquiry[]
+  // --- Camps ---
+  camps                    Camp[]
+  // --- Businesses and marketplace ---
+  businessProfile          BusinessProfile?
+  products                 Product[]
+  quotesReceived           QuoteRequest[]        @relation("QuotesReceived")
+  quotesSent               QuoteRequest[]        @relation("QuotesSent")
+  // --- Academics ---
+  facultyAppointments      FacultyAppointment[]
+  // --- Reviews ---
+  reviews                  Review[]
+  // --- Messaging and support ---
+  messageThreads           MessageThread[]
+  supportTickets           SupportTicket[]
+  // --- Dental record and prescriptions ---
+  recordEntries            RecordEntry[]
+  recordGrants             RecordAccessGrant[]
+  prescriptions            Prescription[]
+  treatmentPlans           TreatmentPlan[]
+  // --- Careers ---
+  jobPostings              JobPosting[]
+  // --- Connected equipment ---
+  devices                  Device[]
+  // --- Enrolment ---
+  enrolments               Enrolment[]
+  // --- Orders, tax documents, equipment service (Phase 9) ---
+  ordersReceived           Order[]               @relation("OrdersReceived")
+  ordersPlaced             Order[]               @relation("OrdersPlacedFor")
+  taxDocuments             TaxDocument[]         @relation("TaxDocumentsIssued")
+  taxDocumentSeries        TaxDocumentSeries[]
+  equipmentAssets          EquipmentAsset[]      @relation("EquipmentOwned")
+  equipmentSupplied        EquipmentAsset[]      @relation("EquipmentSupplied")
+  serviceContractsProvided ServiceContract[]     @relation("ServiceContractsProvided")
+  serviceContractsHeld     ServiceContract[]     @relation("ServiceContractsHeld")
+  // --- Prime (Phase 10) ---
+  memberships              Membership[]
+  // --- Enterprise (Phase 12) ---
+  enterpriseAgreements     EnterpriseAgreement[]
+
   @@index([type, status])
+  @@index([parentOrganizationId])
   @@index([countryCode])
   @@map("organizations")
 }
@@ -256,6 +393,9 @@ enum OrganizationType {
   SUPPLIER
   MANUFACTURER
   DISTRIBUTOR
+  WHOLESALER
+  RETAILER
+  LABORATORY
   EMPLOYER
   /// Toothlogy's own internal organization, for staff scoping.
   PLATFORM
@@ -322,6 +462,10 @@ model Profile {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  academic            AcademicProfile?
+  publications        Publication[]
+  facultyAppointments FacultyAppointment[]
+
   @@unique([userId, type])
   @@unique([type, slug])
   @@index([type, isPublic])
@@ -333,6 +477,7 @@ enum ProfileType {
   DENTIST
   STUDENT
   RESEARCHER
+  FACULTY
   SUPPLIER
   EMPLOYER
   STAFF
@@ -357,6 +502,9 @@ model Consent {
   /// Evidence: which policy version was agreed to, and from where.
   policyVersion String
   ipAddress     String?
+
+  /// The dental-record grant this consent evidences (CLINICAL_DATA_SHARING).
+  recordGrant RecordAccessGrant?
 
   @@index([userId, purpose])
   @@map("consents")
@@ -386,7 +534,7 @@ model Country {
   code String @id @db.Char(2)
 
   name            String
-  defaultCurrency String @db.Char(3)
+  defaultCurrency String    @db.Char(3)
   defaultLocale   String
   defaultTimezone String
   callingCode     String
@@ -420,7 +568,8 @@ model Region {
   name String
   code String?
 
-  cities City[]
+  cities    City[]
+  districts District[]
 
   @@unique([countryCode, name])
   @@map("regions")
@@ -442,7 +591,12 @@ model City {
 
   addresses Address[]
 
+  /// The district the city lies in, where known.
+  districtId String?
+  district   District? @relation(fields: [districtId], references: [id])
+
   @@unique([regionId, name])
+  @@index([districtId])
   @@index([latitude, longitude])
   @@map("cities")
 }
@@ -508,9 +662,9 @@ model AuditEvent {
   id String @id
 
   /// Operation or route ID, e.g. `TL-API-REGISTRY-001`.
-  action String
+  action  String
   /// Actor: a user ID, or a named system actor.
-  actor  String
+  actor   String
   /// What was acted on: a record ID or resource path.
   subject String
 
@@ -566,10 +720,32 @@ model OutboxEvent {
   attempts    Int       @default(0)
   lastError   String?
 
+  /// Backoff: a failed dispatch is not retried before this instant.
+  nextAttemptAt DateTime?
+  /// Set when retries are exhausted. A dead event is kept for an operator to
+  /// inspect and replay; silently dropping it is how a confirmation never goes.
+  deadAt        DateTime?
+
   /// Partial index on unpublished rows: the relay polls for `publishedAt IS
   /// NULL`, and without this it would scan the entire event history each time.
   @@index([publishedAt, occurredAt])
+  @@index([deadAt, nextAttemptAt])
   @@map("outbox_events")
+}
+
+/// One durable subscriber's successful handling of one outbox event.
+///
+/// The relay retries an event when any of its handlers fails, which means the
+/// handlers that already succeeded run again. This receipt is what makes that
+/// safe: a handler that has a receipt for an event is skipped, so a retry
+/// caused by the SMS handler does not send the patient a second in-app notice.
+model EventHandlerReceipt {
+  eventId     String
+  handler     String
+  processedAt DateTime @default(now())
+
+  @@id([eventId, handler])
+  @@map("event_handler_receipts")
 }
 
 /// Stores the result of a keyed mutation so a retry returns the original
@@ -604,9 +780,9 @@ model FeatureFlagOverride {
 
   state String
 
-  reason          String?
-  setByUserId     String?
-  expiresAt       DateTime?
+  reason      String?
+  setByUserId String?
+  expiresAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -631,12 +807,33 @@ model FileObject {
 
   sensitivity Sensitivity
 
-  ownerUserId String?
-  owner       User?   @relation(fields: [ownerUserId], references: [id])
+  ownerUserId         String?
+  owner               User?   @relation(fields: [ownerUserId], references: [id])
   /// Set when the file belongs to an organization rather than a person.
   ownerOrganizationId String?
 
   originalFilename String?
+
+  // --- Phase 1 completion ---
+  /// Why the file exists. Drives the upload allow-list, the size limit and who
+  /// may read it — a clinic may read a patient's X-ray under a grant, never
+  /// their identity document.
+  purpose         FilePurpose @default(OTHER)
+  status          FileStatus  @default(ACTIVE)
+  scanStatus      ScanStatus  @default(NOT_SCANNED)
+  scannedAt       DateTime?
+  /// Earliest moment the purge job may remove the bytes. Clinical and financial
+  /// records carry legal retention periods that outlive a user's deletion.
+  retainUntil     DateTime?
+  deletedByUserId String?
+
+  accessLogs         FileAccessLog[]
+  /// Set when the file is part of a patient's dental record (Phase 6).
+  recordEntry        RecordEntry?
+  /// Articles using this image as their cover (Phase 7).
+  articleCovers      Article[]        @relation("ArticleCover")
+  /// Applications this résumé is attached to (Phase 8).
+  applicationResumes JobApplication[] @relation("ApplicationResume")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -644,7 +841,85 @@ model FileObject {
 
   @@index([ownerUserId, deletedAt])
   @@index([ownerOrganizationId, deletedAt])
+  @@index([purpose, status])
   @@map("file_objects")
+}
+
+enum FilePurpose {
+  AVATAR
+  ORGANIZATION_LOGO
+  CLINIC_PHOTO
+  DENTIST_CERTIFICATE
+  DENTIST_LICENSE
+  IDENTITY_DOCUMENT
+  STUDENT_DOCUMENT
+  DENTAL_REPORT
+  PRESCRIPTION
+  XRAY
+  CBCT
+  INVOICE
+  AGREEMENT
+  RESUME
+  CERTIFICATE
+  PRODUCT_IMAGE
+  PRODUCT_MANUAL
+  WARRANTY
+  RESEARCH_DOCUMENT
+  CHAT_ATTACHMENT
+  CONTENT_MEDIA
+  OTHER
+}
+
+enum FileStatus {
+  /// Stored, but not yet usable: waiting on a malware scan in environments
+  /// where scanning is mandatory.
+  QUARANTINED
+  ACTIVE
+  /// Soft-deleted: invisible to every reader, bytes kept until `retainUntil`.
+  DELETED
+  /// Bytes removed by the purge job. The row stays for the audit trail.
+  PURGED
+}
+
+enum ScanStatus {
+  NOT_SCANNED
+  CLEAN
+  INFECTED
+  /// No scanner is configured. Recorded as such rather than as CLEAN — an
+  /// unscanned file must never be reported as a clean one.
+  SCANNER_NOT_CONFIGURED
+}
+
+/// Every access to a stored file.
+///
+/// Separate from the audit log because it is far higher volume — every X-ray
+/// thumbnail view is a row — and because "who has looked at my records?" is a
+/// question the patient is entitled to ask of their own files specifically.
+model FileAccessLog {
+  id String @id
+
+  fileId String
+  file   FileObject @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  actor   String
+  action  FileAccessAction
+  outcome AuditOutcome
+
+  ipAddress String?
+
+  occurredAt DateTime @default(now())
+
+  @@index([fileId, occurredAt])
+  @@index([actor, occurredAt])
+  @@map("file_access_logs")
+}
+
+enum FileAccessAction {
+  UPLOAD
+  SIGN_URL
+  DOWNLOAD
+  DELETE
+  PURGE
 }
 
 enum Sensitivity {
@@ -666,14 +941,32 @@ model NotificationPreference {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  channel NotificationChannel
-  enabled Boolean             @default(true)
+  channel  NotificationChannel
+  /// ALL is the channel-wide switch; a specific category overrides it. So
+  /// "no SMS, except appointment reminders" is two rows, not a special case.
+  category NotificationCategory @default(ALL)
+  enabled  Boolean              @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, channel])
+  @@unique([userId, channel, category])
   @@map("notification_preferences")
+}
+
+enum NotificationCategory {
+  ALL
+  ACCOUNT
+  SECURITY
+  APPOINTMENTS
+  MESSAGES
+  REVIEWS
+  LEADS
+  BILLING
+  MARKETPLACE
+  CAREERS
+  COMMUNITY
+  MARKETING
 }
 
 enum NotificationChannel {
@@ -717,7 +1010,7 @@ model VerificationToken {
   /// token cannot be redeemed after the user changes their address.
   destination String
 
-  expiresAt DateTime
+  expiresAt  DateTime
   /// Set the moment it is redeemed. Single use is enforced by checking this.
   consumedAt DateTime?
 
@@ -737,6 +1030,9 @@ enum TokenType {
   MAGIC_LINK
   /// Confirms a destructive action such as account deletion.
   ACTION_CONFIRMATION
+  /// Issued after a correct password for an account with MFA. Redeemed, with a
+  /// second factor, for a session — so a password alone never yields one.
+  MFA_CHALLENGE
 }
 
 /// Record of an authentication attempt.
@@ -758,7 +1054,7 @@ model LoginAttempt {
   success Boolean
   /// Why it failed, for operators. Never returned to the caller: a precise
   /// reason tells an attacker whether the account exists.
-  reason String?
+  reason  String?
 
   ipAddress String?
   userAgent String?
@@ -858,6 +1154,29 @@ model Location {
   isPrimary Boolean        @default(false)
   status    LocationStatus @default(ACTIVE)
 
+  // --- Phase 3: what a patient needs to know before choosing this branch ---
+  description            String?
+  /// Controlled vocabulary keys, e.g. `digital_xray`, `sterilization_class_b`.
+  /// Validated against the registry so "Class B autoclave" means one thing.
+  facilities             String[]
+  /// Clinic photos: FileObject ids with PUBLIC purpose CLINIC_PHOTO.
+  photoFileIds           String[]
+  /// Treatment chairs. Caps how many appointments can run at once here, which
+  /// the Phase 4 availability engine enforces across every dentist.
+  chairs                 Int      @default(1)
+  emergencyAvailable     Boolean  @default(false)
+  wheelchairAccessible   Boolean  @default(false)
+  parkingAvailable       Boolean  @default(false)
+  /// Home visits are offered within this radius of the branch. Null: none.
+  homeVisitRadiusKm      Int?
+  /// Whether national public holidays close this branch for booking. Many
+  /// Indian clinics open on some of them, so it is the branch's choice.
+  observesPublicHolidays Boolean  @default(true)
+
+  /// India: the operational district (marketing, calling, camps, reporting).
+  districtId String?
+  district   District? @relation(fields: [districtId], references: [id])
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -865,6 +1184,9 @@ model Location {
   businessHours    BusinessHours[]
   dentistPractices DentistPractice[]
   serviceOfferings ServiceOffering[]
+  closures         LocationClosure[]
+  appointments     Appointment[]
+  leads            Lead[]
 
   @@unique([organizationId, slug])
   @@index([latitude, longitude])
@@ -961,7 +1283,7 @@ model TaxConfiguration {
 /// without a deploy, and so a missing translation is a queryable gap rather
 /// than a discovery made by a user.
 model TranslationKey {
-  id String @id
+  id  String @id
   /// Dotted key, e.g. `appointment.confirm.title`.
   key String @unique
 
@@ -1047,6 +1369,10 @@ model NotificationRecord {
   attempts  Int     @default(0)
   lastError String?
 
+  /// The outbox event that caused this notification, when one did. Lets
+  /// support trace a reminder back to the appointment change behind it.
+  sourceEventId String?
+
   /// Provider's ID, for reconciling delivery webhooks.
   providerMessageId String?
 
@@ -1086,7 +1412,7 @@ model InAppNotification {
   title          String
   body           String
   /// Where clicking it should take the user.
-  linkUrl String?
+  linkUrl        String?
 
   readAt DateTime?
 
@@ -1188,7 +1514,7 @@ model SearchDocument {
   title   String
   summary String?
   /// Concatenated searchable text. Indexed, not displayed.
-  body String
+  body    String
 
   /// Facet values, e.g. { specialty: [...], language: [...] }.
   facets Json?
@@ -1213,6 +1539,10 @@ model SearchDocument {
   @@index([entityType, isPublished])
   @@index([latitude, longitude])
   @@index([qualityScore])
+  /// Trigram index for typo tolerance. Declared here (not only in raw SQL) so
+  /// `prisma migrate diff` knows it exists — an index Prisma cannot see is an
+  /// index the next generated migration silently drops.
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "search_documents_title_trgm_idx")
   @@map("search_documents")
 }
 
@@ -1230,7 +1560,7 @@ model AccountDeletionRequest {
 
   reason String?
 
-  requestedAt DateTime @default(now())
+  requestedAt  DateTime @default(now())
   /// When erasure runs unless cancelled.
   scheduledFor DateTime
 
@@ -1246,6 +1576,237 @@ enum DeletionStatus {
   PENDING
   CANCELLED
   COMPLETED
+}
+
+// ===========================================================================
+// PHASE 1 COMPLETION — preferences, MFA, security signals, search synonyms
+// ===========================================================================
+
+/// A user's experience preferences.
+///
+/// Locale, country and timezone stay on `User` because authentication and
+/// notification scheduling read them on every request; these are the settings
+/// only the experience layer reads.
+model UserPreference {
+  id String @id
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Display currency for prices. Null means "the country's currency". Prices
+  /// are never silently converted: a converted fee is labelled as approximate.
+  currency String? @db.Char(3)
+
+  theme   ThemePreference @default(SYSTEM)
+  /// Named accent palette from the design system, e.g. `teal`, `indigo`.
+  palette String          @default("teal")
+
+  reducedMotion Boolean @default(false)
+  highContrast  Boolean @default(false)
+  /// Percentage, 100 = default. Bounded in the service to 90-150.
+  textScale     Int     @default(100)
+
+  /// Quiet hours in the user's own timezone, as minutes from midnight. Non-
+  /// urgent notifications on push/SMS/WhatsApp are held until they end;
+  /// security alerts and same-day appointment changes are not.
+  quietHoursStart Int?
+  quietHoursEnd   Int?
+
+  distanceUnit          DistanceUnit @default(KM)
+  defaultSearchRadiusKm Int          @default(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+enum ThemePreference {
+  SYSTEM
+  LIGHT
+  DARK
+}
+
+enum DistanceUnit {
+  KM
+  MI
+}
+
+/// A single-use MFA recovery code, stored hashed.
+///
+/// Issued in a batch of ten when TOTP is enabled. The codes are the user's way
+/// back in when their phone is lost; without them, losing a phone is losing
+/// the account.
+model RecoveryCode {
+  id String @id
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SENSITIVE. SHA-256 of the normalised code.
+  codeHash String    @unique
+  usedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, usedAt])
+  @@map("recovery_codes")
+}
+
+/// A security-relevant fact about an account, shown to its owner.
+///
+/// Distinct from the audit log in audience: audit is for operators and
+/// regulators; this is the "recent security activity" list a user reads to
+/// notice that someone else signed in from a device they do not own.
+model SecurityEvent {
+  id String @id
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type SecurityEventType
+
+  ipAddress String?
+  userAgent String?
+  detail    Json?
+
+  occurredAt DateTime @default(now())
+
+  @@index([userId, occurredAt])
+  @@index([type, occurredAt])
+  @@map("security_events")
+}
+
+enum SecurityEventType {
+  NEW_DEVICE_LOGIN
+  SUSPICIOUS_LOGIN
+  ACCOUNT_LOCKED
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+  MFA_ENABLED
+  MFA_DISABLED
+  RECOVERY_CODE_USED
+  RECOVERY_CODES_REGENERATED
+  EMAIL_VERIFIED
+  PHONE_VERIFIED
+  DELETION_REQUESTED
+  ACCOUNT_RESTORED
+  SESSIONS_REVOKED
+}
+
+/// A search synonym: `rct` also finds `root canal`.
+///
+/// Held as data rather than code because the vocabulary is regional and
+/// grows with the product — "scaling" in India, "cleaning" in the US — and a
+/// content editor must be able to add one without a deploy.
+model SearchSynonym {
+  id String @id
+
+  locale     String
+  /// Normalised, lower-case term a user might type.
+  term       String
+  /// What the term should also match.
+  expansions String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([locale, term])
+  @@map("search_synonyms")
+}
+
+// ===========================================================================
+// PHASE 3 COMPLETION — treatment catalogue, closures, analytics
+// ===========================================================================
+
+/// A treatment in the platform-wide catalogue: "Root canal treatment".
+///
+/// Reference data, seeded and curated — a clinic chooses from the catalogue
+/// and sets its own price, rather than inventing a name. One catalogue is what
+/// lets a patient search "root canal" and compare like with like across
+/// clinics, and it is what search synonyms point at.
+model Treatment {
+  id String @id
+
+  /// Stable machine key, e.g. `root_canal_treatment`.
+  key          String  @unique
+  name         String
+  /// Grouping for browsing: preventive, restorative, endodontic, …
+  category     String
+  /// The specialty that usually performs it, when there is one.
+  specialtyKey String?
+
+  /// Patient-facing, plain-language description.
+  description            String
+  typicalDurationMinutes Int
+  /// What to do before, and after. General guidance, never a substitute for
+  /// the treating dentist's instructions.
+  preparation            String?
+  aftercare              String?
+  /// Who it is generally suitable for, stated plainly.
+  eligibility            String?
+  isEmergencyEligible    Boolean @default(false)
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offerings ServiceOffering[]
+  /// Knowledge articles explaining this treatment (Phase 7).
+  articles  Article[]
+
+  @@index([category, isActive])
+  @@map("treatments")
+}
+
+/// A day or run of days a location is closed: a clinic holiday, a renovation.
+///
+/// Calendar days, not instants — "closed on 2 October" must mean 2 October in
+/// the clinic's own timezone. The availability engine removes every slot in a
+/// closure; public holidays come from the country calendar separately.
+model LocationClosure {
+  id String @id
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  startsOn DateTime @db.Date
+  endsOn   DateTime @db.Date
+  reason   String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@index([locationId, startsOn, endsOn])
+  @@map("location_closures")
+}
+
+/// A product-analytics event, recorded in our own database.
+///
+/// Deliberately minimal and privacy-preserving: `actorKey` is a keyed hash, not
+/// a user id, so counts ("how many distinct people viewed this profile") are
+/// possible without a join back to anyone; `properties` are sanitised before
+/// writing and may never contain clinical detail or contact data.
+model AnalyticsEvent {
+  id String @id
+
+  /// Registered analytics event name, e.g. `profile_viewed`.
+  name        String
+  /// What the event is about, e.g. `dentist` + profile id.
+  subjectType String?
+  subjectId   String?
+  /// HMAC of the user or anonymous visitor id. Null when neither is known.
+  actorKey    String?
+  /// Sanitised, flat key–value context (see analytics/ports sanitizeProperties).
+  properties  Json?
+
+  occurredAt DateTime @default(now())
+
+  @@index([name, occurredAt])
+  @@index([subjectType, subjectId, name, occurredAt])
+  @@map("analytics_events")
 }
 
 // ===========================================================================
@@ -1301,8 +1862,8 @@ model DentistProfile {
 
   /// Denormalised from the verification record so discovery can filter without
   /// a join. Written only by the verification service, never by the dentist.
-  isVerified     Boolean   @default(false)
-  verifiedAt     DateTime?
+  isVerified            Boolean   @default(false)
+  verifiedAt            DateTime?
   verificationExpiresAt DateTime?
 
   /// Whether this dentist appears in patient search. Requires verification AND
@@ -1316,10 +1877,19 @@ model DentistProfile {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  qualifications Qualification[]
-  specialties    DentistSpecialty[]
-  practices      DentistPractice[]
-  verifications  VerificationRequest[]
+  qualifications   Qualification[]
+  specialties      DentistSpecialty[]
+  practices        DentistPractice[]
+  verifications    VerificationRequest[]
+  serviceOfferings ServiceOffering[]
+  appointments     Appointment[]
+  leads            Lead[]
+
+  campParticipations CampDoctor[]
+  campVisitsSeen     CampRegistration[] @relation("CampVisitsSeen")
+  campReferrals      CampRegistration[] @relation("CampReferrals")
+  reviews            Review[]
+  prescriptions      Prescription[]
 
   @@index([status, isDiscoverable])
   @@index([isVerified])
@@ -1382,8 +1952,8 @@ model Specialty {
   id String @id
 
   /// Stable machine key, e.g. `endodontics`.
-  key  String @unique
-  name String
+  key         String @unique
+  name        String
   /// Patient-facing explanation: "endodontics" means nothing to most people,
   /// and a filter nobody understands is a filter nobody uses.
   description String
@@ -1429,7 +1999,33 @@ model DentistPractice {
   isConfirmed Boolean   @default(false)
   confirmedAt DateTime?
 
+  // --- Phase 3: how this dentist takes appointments at this location ---
+  // Per practice, not per dentist: the same dentist commonly runs instant
+  // booking at their own clinic and request-only at a hospital.
+  /// Consultation fee here, overriding the profile's default fee.
+  consultationFeeMinor Int?
+  /// Instant booking confirms at once; request booking waits for the practice.
+  autoConfirm          Boolean @default(false)
+  acceptsVideo         Boolean @default(false)
+  acceptsHomeVisit     Boolean @default(false)
+  acceptsEmergency     Boolean @default(false)
+  /// Default slot length and the gap kept after each appointment.
+  slotMinutes          Int     @default(30)
+  bufferMinutes        Int     @default(0)
+  /// The shortest notice a booking may be made with, and how far ahead.
+  minNoticeMinutes     Int     @default(120)
+  maxAdvanceDays       Int     @default(60)
+  /// A dentist can pause new bookings here without leaving the practice.
+  bookingPaused        Boolean @default(false)
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  // --- Phase 4 ---
+  availabilityRules      AvailabilityRule[]
+  availabilityExceptions AvailabilityException[]
+  appointments           Appointment[]
+  sponsoredCampaigns     SponsoredCampaign[]
 
   @@unique([dentistProfileId, locationId])
   @@index([locationId, isConfirmed])
@@ -1470,8 +2066,8 @@ model VerificationRequest {
   expiresAt DateTime?
 
   /// Revocation is a state, not a deletion.
-  revokedAt       DateTime?
-  revokedByUserId String?
+  revokedAt        DateTime?
+  revokedByUserId  String?
   revocationReason String?
 
   createdAt DateTime @default(now())
@@ -1485,6 +2081,9 @@ model VerificationRequest {
 enum VerificationSubject {
   DENTIST
   ORGANIZATION
+  /// A person claiming an organization listing that has no owner. Approval
+  /// makes the claimant its owner; the evidence proves they run it.
+  ORGANIZATION_CLAIM
 }
 
 enum VerificationStatus {
@@ -1522,9 +2121,3225 @@ model ServiceOffering {
 
   isActive Boolean @default(true)
 
+  // --- Phase 3: the service catalogue ---
+  /// The catalogue treatment this offering is. Null only for legacy free-text
+  /// rows; new offerings always reference the catalogue.
+  treatmentId          String?
+  treatment            Treatment?      @relation(fields: [treatmentId], references: [id])
+  /// Set when one dentist at the location offers this at their own price.
+  /// Null: the location's price, whoever performs it.
+  dentistProfileId     String?
+  dentistProfile       DentistProfile? @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+  /// Upper bound when the price is a range ("₹3,000–₹8,000 depending on the
+  /// tooth"). `priceMinor` is then the lower bound. Null: a fixed price.
+  priceMaxMinor        Int?
+  /// Tax category for invoicing (see src/platform/tax).
+  taxCategory          String          @default("dental_services")
+  /// CLINIC, VIDEO, HOME_VISIT.
+  appointmentTypes     String[]
+  preparation          String?
+  aftercare            String?
+  /// Must the patient see the dentist first before this can be booked?
+  requiresConsultation Boolean         @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  appointments Appointment[]
+  leads        Lead[]
+
   @@index([locationId, isActive])
+  @@index([treatmentId, isActive])
+  @@index([dentistProfileId])
   @@map("service_offerings")
+}
+
+// ============================================================================
+// PHASE 4 — AVAILABILITY, APPOINTMENTS, WAITLIST, LEADS, BILLING
+// ============================================================================
+
+/// A dentist's own working session at one practice, in the branch's local
+/// wall-clock minutes. Several per weekday express split shifts; the gap
+/// between two sessions is the break. A practice with no rules works the
+/// branch's opening hours. Either way the result is intersected with the
+/// branch's hours: a dentist cannot be booked while the clinic is shut.
+model AvailabilityRule {
+  id String @id
+
+  practiceId String
+  practice   DentistPractice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  /// 0 = Sunday ... 6 = Saturday.
+  dayOfWeek        Int
+  startMinutes     Int
+  endMinutes       Int
+  /// CLINIC, VIDEO, HOME_VISIT taken in this session. Empty: every type the
+  /// practice accepts.
+  appointmentTypes String[]
+
+  createdAt DateTime @default(now())
+
+  @@index([practiceId, dayOfWeek])
+  @@map("availability_rules")
+}
+
+enum AvailabilityExceptionKind {
+  /// The dentist is away: leave, a conference, illness.
+  LEAVE
+  /// A specific span is not bookable: a staff meeting, equipment service.
+  BLOCK
+}
+
+/// Time a practice is not bookable, over and above closures and holidays.
+/// Instants (UTC), not wall-clock minutes: leave starts at a moment.
+model AvailabilityException {
+  id String @id
+
+  practiceId String
+  practice   DentistPractice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  kind     AvailabilityExceptionKind
+  startsAt DateTime
+  endsAt   DateTime
+  reason   String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@index([practiceId, startsAt])
+  @@map("availability_exceptions")
+}
+
+enum AppointmentStatus {
+  /// The patient asked; the practice has not decided. The slot is held.
+  REQUESTED
+  /// Held for the patient to confirm: a waitlist offer, or a new time the
+  /// practice proposed when it moved the appointment.
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REJECTED
+  NO_SHOW
+  /// A REQUESTED or PENDING appointment nobody acted on in time.
+  EXPIRED
+}
+
+enum AppointmentType {
+  CLINIC
+  VIDEO
+  HOME_VISIT
+}
+
+enum BookingMode {
+  /// Confirmed by the booking itself (the practice turned on instant booking).
+  INSTANT
+  /// Waits for the practice to accept.
+  REQUEST
+}
+
+enum AppointmentActor {
+  PATIENT
+  PRACTICE
+  SYSTEM
+}
+
+enum AppointmentSource {
+  SEARCH
+  PROFILE
+  CLINIC_PAGE
+  WAITLIST
+  REBOOK
+  FOLLOW_UP
+  PRACTICE
+}
+
+/// An appointment. The double-booking guarantee is a database exclusion
+/// constraint (see the Phase 4 migration): no two active appointments of one
+/// dentist may overlap in [startsAt, occupiedUntil), whatever the application
+/// does. Chair capacity is enforced under a row lock on the branch.
+model Appointment {
+  id String @id
+
+  patientUserId String
+  patient       User       @relation("PatientAppointments", fields: [patientUserId], references: [id])
+  /// Booked for a family member; the account holder remains the contact.
+  dependentId   String?
+  dependent     Dependent? @relation(fields: [dependentId], references: [id])
+
+  practiceId        String
+  practice          DentistPractice  @relation(fields: [practiceId], references: [id])
+  dentistProfileId  String
+  dentistProfile    DentistProfile   @relation(fields: [dentistProfileId], references: [id])
+  locationId        String
+  location          Location         @relation(fields: [locationId], references: [id])
+  organizationId    String
+  organization      Organization     @relation(fields: [organizationId], references: [id])
+  serviceOfferingId String?
+  serviceOffering   ServiceOffering? @relation(fields: [serviceOfferingId], references: [id])
+
+  /// Snapshot at booking: what the patient agreed to, even if the clinic
+  /// later renames or reprices the service.
+  serviceName   String
+  priceMinor    Int?
+  priceMaxMinor Int?
+  currency      String?
+
+  startsAt      DateTime
+  endsAt        DateTime
+  /// endsAt plus the practice's buffer. The overlap constraint covers this.
+  occupiedUntil DateTime
+  /// The branch's timezone, fixed at booking.
+  timezone      String
+
+  type        AppointmentType @default(CLINIC)
+  mode        BookingMode
+  isEmergency Boolean         @default(false)
+  /// Clinic visits occupy a chair; video and home visits do not.
+  usesChair   Boolean         @default(true)
+
+  status AppointmentStatus
+  source AppointmentSource @default(PROFILE)
+
+  patientNote  String?
+  practiceNote String?
+
+  /// Home visit destination, checked against the branch's radius at booking.
+  visitAddress   String?
+  visitLatitude  Decimal? @db.Decimal(9, 6)
+  visitLongitude Decimal? @db.Decimal(9, 6)
+
+  rejectionReason    String?
+  cancellationReason String?
+  cancelledBy        AppointmentActor?
+
+  /// REQUESTED and PENDING appointments lapse at this instant.
+  expiresAt DateTime?
+
+  confirmedAt DateTime?
+  checkedInAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  /// Set by the dentist at completion: when the patient should come back.
+  followUpDueAt  DateTime?
+  review         Review?
+  messageThreads MessageThread[]
+
+  /// The camp visit that referred the patient to this dentist, if any.
+  campRegistrationId String?
+  campRegistration   CampRegistration? @relation(fields: [campRegistrationId], references: [id], onDelete: SetNull)
+  followUpNote       String?
+
+  rescheduleCount Int            @default(0)
+  /// Set on a PENDING hold offered to a waitlisted patient.
+  waitlistEntryId String?        @unique
+  waitlistEntry   WaitlistEntry? @relation(fields: [waitlistEntryId], references: [id])
+  rebookedFromId  String?
+
+  bookingMetadata Json?
+  /// The client's key for the booking request: a replay finds this row
+  /// instead of creating another.
+  bookingKey      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events        AppointmentEvent[]
+  lead          Lead?
+  reminders     AppointmentReminder[]
+  videoMeeting  VideoMeeting?
+  recordEntries RecordEntry[]
+  prescriptions Prescription[]
+
+  @@unique([patientUserId, bookingKey])
+  @@index([dentistProfileId, startsAt])
+  @@index([locationId, startsAt])
+  @@index([patientUserId, startsAt])
+  @@index([organizationId, status, startsAt])
+  @@index([status, expiresAt])
+  @@index([status, startsAt])
+  @@map("appointments")
+}
+
+/// Every lifecycle transition, append-only: who moved an appointment from
+/// which state to which, and why.
+enum ReminderKind {
+  /// The day before, in the branch's timezone.
+  DAY_BEFORE
+  /// The morning of the appointment day.
+  TODAY
+  /// Within two hours of the start.
+  SOON
+  /// The follow-up the dentist asked for has fallen due.
+  FOLLOW_UP
+}
+
+/// One row per reminder sent. The unique key is the idempotency guarantee:
+/// however many reminder jobs run at once, only one inserts the row, and only
+/// that one sends. `forInstant` is the start (or follow-up date) the reminder
+/// was for, so a rescheduled appointment is reminded again for its new time.
+model AppointmentReminder {
+  id String @id
+
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  kind       ReminderKind
+  forInstant DateTime
+  sentAt     DateTime     @default(now())
+
+  @@unique([appointmentId, kind, forInstant])
+  @@map("appointment_reminders")
+}
+
+enum VideoMeetingStatus {
+  SCHEDULED
+  CANCELLED
+  ENDED
+}
+
+/// A meeting created by a connected video provider. No row exists until a
+/// provider has actually created one: with no provider configured there is
+/// nothing to show, and no link is ever invented.
+model VideoMeeting {
+  id String @id
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  provider          String
+  externalMeetingId String
+  /// The patient's (participant's) join link, as returned by the provider.
+  joinUrl           String
+  /// The dentist's (host's) link, where the provider issues a separate one.
+  hostUrl           String?
+  hostUserId        String
+  participantUserId String
+
+  startsAt    DateTime
+  expiresAt   DateTime
+  status      VideoMeetingStatus @default(SCHEDULED)
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, externalMeetingId])
+  @@map("video_meetings")
+}
+
+model AppointmentEvent {
+  id String @id
+
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  action      String
+  fromStatus  AppointmentStatus?
+  toStatus    AppointmentStatus
+  actor       AppointmentActor
+  actorUserId String?
+  reason      String?
+  detail      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([appointmentId, createdAt])
+  @@map("appointment_events")
+}
+
+/// A family member an account holder books for.
+model Dependent {
+  id String @id
+
+  guardianUserId String
+  guardian       User   @relation(fields: [guardianUserId], references: [id], onDelete: Cascade)
+
+  name         String
+  /// CHILD, PARENT, SPOUSE, SIBLING, OTHER.
+  relationship String
+  birthYear    Int?
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  appointments   Appointment[]
+  recordEntries  RecordEntry[]
+  prescriptions  Prescription[]
+  treatmentPlans TreatmentPlan[]
+
+  @@index([guardianUserId])
+  @@map("dependents")
+}
+
+enum WaitlistStatus {
+  ACTIVE
+  /// A freed slot is held for this entry, awaiting the patient.
+  OFFERED
+  BOOKED
+  EXPIRED
+  CANCELLED
+}
+
+enum TimeOfDay {
+  ANY
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+model WaitlistEntry {
+  id String @id
+
+  patientUserId String
+  patient       User   @relation(fields: [patientUserId], references: [id], onDelete: Cascade)
+
+  /// Preferences: a dentist or a branch (or both); the service is optional.
+  dentistProfileId  String?
+  locationId        String?
+  serviceOfferingId String?
+  type              AppointmentType @default(CLINIC)
+
+  earliestDate DateTime  @db.Date
+  latestDate   DateTime  @db.Date
+  timeOfDay    TimeOfDay @default(ANY)
+
+  status     WaitlistStatus @default(ACTIVE)
+  offerCount Int            @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hold Appointment?
+
+  @@index([status, dentistProfileId])
+  @@index([status, locationId])
+  @@index([patientUserId, status])
+  @@map("waitlist_entries")
+}
+
+enum LeadStatus {
+  NEW
+  QUALIFIED
+  NOT_QUALIFIED
+  DUPLICATE
+  DELIVERED
+  ACCEPTED
+  REJECTED
+  CONTACTED
+  APPOINTMENT
+  COMPLETED
+  CONVERTED
+  LOST
+}
+
+enum LeadSource {
+  /// A booking or booking request made through Toothlogy.
+  BOOKING
+  /// "Please call me", without a slot.
+  CALLBACK_REQUEST
+}
+
+enum LeadBillingStatus {
+  NOT_BILLABLE
+  /// Qualified, but the wallet could not cover the charge yet.
+  PENDING_FUNDS
+  CHARGED
+  REFUNDED
+  WAIVED
+  /// Inside the organization's free allowance: qualified, delivered, no charge.
+  FREE
+}
+
+/// A patient's intent, delivered to one practice. Billable only when the
+/// qualification service says so, and at most once (ledger idempotency key).
+model Lead {
+  id String @id
+
+  patientUserId String
+  patient       User   @relation("PatientLeads", fields: [patientUserId], references: [id])
+
+  organizationId    String
+  organization      Organization     @relation(fields: [organizationId], references: [id])
+  locationId        String
+  location          Location         @relation(fields: [locationId], references: [id])
+  dentistProfileId  String?
+  dentistProfile    DentistProfile?  @relation(fields: [dentistProfileId], references: [id])
+  serviceOfferingId String?
+  serviceOffering   ServiceOffering? @relation(fields: [serviceOfferingId], references: [id])
+  treatmentId       String?
+  appointmentId     String?          @unique
+  appointment       Appointment?     @relation(fields: [appointmentId], references: [id])
+
+  source      LeadSource
+  status      LeadStatus @default(NEW)
+  /// City-level only: enough to route a lead, not to locate a person.
+  patientCity String?
+  patientNote String?
+
+  /// patient x practice x service. Same key within the window = duplicate.
+  dedupeKey     String
+  duplicateOfId String?
+
+  qualificationRuleId      String?
+  qualificationRuleVersion Int?
+  qualificationReason      String?
+  qualifiedAt              DateTime?
+
+  deliveredAt     DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  contactedAt     DateTime?
+  completedAt     DateTime?
+  convertedAt     DateTime?
+
+  billingStatus  LeadBillingStatus  @default(NOT_BILLABLE)
+  pricingRuleId  String?
+  priceMinor     BigInt?
+  taxMinor       BigInt?
+  currency       String?
+  chargeEntryId  String?            @unique
+  /// This organization's Nth qualified lead: decides free vs payable. Unique
+  /// per organization, so two leads can never both be "lead 30".
+  billingOrdinal Int?
+  billedAt       DateTime?
+  /// The sponsored campaign whose click led to this lead, if any.
+  campaignId     String?
+  campaign       SponsoredCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  /// Who in the practice is working this lead, and when it next needs a call.
+  assignedToUserId   String?
+  assignedTo         User?     @relation("AssignedLeads", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  assignedAt         DateTime?
+  nextFollowUpAt     DateTime?
+  /// Set when the reminder for `nextFollowUpAt` was sent; cleared when it changes.
+  followUpNotifiedAt DateTime?
+
+  /// The camp visit that referred this patient to this dentist, if any: attribution only, never price.
+  campRegistrationId String?
+  campRegistration   CampRegistration? @relation(fields: [campRegistrationId], references: [id], onDelete: SetNull)
+
+  /// The Prime period whose bonus made this lead free, if any.
+  membershipId String?
+  membership   Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events  LeadEvent[]
+  dispute LeadDispute?
+
+  @@unique([organizationId, billingOrdinal])
+  @@index([organizationId, assignedToUserId])
+  @@index([campRegistrationId])
+  @@index([nextFollowUpAt])
+  @@index([campaignId])
+  @@index([organizationId, status, createdAt])
+  @@index([dedupeKey, createdAt])
+  @@index([patientUserId])
+  @@index([billingStatus])
+  @@map("leads")
+}
+
+model LeadEvent {
+  id String @id
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  action      String
+  fromStatus  LeadStatus?
+  toStatus    LeadStatus
+  actorUserId String?
+  reason      String?
+  detail      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@map("lead_events")
+}
+
+/// The configured definition of a qualified lead, versioned. Every decision
+/// records the rule and version it was made under.
+model LeadQualificationRule {
+  id String @id
+
+  countryCode   String   @db.Char(2)
+  version       Int
+  /// e.g. { "requireVerifiedContact": true, "qualifyBookingOn": "CONFIRMED",
+  /// "qualifyCallbacks": true, "dedupeWindowDays": 30 }
+  criteria      Json
+  isActive      Boolean  @default(true)
+  effectiveFrom DateTime
+
+  createdAt DateTime @default(now())
+
+  @@unique([countryCode, version])
+  @@map("lead_qualification_rules")
+}
+
+/// Lead prices. The most specific active rule wins: dentist, then
+/// organization, then treatment, then campaign, then source, then the
+/// country default.
+model LeadPricingRule {
+  id String @id
+
+  countryCode      String      @db.Char(2)
+  currency         String
+  leadSource       LeadSource?
+  treatmentId      String?
+  organizationId   String?
+  dentistProfileId String?
+  campaign         String?
+
+  priceMinor   BigInt
+  taxCategory  String  @default("platform_fees")
+  /// True: priceMinor already includes tax. False: tax is added on top.
+  taxInclusive Boolean @default(false)
+
+  /// The organization's first N qualified leads cost nothing. Counted per
+  /// organization by `Lead.billingOrdinal`, which the ledger lock serializes.
+  freeLeadAllowance    Int @default(0)
+  /// The smallest prepaid recharge, in paid leads (N x price, plus tax).
+  minimumRechargeLeads Int @default(0)
+  /// Warn the practice when the wallet covers fewer than N paid leads.
+  lowBalanceLeads      Int @default(0)
+
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@index([countryCode, isActive])
+  @@map("lead_pricing_rules")
+}
+
+/// An organization's prepaid lead wallet. `balanceMinor` is a cache of the
+/// ledger, only ever written in the same transaction as a ledger entry; a
+/// database check forbids it going below -creditLimitMinor.
+model Wallet {
+  id String @id
+
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  currency         String
+  balanceMinor     BigInt @default(0)
+  /// 0: the wallet can never go negative.
+  creditLimitMinor BigInt @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries  LedgerEntry[]
+  invoices Invoice[]
+
+  @@map("wallets")
+}
+
+enum LedgerEntryKind {
+  TOP_UP
+  LEAD_CHARGE
+  REFUND
+  REVERSAL
+  ADJUSTMENT
+  /// A sponsored campaign's budget, held when it is activated or increased.
+  SPONSORED_HOLD
+  /// The unspent part of a held budget, returned when the campaign closes.
+  SPONSORED_REFUND
+  /// A Prime membership period, net plus tax.
+  MEMBERSHIP_CHARGE
+}
+
+/// Append-only. A correction is a new entry (REFUND, REVERSAL), never an edit.
+model LedgerEntry {
+  id String @id
+
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id])
+
+  kind              LedgerEntryKind
+  /// Signed: positive credits the wallet, negative debits it.
+  amountMinor       BigInt
+  balanceAfterMinor BigInt
+  currency          String
+
+  netMinor           BigInt?
+  taxMinor           BigInt?
+  taxRateBasisPoints Int?
+
+  leadId            String?
+  /// Set on sponsored holds and refunds.
+  campaignId        String?
+  reversesEntryId   String?  @unique
+  /// Unique per wallet: `lead-charge:<leadId>` makes a second charge for the
+  /// same lead impossible at the database level.
+  idempotencyKey    String
+  externalReference String?
+  memo              String?
+  actorUserId       String?
+  invoiceId         String?
+  invoice           Invoice? @relation(fields: [invoiceId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([walletId, idempotencyKey])
+  @@index([walletId, createdAt])
+  @@index([leadId])
+  @@index([campaignId])
+  @@map("ledger_entries")
+}
+
+/// A statement of lead charges and refunds for a period, with tax.
+model Invoice {
+  id String @id
+
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id])
+
+  number        String   @unique
+  periodStart   DateTime
+  periodEnd     DateTime
+  currency      String
+  subtotalMinor BigInt
+  taxMinor      BigInt
+  totalMinor    BigInt
+  issuedAt      DateTime @default(now())
+
+  entries LedgerEntry[]
+
+  @@unique([walletId, periodStart, periodEnd])
+  @@map("invoices")
+}
+
+enum LeadDisputeReason {
+  DUPLICATE
+  SPAM
+  WRONG_CONTACT
+  OUT_OF_AREA
+  NOT_A_PATIENT
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  ACCEPTED
+  REJECTED
+}
+
+model LeadDispute {
+  id String @id
+
+  leadId         String @unique
+  lead           Lead   @relation(fields: [leadId], references: [id])
+  organizationId String
+
+  reason LeadDisputeReason
+  note   String?
+  status DisputeStatus     @default(OPEN)
+
+  raisedByUserId   String
+  resolvedByUserId String?
+  resolutionNote   String?
+  resolvedAt       DateTime?
+  refundEntryId    String?   @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([organizationId])
+  @@map("lead_disputes")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: sponsored placement (Prime dentist / clinic / hospital)
+//
+// A separate, labelled layer on top of organic discovery. Organic ranking never
+// reads these tables. Money moves only through the wallet ledger: activating a
+// campaign holds its budget; each day it runs accrues that day's share once
+// (SponsoredCampaignDay is unique per campaign and date); whatever was not
+// spent is refunded when it ends, is exhausted or is cancelled.
+// ---------------------------------------------------------------------------
+
+enum CampaignSubject {
+  /// One dentist at one branch — shown as "Prime dentist".
+  PRACTICE
+  /// A clinic or hospital organization — "Prime clinic" / "Prime hospital".
+  ORGANIZATION
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  /// Reached its end date.
+  ENDED
+  /// Spent its whole budget.
+  EXHAUSTED
+  CANCELLED
+}
+
+enum SponsoredPlacement {
+  SEARCH
+  PROFILE
+}
+
+enum SponsoredEventKind {
+  IMPRESSION
+  CLICK
+  PROFILE_VIEW
+  BOOK_CLICK
+}
+
+/// Per-country limits for sponsored placement: configuration, not code.
+model SponsoredPlacementSettings {
+  id String @id
+
+  countryCode             String  @unique @db.Char(2)
+  currency                String
+  /// The smallest daily budget, tax included, in minor units.
+  minimumDailyBudgetMinor BigInt
+  /// Sponsored slots above the organic results on a search page.
+  searchSlots             Int     @default(2)
+  /// Sponsored slots on a dentist or clinic profile.
+  profileSlots            Int     @default(1)
+  maxCampaignDays         Int     @default(365)
+  taxCategory             String  @default("platform_fees")
+  isActive                Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sponsored_placement_settings")
+}
+
+model SponsoredCampaign {
+  id String @id
+
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  subjectType    CampaignSubject
+  /// Set for PRACTICE campaigns: the dentist-at-branch being promoted.
+  practiceId     String?
+  practice       DentistPractice? @relation(fields: [practiceId], references: [id])
+
+  name             String
+  searchPlacement  Boolean @default(true)
+  profilePlacement Boolean @default(false)
+
+  status   CampaignStatus @default(DRAFT)
+  startsAt DateTime
+  endsAt   DateTime
+  /// The organization's timezone, fixed at creation: days are its days.
+  timezone String
+  currency String
+
+  /// Everything below is in minor units, tax included.
+  budgetMinor    BigInt
+  /// What one running day costs: (held − spent) spread over the days left.
+  dailyRateMinor BigInt @default(0)
+  heldMinor      BigInt @default(0)
+  spentMinor     BigInt @default(0)
+  refundedMinor  BigInt @default(0)
+  /// Ledger holds written so far; the next hold's key uses this number.
+  holdCount      Int    @default(0)
+
+  /// Empty: any. Treatment keys from the catalogue.
+  targetTreatmentKeys    String[]
+  /// Empty: any. CLINIC, VIDEO, HOME_VISIT.
+  targetAppointmentTypes String[]
+  // Location targeting is a Geofence (purpose CAMPAIGN, ownerType
+  // 'sponsored_campaign') — the existing geofence model, not a copy of it.
+
+  createdByUserId String
+  activatedAt     DateTime?
+  pausedAt        DateTime?
+  closedAt        DateTime?
+  closeReason     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  days   SponsoredCampaignDay[]
+  events SponsoredEvent[]
+  leads  Lead[]
+
+  @@index([status, startsAt, endsAt])
+  @@index([organizationId, status])
+  @@index([practiceId])
+  @@map("sponsored_campaigns")
+}
+
+/// One row per day a campaign ran: the idempotency key for spend.
+model SponsoredCampaignDay {
+  id String @id
+
+  campaignId String
+  campaign   SponsoredCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  /// YYYY-MM-DD in the campaign's timezone.
+  localDate   String
+  amountMinor BigInt
+  taxMinor    BigInt
+
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, localDate])
+  @@map("sponsored_campaign_days")
+}
+
+/// Sponsored analytics. A click belongs to one impression, a profile view and
+/// a booking click to one click (`parentId`), each at most once. Events from
+/// the promoted organization's own members are kept but excluded.
+model SponsoredEvent {
+  id String @id
+
+  campaignId String
+  campaign   SponsoredCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  kind           SponsoredEventKind
+  placement      SponsoredPlacement
+  parentId       String?
+  viewerUserId   String?
+  excluded       Boolean            @default(false)
+  excludedReason String?
+  context        Json?
+
+  createdAt DateTime @default(now())
+
+  @@unique([parentId, kind])
+  @@index([campaignId, kind, createdAt])
+  @@map("sponsored_events")
+}
+
+// ---------------------------------------------------------------------------
+// India data: districts, extraction, normalization, pre-made accounts
+//
+// Country → State/UT (Region) → District. The district is the operational
+// unit for extraction, marketing, calling, camps and reporting.
+//
+// Extracted data is UNVERIFIED until a person verifies it. The row exactly as
+// received is kept beside the normalized version, with its source, date and
+// confidence, so every later change can be traced back.
+// ---------------------------------------------------------------------------
+
+model District {
+  id String @id
+
+  countryCode String @db.Char(2)
+  regionId    String
+  region      Region @relation(fields: [regionId], references: [id])
+
+  name     String
+  slug     String
+  /// Local Government Directory code (India), when known.
+  lgdCode  String?  @unique
+  /// Other spellings seen in source data ("Baloda Bazar" / "Balodabazar").
+  aliases  String[]
+  isActive Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cities               City[]
+  locations            Location[]
+  extractedRecords     ExtractedRecord[]
+  extractionBatches    ExtractionBatch[]
+  outreachTasks        OutreachTask[]
+  camps                Camp[]
+  businessServiceAreas BusinessServiceArea[]
+  quoteDeliveries      QuoteRequest[]
+  jobPostings          JobPosting[]
+  orderDeliveries      Order[]
+
+  @@unique([regionId, slug])
+  @@index([countryCode])
+  @@map("districts")
+}
+
+enum ExtractionEntity {
+  DENTIST
+  CLINIC
+  HOSPITAL
+  COLLEGE
+}
+
+enum ExtractionBatchStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+enum ExtractedRecordStatus {
+  /// Normalized, not yet reviewed.
+  NEW
+  /// Matches an existing record, account or organization: not imported again.
+  DUPLICATE
+  REJECTED
+  /// A pre-made (inactive) account or unowned listing was created from it.
+  ACCOUNT_CREATED
+  /// The organization's claim was approved.
+  CLAIMED
+  /// The pre-made account was activated (email + mobile OTP).
+  ACTIVATED
+}
+
+enum DataVerification {
+  UNVERIFIED
+  VERIFIED
+}
+
+model ExtractionBatch {
+  id String @id
+
+  /// Where the data came from: "csv:<file>", "vendor:<name>", ...
+  source          String
+  sourceReference String?
+  entityType      ExtractionEntity
+  /// Default district for rows that do not name one.
+  districtId      String?
+  district        District?        @relation(fields: [districtId], references: [id])
+
+  uploadedByUserId String
+  status           ExtractionBatchStatus @default(RECEIVED)
+  totalRows        Int                   @default(0)
+  newRows          Int                   @default(0)
+  duplicateRows    Int                   @default(0)
+  rejectedRows     Int                   @default(0)
+
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  records ExtractedRecord[]
+
+  @@index([createdAt])
+  @@map("extraction_batches")
+}
+
+model ExtractedRecord {
+  id String @id
+
+  batchId String
+  batch   ExtractionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  entityType  ExtractionEntity
+  rowNumber   Int
+  source      String
+  /// When the source captured the data (not when it was imported).
+  extractedAt DateTime
+  /// The row exactly as received. Never modified.
+  original    Json
+  /// The cleaned version: names, phone (E.164), email, pincode, district.
+  normalized  Json
+
+  name               String
+  phone              String?
+  email              String?
+  registrationNumber String?
+  districtId         String?
+  district           District? @relation(fields: [districtId], references: [id])
+
+  /// 0–100: how complete and consistent the row is.
+  confidence    Int
+  /// The identity of "the same person or place": registration, phone, email,
+  /// or entity + name + district.
+  dedupeKey     String
+  duplicateOfId String?
+
+  status       ExtractedRecordStatus @default(NEW)
+  verification DataVerification      @default(UNVERIFIED)
+
+  /// Existing accounts or organizations this row matched.
+  matchedUserId         String?
+  matchedOrganizationId String?
+
+  premadeUserId         String?       @unique
+  premadeUser           User?         @relation("ExtractedPremadeUser", fields: [premadeUserId], references: [id])
+  premadeOrganizationId String?       @unique
+  premadeOrganization   Organization? @relation("ExtractedPremadeOrganization", fields: [premadeOrganizationId], references: [id])
+
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  claimedAt        DateTime?
+  activatedAt      DateTime?
+
+  outreachTasks OutreachTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([batchId, rowNumber])
+  @@index([dedupeKey])
+  @@index([districtId, status])
+  @@index([status, entityType])
+  @@map("extracted_records")
+}
+
+/// Toothlogy operations: reaching a dentist, clinic, hospital or college in a
+/// district — from an extracted record or an existing listing — assigned to a
+/// staff member, with every call and note kept. Exactly one subject per task
+/// and at most one OPEN task per subject (CHECK and partial unique indexes in
+/// the migration).
+model OutreachTask {
+  id String @id
+
+  districtId String?
+  district   District? @relation(fields: [districtId], references: [id])
+
+  extractedRecordId String?
+  extractedRecord   ExtractedRecord? @relation(fields: [extractedRecordId], references: [id], onDelete: Cascade)
+  organizationId    String?
+  organization      Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  purpose  OutreachPurpose
+  title    String
+  status   OutreachStatus  @default(OPEN)
+  priority Int             @default(0)
+  /// "record:<id>" or "organization:<id>" while OPEN, null once closed: the
+  /// unique index allows one open task per subject and any number of closed.
+  openKey  String?         @unique
+
+  assignedToUserId String?
+  assignedTo       User?     @relation("OutreachAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  assignedAt       DateTime?
+  createdByUserId  String
+
+  dueAt       DateTime?
+  outcome     OutreachOutcome?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities OutreachActivity[]
+
+  @@index([districtId, status])
+  @@index([assignedToUserId, status, dueAt])
+  @@index([extractedRecordId])
+  @@index([organizationId])
+  @@map("outreach_tasks")
+}
+
+/// One call, message, visit or note on an outreach task. Append-only.
+model OutreachActivity {
+  id String @id
+
+  taskId String
+  task   OutreachTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  type        OutreachActivityType
+  outcome     OutreachOutcome?
+  note        String?
+  actorUserId String
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
+  @@map("outreach_activities")
+}
+
+enum OutreachPurpose {
+  /// A dentist from an extracted record: invite them to take over their profile.
+  ACTIVATE_ACCOUNT
+  /// A clinic, hospital or college listing: invite its owner to claim it.
+  CLAIM_LISTING
+  /// Check details that could not be normalized or matched.
+  VERIFY_DETAILS
+  /// An existing practice: help them get going or keep them.
+  RETENTION
+}
+
+enum OutreachStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+enum OutreachActivityType {
+  CALL
+  NOTE
+  EMAIL
+  SMS
+  WHATSAPP
+  VISIT
+}
+
+enum OutreachOutcome {
+  CONNECTED
+  NO_ANSWER
+  BUSY
+  WRONG_NUMBER
+  CALLBACK_REQUESTED
+  INTERESTED
+  NOT_INTERESTED
+  ONBOARDED
+}
+
+/// A dental college's academic profile beside its organization. Recognition
+/// is the college's own statement until Toothlogy staff check it against the
+/// regulator's list: only they set `recognitionVerifiedAt`, and changing the
+/// stated recognition clears it.
+model CollegeProfile {
+  organizationId String       @id
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ownership            CollegeOwnership?
+  affiliatedUniversity String?
+  establishedYear      Int?
+  recognitionBody      String?
+  recognitionReference String?
+
+  recognitionVerifiedAt       DateTime?
+  recognitionVerifiedByUserId String?
+
+  admissionsEmail String?
+  admissionsPhone String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("college_profiles")
+}
+
+enum CollegeOwnership {
+  GOVERNMENT
+  PRIVATE
+  DEEMED_UNIVERSITY
+  AUTONOMOUS
+}
+
+/// A course a college offers. Only PUBLISHED courses are public.
+model Course {
+  id String @id
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  level          CourseLevel
+  /// For MDS: the dental specialty (reference data key).
+  specialtyKey   String?
+  name           String
+  slug           String
+  durationMonths Int
+  seats          Int?
+  annualFeeMinor BigInt?
+  currency       String?
+  entranceExam   EntranceExam
+  description    String?
+  status         CourseStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cycles     AdmissionCycle[]
+  enquiries  AdmissionEnquiry[]
+  enrolments Enrolment[]
+
+  @@unique([organizationId, slug])
+  @@index([level, status])
+  @@map("courses")
+}
+
+enum CourseLevel {
+  BDS
+  MDS
+  DIPLOMA
+  CERTIFICATE
+  FELLOWSHIP
+  PHD
+}
+
+enum EntranceExam {
+  NEET_UG
+  NEET_MDS
+  INI_CET
+  INSTITUTIONAL
+  NONE
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// One academic year's admission window for a course, as calendar days.
+model AdmissionCycle {
+  id String @id
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  academicYear String
+  opensOn      DateTime @db.Date
+  closesOn     DateTime @db.Date
+  seats        Int?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enquiries  AdmissionEnquiry[]
+  enrolments Enrolment[]
+
+  @@unique([courseId, academicYear])
+  @@map("admission_cycles")
+}
+
+/// A prospective student's enquiry about a course — the college's admission
+/// lead. Sent only by a signed-in student with a verified email who agreed
+/// to be contacted; one open enquiry per student per course (`openKey`).
+/// Not billed.
+model AdmissionEnquiry {
+  id String @id
+
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  courseId       String
+  course         Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  cycleId        String?
+  cycle          AdmissionCycle? @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  studentUserId  String
+  student        User            @relation("StudentEnquiries", fields: [studentUserId], references: [id], onDelete: Cascade)
+
+  status           AdmissionEnquiryStatus @default(NEW)
+  message          String?
+  qualification    String?
+  /// Self-reported by the student; shown as such.
+  examName         EntranceExam?
+  examRank         Int?
+  consentToContact Boolean
+  openKey          String?                @unique
+
+  assignedToUserId String?
+  assignedTo       User?     @relation("AssignedEnquiries", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  assignedAt       DateTime?
+  nextFollowUpAt   DateTime?
+
+  contactedAt DateTime?
+  appliedAt   DateTime?
+  decidedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events    AdmissionEnquiryEvent[]
+  /// The enrolment that followed admission, if the college recorded one.
+  enrolment Enrolment?
+
+  @@index([organizationId, status, createdAt])
+  @@index([studentUserId])
+  @@index([courseId])
+  @@map("admission_enquiries")
+}
+
+enum AdmissionEnquiryStatus {
+  NEW
+  CONTACTED
+  APPLIED
+  ADMITTED
+  NOT_ADMITTED
+  WITHDRAWN
+  LOST
+}
+
+/// Append-only history of an enquiry: status changes, assignment, notes.
+model AdmissionEnquiryEvent {
+  id String @id
+
+  enquiryId String
+  enquiry   AdmissionEnquiry @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+
+  action      String
+  fromStatus  AdmissionEnquiryStatus?
+  toStatus    AdmissionEnquiryStatus
+  actorUserId String?
+  note        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([enquiryId, createdAt])
+  @@map("admission_enquiry_events")
+}
+
+/// A district dental awareness camp. Public only once Toothlogy staff
+/// approve it; the organizer never approves their own.
+model Camp {
+  id   String @id
+  slug String @unique
+
+  title           String
+  description     String?
+  services        String?
+  districtId      String
+  district        District      @relation(fields: [districtId], references: [id])
+  organizerUserId String
+  organizer       User          @relation("OrganizedCamps", fields: [organizerUserId], references: [id])
+  /// The clinic, hospital or college running it, if any.
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  venueName    String
+  venueAddress String
+  startsAt     DateTime
+  endsAt       DateTime
+  timezone     String     @default("Asia/Kolkata")
+  capacity     Int?
+  status       CampStatus @default(DRAFT)
+
+  submittedAt      DateTime?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  reviewNote       String?
+  cancelledAt      DateTime?
+  completedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctors       CampDoctor[]
+  registrations CampRegistration[]
+
+  @@index([districtId, status, startsAt])
+  @@index([organizerUserId])
+  @@map("camps")
+}
+
+enum CampStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+/// A dentist's application to serve at a camp, the organizer's decision,
+/// and whether they attended: the dentist's participation history.
+model CampDoctor {
+  id String @id
+
+  campId           String
+  camp             Camp           @relation(fields: [campId], references: [id], onDelete: Cascade)
+  dentistProfileId String
+  dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+
+  status          CampDoctorStatus @default(APPLIED)
+  message         String?
+  appliedAt       DateTime         @default(now())
+  decidedAt       DateTime?
+  decidedByUserId String?
+  decisionNote    String?
+  attended        Boolean          @default(false)
+
+  @@unique([campId, dentistProfileId])
+  @@index([dentistProfileId])
+  @@map("camp_doctors")
+}
+
+enum CampDoctorStatus {
+  APPLIED
+  APPROVED
+  DECLINED
+  WITHDRAWN
+}
+
+/// A patient at a camp: registered themselves online, or recorded at the
+/// venue by the organizer or a camp doctor. One registration per phone and
+/// per account per camp. What is found and whom they are referred to is
+/// shared only with the camp's organizer and doctors, with consent.
+model CampRegistration {
+  id String @id
+
+  campId        String
+  camp          Camp    @relation(fields: [campId], references: [id], onDelete: Cascade)
+  patientUserId String?
+  patient       User?   @relation("CampRegistrations", fields: [patientUserId], references: [id], onDelete: SetNull)
+
+  source             CampRegistrationSource
+  registeredByUserId String
+  name               String
+  phone              String
+  age                Int?
+  concern            String?
+  consentToShare     Boolean
+
+  status      CampRegistrationStatus @default(REGISTERED)
+  checkedInAt DateTime?
+  cancelledAt DateTime?
+
+  seenByDentistProfileId   String?
+  seenBy                   DentistProfile? @relation("CampVisitsSeen", fields: [seenByDentistProfileId], references: [id], onDelete: SetNull)
+  findings                 String?
+  needsFollowUp            Boolean         @default(false)
+  referredDentistProfileId String?
+  referredDentist          DentistProfile? @relation("CampReferrals", fields: [referredDentistProfileId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads        Lead[]
+  appointments Appointment[]
+
+  @@unique([campId, phone])
+  @@unique([campId, patientUserId])
+  @@index([patientUserId])
+  @@index([referredDentistProfileId])
+  @@map("camp_registrations")
+}
+
+enum CampRegistrationSource {
+  SELF
+  WALK_IN
+}
+
+enum CampRegistrationStatus {
+  REGISTERED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+}
+
+/// A dental business's trading profile beside its organization — supplier
+/// (vendor), manufacturer, distributor, wholesaler, retailer or laboratory.
+/// What it states (GSTIN, brands, delivery, turnaround) is its own statement;
+/// only organization verification makes it Toothlogy's.
+model BusinessProfile {
+  organizationId String       @id
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  categories          String[]
+  brands              String[]
+  gstin               String?
+  establishedYear     Int?
+  deliveryNote        String?
+  minimumOrderNote    String?
+  /// Laboratories: the usual working days for a case.
+  turnaroundDays      Int?
+  servesAllIndia      Boolean  @default(false)
+  /// Days after delivery a buyer may ask to return items; 0 = no returns.
+  returnWindowDays    Int      @default(0)
+  /// How to pay the business (bank account, UPI id), as the business states
+  /// it. Shown to a buyer once the business confirms their order.
+  paymentInstructions String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  serviceAreas BusinessServiceArea[]
+
+  @@map("business_profiles")
+}
+
+/// A district a business delivers to or serves.
+model BusinessServiceArea {
+  organizationId String
+  profile        BusinessProfile @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+  districtId     String
+  district       District        @relation(fields: [districtId], references: [id])
+
+  @@id([organizationId, districtId])
+  @@index([districtId])
+  @@map("business_service_areas")
+}
+
+/// A product or service a business offers. Prices are indicative and GST
+/// inclusive; the buyer asks for a quote — nothing is sold through Toothlogy
+/// until a payment provider is connected.
+model Product {
+  id String @id
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  kind             ProductKind
+  category         String
+  name             String
+  slug             String
+  brand            String?
+  description      String?
+  unit             String?
+  priceMinor       BigInt?
+  currency         String?
+  gstRatePercent   Int?
+  minOrderQuantity Int           @default(1)
+  status           ProductStatus @default(DRAFT)
+  /// The seller sells it at the listed price (or its variants' prices), so a
+  /// buyer may order it; otherwise buyers ask for a quote.
+  orderable        Boolean       @default(false)
+  /// A tax classification code (HSN or SAC in India), as the seller states it.
+  taxCode          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quoteRequests QuoteRequest[]
+  variants      ProductVariant[]
+  cartItems     CartItem[]
+  orderLines    OrderLine[]
+
+  @@unique([organizationId, slug])
+  @@index([category, status])
+  @@map("products")
+}
+
+enum ProductKind {
+  GOOD
+  SERVICE
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// A buyer's request for a quote — the marketplace's lead. One open request
+/// per buyer and product (`openKey`). The seller quotes a price valid until a
+/// date; the buyer accepts or withdraws. Not billed, and no money moves
+/// through Toothlogy: payment and delivery are arranged between the parties.
+model QuoteRequest {
+  id String @id
+
+  sellerOrganizationId String
+  seller               Organization  @relation("QuotesReceived", fields: [sellerOrganizationId], references: [id], onDelete: Cascade)
+  productId            String?
+  product              Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  buyerUserId          String
+  buyer                User          @relation("QuoteRequests", fields: [buyerUserId], references: [id], onDelete: Cascade)
+  buyerOrganizationId  String?
+  buyerOrganization    Organization? @relation("QuotesSent", fields: [buyerOrganizationId], references: [id], onDelete: SetNull)
+
+  quantity           Int
+  message            String?
+  deliveryDistrictId String?
+  deliveryDistrict   District?   @relation(fields: [deliveryDistrictId], references: [id])
+  status             QuoteStatus @default(NEW)
+  openKey            String?     @unique
+
+  quotedPriceMinor BigInt?
+  currency         String?
+  validUntil       DateTime?
+  sellerNote       String?
+  respondedAt      DateTime?
+  decidedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events QuoteEvent[]
+
+  @@index([sellerOrganizationId, status, createdAt])
+  @@index([buyerUserId])
+  @@index([status, validUntil])
+  @@map("quote_requests")
+}
+
+enum QuoteStatus {
+  NEW
+  QUOTED
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+  EXPIRED
+  CLOSED
+}
+
+/// Append-only history of a quote request.
+model QuoteEvent {
+  id String @id
+
+  quoteRequestId String
+  quoteRequest   QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+
+  action      String
+  fromStatus  QuoteStatus?
+  toStatus    QuoteStatus
+  actorUserId String?
+  note        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([quoteRequestId, createdAt])
+  @@map("quote_events")
+}
+
+/// A researcher's or faculty member's academic details beside their
+/// profile. All of it is the person's own statement; a faculty post shows
+/// as confirmed only once the college confirms it (FacultyAppointment).
+model AcademicProfile {
+  profileId String  @id
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  designation String?
+  department  String?
+  institution String?
+  orcid       String?
+  /// Dental specialty keys (reference data).
+  interests   String[]
+  website     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("academic_profiles")
+}
+
+/// A publication a researcher or faculty member lists. Stated, not checked;
+/// a DOI links it to the record of truth.
+model Publication {
+  id String @id
+
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  title String
+  venue String?
+  year  Int
+  doi   String?
+  url   String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, doi])
+  @@index([profileId, year])
+  @@map("publications")
+}
+
+/// A faculty member's post at a college, confirmed (or not) by the
+/// college's administrators. Only a confirmed post is shown as such.
+model FacultyAppointment {
+  id String @id
+
+  profileId      String
+  profile        Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  designation     String
+  department      String?
+  status          FacultyAppointmentStatus @default(PENDING)
+  requestedAt     DateTime                 @default(now())
+  decidedAt       DateTime?
+  decidedByUserId String?
+  endedAt         DateTime?
+
+  @@unique([profileId, organizationId])
+  @@index([organizationId, status])
+  @@map("faculty_appointments")
+}
+
+enum FacultyAppointmentStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  ENDED
+}
+
+/// A question in the public dental community. Not medical advice, and the
+/// pages say so; contact details are refused in public posts.
+model CommunityQuestion {
+  id String @id
+
+  authorUserId     String
+  author           User                @relation("CommunityQuestions", fields: [authorUserId], references: [id], onDelete: Cascade)
+  topic            String
+  title            String
+  body             String
+  status           CommunityPostStatus @default(PUBLISHED)
+  hiddenReason     String?
+  acceptedAnswerId String?             @unique
+  acceptedAnswer   CommunityAnswer?    @relation("AcceptedAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  answers CommunityAnswer[] @relation("QuestionAnswers")
+  reports CommunityReport[]
+
+  @@index([status, topic, createdAt])
+  @@index([authorUserId])
+  @@map("community_questions")
+}
+
+model CommunityAnswer {
+  id String @id
+
+  questionId   String
+  question     CommunityQuestion   @relation("QuestionAnswers", fields: [questionId], references: [id], onDelete: Cascade)
+  authorUserId String
+  author       User                @relation("CommunityAnswers", fields: [authorUserId], references: [id], onDelete: Cascade)
+  body         String
+  status       CommunityPostStatus @default(PUBLISHED)
+  hiddenReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  acceptedFor CommunityQuestion? @relation("AcceptedAnswer")
+  reports     CommunityReport[]
+
+  @@index([questionId, status, createdAt])
+  @@index([authorUserId])
+  @@map("community_answers")
+}
+
+enum CommunityPostStatus {
+  PUBLISHED
+  /// Hidden by a moderator, or automatically after several reports, pending review.
+  HIDDEN
+  /// Removed by its author.
+  REMOVED
+}
+
+/// Someone's report of a question or an answer; exactly one target, one
+/// report per person per target (CHECK and unique indexes).
+model CommunityReport {
+  id String @id
+
+  targetType      CommunityTarget
+  questionId      String?
+  question        CommunityQuestion?    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerId        String?
+  answer          CommunityAnswer?      @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  reporterUserId  String
+  reason          CommunityReportReason
+  note            String?
+  status          CommunityReportStatus @default(OPEN)
+  decidedByUserId String?
+  decidedAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([questionId, reporterUserId])
+  @@unique([answerId, reporterUserId])
+  @@index([status, createdAt])
+  @@map("community_reports")
+}
+
+enum CommunityTarget {
+  QUESTION
+  ANSWER
+}
+
+enum CommunityReportReason {
+  SPAM
+  ABUSE
+  MISINFORMATION
+  PRIVACY
+  OTHER
+}
+
+enum CommunityReportStatus {
+  OPEN
+  UPHELD
+  DISMISSED
+}
+
+/// A patient's review of a visit that took place. One per appointment, only
+/// by its patient, only once the appointment is completed — a review that
+/// cannot be tied to a real visit is never published (PHASES, Phase 5).
+model Review {
+  id String @id
+
+  appointmentId    String         @unique
+  appointment      Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patientUserId    String
+  patient          User           @relation("PatientReviews", fields: [patientUserId], references: [id], onDelete: Cascade)
+  dentistProfileId String
+  dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  rating          Int
+  body            String?
+  status          ReviewStatus @default(PUBLISHED)
+  hiddenReason    String?
+  /// The practice asked a moderator to look at it; it stays up meanwhile.
+  flaggedAt       DateTime?
+  flagReason      String?
+  flaggedByUserId String?
+  editedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  response ReviewResponse?
+
+  @@index([dentistProfileId, status, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@index([patientUserId])
+  @@index([flaggedAt])
+  @@map("reviews")
+}
+
+enum ReviewStatus {
+  PUBLISHED
+  /// Hidden by a moderator, with the reason the patient is told.
+  HIDDEN
+  /// Removed by the patient.
+  REMOVED
+}
+
+/// The practice's one public reply to a review.
+model ReviewResponse {
+  id String @id
+
+  reviewId     String @unique
+  review       Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  authorUserId String
+  body         String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("review_responses")
+}
+
+/// A conversation between a patient and a practice they have an
+/// appointment with — never a cold message. One open conversation per
+/// patient, practice and appointment (`openKey`). Private to the two sides.
+model MessageThread {
+  id String @id
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patientUserId  String
+  patient        User         @relation("PatientThreads", fields: [patientUserId], references: [id], onDelete: Cascade)
+  appointmentId  String?
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  subject        String
+  status         MessageThreadStatus @default(OPEN)
+  openKey        String?             @unique
+  lastMessageAt  DateTime            @default(now())
+  patientReadAt  DateTime?
+  practiceReadAt DateTime?
+  closedAt       DateTime?
+  closedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+
+  @@index([organizationId, status, lastMessageAt])
+  @@index([patientUserId, lastMessageAt])
+  @@map("message_threads")
+}
+
+enum MessageThreadStatus {
+  OPEN
+  CLOSED
+}
+
+enum MessageSide {
+  PATIENT
+  PRACTICE
+}
+
+/// One message in a conversation. Append-only.
+model Message {
+  id String @id
+
+  threadId     String
+  thread       MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorUserId String
+  side         MessageSide
+  body         String
+
+  createdAt DateTime @default(now())
+
+  @@index([threadId, createdAt])
+  @@index([authorUserId, createdAt])
+  @@map("messages")
+}
+
+/// A request for help from Toothlogy's support team.
+model SupportTicket {
+  id String @id
+
+  requesterUserId       String
+  requester             User                 @relation("SupportRequests", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  /// The organization the request is about, if the requester belongs to it.
+  organizationId        String?
+  organization          Organization?        @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  category              SupportCategory
+  subject               String
+  status                SupportTicketStatus  @default(OPEN)
+  assignedToUserId      String?
+  assignedTo            User?                @relation("SupportAssignments", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  lastActivityAt        DateTime             @default(now())
+  resolvedAt            DateTime?
+  /// Answered first: the requester or its organization has Prime priority support.
+  priority              Boolean              @default(false)
+  /// Set when the organization is covered by an enterprise agreement: the
+  /// service levels Toothlogy committed to, fixed when the ticket opens.
+  enterpriseAgreementId String?
+  enterpriseAgreement   EnterpriseAgreement? @relation(fields: [enterpriseAgreementId], references: [id], onDelete: SetNull)
+  slaFirstResponseDueAt DateTime?
+  slaResolveDueAt       DateTime?
+  /// The first reply from support staff (internal notes do not count).
+  firstRespondedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages SupportMessage[]
+
+  @@index([status, lastActivityAt])
+  @@index([requesterUserId])
+  @@index([assignedToUserId, status])
+  @@map("support_tickets")
+}
+
+enum SupportCategory {
+  ACCOUNT
+  BOOKING
+  BILLING
+  VERIFICATION
+  DATA_PRIVACY
+  LISTING
+  OTHER
+}
+
+enum SupportTicketStatus {
+  OPEN
+  WAITING_ON_USER
+  RESOLVED
+  CLOSED
+}
+
+/// One message on a support ticket. `internal` notes are staff-only and
+/// never shown to the requester.
+model SupportMessage {
+  id String @id
+
+  ticketId     String
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorUserId String
+  fromStaff    Boolean
+  internal     Boolean       @default(false)
+  body         String
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("support_messages")
+}
+
+// ===========================================================================
+// DIVISIONS 11–12 — DENTAL RECORD AND PRESCRIPTIONS (Phase 6)
+// ===========================================================================
+
+/// One entry in a patient's dental record: a treatment, a visit note, an X-ray
+/// or a report. The record belongs to the patient (Constitution P4): what a
+/// practice adds stays with the patient after the practice's access ends. A
+/// practice corrects its own entry by retracting it with a reason — clinical
+/// history is never silently edited. Patients may delete what they added.
+model RecordEntry {
+  id String @id
+
+  patientUserId String
+  patient       User       @relation("RecordEntries", fields: [patientUserId], references: [id])
+  dependentId   String?
+  dependent     Dependent? @relation(fields: [dependentId], references: [id])
+
+  kind       RecordEntryKind
+  title      String
+  notes      String?
+  /// FDI two-digit tooth numbers (11–48 permanent, 51–85 primary).
+  teeth      Int[]
+  occurredOn DateTime        @db.Date
+
+  fileId String?     @unique
+  file   FileObject? @relation(fields: [fileId], references: [id])
+
+  authorUserId   String
+  author         User          @relation("RecordEntriesAuthored", fields: [authorUserId], references: [id])
+  /// The practice that added it; null for what the patient added themselves.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  appointmentId  String?
+  appointment    Appointment?  @relation(fields: [appointmentId], references: [id])
+
+  retractedAt     DateTime?
+  retractedReason String?
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@index([patientUserId, occurredOn])
+  @@index([organizationId, createdAt])
+  @@map("record_entries")
+}
+
+enum RecordEntryKind {
+  TREATMENT
+  VISIT_NOTE
+  IMAGING
+  REPORT
+  DOCUMENT
+}
+
+/// A patient's leave for one practice to see — and optionally add to — their
+/// dental record. Asked for by the practice or given by the patient; revocable
+/// at any moment; may expire. An active grant carries the consent row that
+/// evidences it. `openKey` keeps one open (requested or active) grant per
+/// patient and practice.
+model RecordAccessGrant {
+  id String @id
+
+  patientUserId  String
+  patient        User         @relation("RecordGrants", fields: [patientUserId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  status   RecordGrantStatus
+  canWrite Boolean           @default(false)
+
+  requestedByUserId String?
+  requestNote       String?
+
+  consentId String?  @unique
+  consent   Consent? @relation(fields: [consentId], references: [id])
+
+  grantedAt   DateTime?
+  expiresAt   DateTime?
+  endedAt     DateTime?
+  endedReason String?
+
+  openKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientUserId, status])
+  @@index([organizationId, status])
+  @@map("record_access_grants")
+}
+
+enum RecordGrantStatus {
+  REQUESTED
+  ACTIVE
+  DECLINED
+  REVOKED
+  EXPIRED
+}
+
+/// A prescription a verified dentist issued at a practice. The patient prints
+/// or carries it; a pharmacist checks it at /rx/<verifyCode> (the QR on the
+/// printout). Cancelled, never edited or deleted.
+model Prescription {
+  id String @id
+
+  patientUserId    String
+  patient          User           @relation("PatientPrescriptions", fields: [patientUserId], references: [id])
+  dependentId      String?
+  dependent        Dependent?     @relation(fields: [dependentId], references: [id])
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id])
+  prescriberUserId String
+  prescriber       User           @relation("PrescriptionsIssued", fields: [prescriberUserId], references: [id])
+  dentistProfileId String
+  dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id])
+  appointmentId    String?
+  appointment      Appointment?   @relation(fields: [appointmentId], references: [id])
+
+  /// [{ medicine, strength?, dose, frequency, duration, instructions? }]
+  items  Json
+  advice String?
+
+  /// Unguessable code behind the QR (80 bits); the public check shows it.
+  verifyCode String @unique
+
+  status          PrescriptionStatus @default(ISSUED)
+  cancelledAt     DateTime?
+  cancelledReason String?
+
+  issuedAt DateTime @default(now())
+
+  @@index([patientUserId, issuedAt])
+  @@index([organizationId, issuedAt])
+  @@map("prescriptions")
+}
+
+enum PrescriptionStatus {
+  ISSUED
+  CANCELLED
+}
+
+// ===========================================================================
+// DIVISIONS 13–15 — KNOWLEDGE (Phase 7)
+// ===========================================================================
+
+/// A knowledge article — a condition, treatment, procedure or guide explained
+/// for patients — or a dentist's blog post. Written by a verified dentist;
+/// nothing reaches readers without another person's clinical review. The
+/// working copy (title, summary, body, citations) is edited freely; approval
+/// copies it to the `live*` fields, which are all readers ever see — so a
+/// revision of a published article leaves the reviewed version up until the
+/// revision is approved. Archived, never deleted.
+model Article {
+  id   String      @id
+  slug String      @unique
+  kind ArticleKind
+
+  title     String
+  summary   String
+  body      String
+  /// [{ title, source, year?, url? }]
+  citations Json
+
+  liveTitle     String?
+  liveSummary   String?
+  liveBody      String?
+  liveCitations Json?
+
+  treatmentId  String?
+  treatment    Treatment?  @relation(fields: [treatmentId], references: [id])
+  specialtyKey String?
+  /// A public CONTENT_MEDIA image the author uploaded.
+  coverFileId  String?
+  coverFile    FileObject? @relation("ArticleCover", fields: [coverFileId], references: [id])
+
+  authorUserId String
+  author       User          @relation("ArticlesAuthored", fields: [authorUserId], references: [id])
+  status       ArticleStatus @default(DRAFT)
+  submittedAt  DateTime?
+
+  reviewedByUserId String?
+  reviewer         User?     @relation("ArticlesReviewed", fields: [reviewedByUserId], references: [id])
+  lastReviewedAt   DateTime?
+  reviewNote       String?
+  publishedAt      DateTime?
+
+  archivedAt     DateTime?
+  archivedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, submittedAt])
+  @@index([kind, lastReviewedAt])
+  @@index([authorUserId, updatedAt])
+  @@index([treatmentId])
+  @@map("articles")
+}
+
+enum ArticleKind {
+  CONDITION
+  TREATMENT
+  PROCEDURE
+  GUIDE
+  BLOG
+}
+
+enum ArticleStatus {
+  DRAFT
+  IN_REVIEW
+  CHANGES_REQUESTED
+  PUBLISHED
+  ARCHIVED
+}
+
+// ===========================================================================
+// DIVISION 08 — CAREERS (Phase 8)
+// ===========================================================================
+
+/// A job or internship an organization offers. Public while open; only a
+/// Toothlogy-verified organization may open one. Pay is stated by the
+/// employer, not checked. No contact details in the text: applications go
+/// through Toothlogy.
+model JobPosting {
+  id String @id
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  kind           JobKind
+  role           JobRole
+  employmentType EmploymentType
+  title          String
+  description    String
+  requirements   String?
+  specialtyKey   String?
+
+  districtId String?
+  district   District? @relation(fields: [districtId], references: [id])
+  city       String?
+
+  /// Stated monthly pay (a stipend, for internships), in minor units.
+  payMinMinor Int?
+  payMaxMinor Int?
+  currency    String    @default("INR")
+  openings    Int       @default(1)
+  closesAt    DateTime?
+
+  status      JobPostingStatus @default(DRAFT)
+  publishedAt DateTime?
+  closedAt    DateTime?
+
+  createdByUserId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications JobApplication[]
+
+  @@index([status, publishedAt])
+  @@index([organizationId, status])
+  @@index([districtId, status])
+  @@map("job_postings")
+}
+
+enum JobKind {
+  JOB
+  INTERNSHIP
+}
+
+enum JobRole {
+  DENTIST
+  SPECIALIST
+  INTERN
+  ASSISTANT
+  HYGIENIST
+  TECHNICIAN
+  RECEPTIONIST
+  FACULTY
+  MANAGER
+  OTHER
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  VISITING
+  LOCUM
+  INTERNSHIP
+}
+
+enum JobPostingStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  FILLED
+}
+
+/// One person's application to a posting — one per person per posting. The
+/// applicant agreed to share their contact details and résumé with this
+/// employer; a withdrawal takes them back.
+model JobApplication {
+  id String @id
+
+  postingId       String
+  posting         JobPosting  @relation(fields: [postingId], references: [id])
+  applicantUserId String
+  applicant       User        @relation("JobApplications", fields: [applicantUserId], references: [id])
+  resumeFileId    String?
+  resumeFile      FileObject? @relation("ApplicationResume", fields: [resumeFileId], references: [id])
+
+  coverNote        String?
+  contactConsentAt DateTime
+
+  status             JobApplicationStatus @default(SUBMITTED)
+  interviewAt        DateTime?
+  /// The latest word from the employer, shown to the applicant.
+  messageToApplicant String?
+  /// Kept with the employer only.
+  employerNote       String?
+  statusChangedAt    DateTime             @default(now())
+  withdrawnAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([postingId, applicantUserId])
+  @@index([applicantUserId, createdAt])
+  @@index([postingId, status])
+  @@map("job_applications")
+}
+
+enum JobApplicationStatus {
+  SUBMITTED
+  SHORTLISTED
+  INTERVIEW
+  OFFERED
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+// ===========================================================================
+// DIVISION 28 — IOT (Phase 11)
+// ===========================================================================
+
+/// A connected device a practice registered — an autoclave, a chair, a
+/// compressor. It reports readings with its own token (stored only as a hash,
+/// shown once). Readings outside the practice's limits, or a reported fault,
+/// open an alert the practice is told about and resolves by hand. Retired,
+/// never deleted.
+model Device {
+  id String @id
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  kind         DeviceKind
+  name         String
+  serialNumber String?
+
+  tokenHash String       @unique
+  /// The token's last four characters, to tell tokens apart; never the token.
+  tokenHint String
+  status    DeviceStatus @default(ACTIVE)
+
+  connectedAt DateTime?
+  lastSeenAt  DateTime?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  limits   DeviceLimit[]
+  readings DeviceReading[]
+  alerts   DeviceAlert[]
+
+  @@index([organizationId, status])
+  @@map("devices")
+}
+
+enum DeviceKind {
+  AUTOCLAVE
+  DENTAL_CHAIR
+  COMPRESSOR
+  SUCTION
+  XRAY_UNIT
+  WATERLINE
+  REFRIGERATOR
+  OTHER
+}
+
+enum DeviceStatus {
+  ACTIVE
+  RETIRED
+}
+
+/// The practice's acceptable range for one of a device's readings.
+model DeviceLimit {
+  id String @id
+
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  metric   String
+  min      Float?
+  max      Float?
+
+  @@unique([deviceId, metric])
+  @@map("device_limits")
+}
+
+/// One reading a device reported. Append-only.
+model DeviceReading {
+  id String @id
+
+  deviceId   String
+  device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  metric     String
+  value      Float
+  /// The device's own clock; `receivedAt` is ours.
+  recordedAt DateTime
+  receivedAt DateTime @default(now())
+
+  @@index([deviceId, metric, recordedAt])
+  @@map("device_readings")
+}
+
+/// A reading outside its limits, or a fault the device reported. One open
+/// alert per device and metric (`openKey`); resolved by a person, never
+/// cleared automatically — a passing reading does not undo a failed cycle.
+model DeviceAlert {
+  id String @id
+
+  deviceId String
+  device   Device  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  metric   String
+  value    Float
+  message  String
+  openKey  String? @unique
+
+  openedAt         DateTime  @default(now())
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  resolutionNote   String?
+
+  @@index([deviceId, openedAt])
+  @@map("device_alerts")
+}
+
+// ===========================================================================
+// DIVISION 07 — STUDENTS: enrolment (Phase 8)
+// ===========================================================================
+
+/// A student enrolled on a course — the end of the admission funnel. Recorded
+/// by the college for a student it admitted; one enrolment per student, course
+/// and academic year. Completed or withdrawn, never deleted. A record of
+/// study, not a certificate: nothing here claims a degree was awarded.
+model Enrolment {
+  id String @id
+
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  courseId       String
+  course         Course            @relation(fields: [courseId], references: [id])
+  cycleId        String?
+  cycle          AdmissionCycle?   @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  studentUserId  String
+  student        User              @relation("StudentEnrolments", fields: [studentUserId], references: [id])
+  enquiryId      String?           @unique
+  enquiry        AdmissionEnquiry? @relation(fields: [enquiryId], references: [id], onDelete: SetNull)
+
+  /// "2026-27".
+  academicYear String
+  rollNumber   String?
+  status       EnrolmentStatus @default(ENROLLED)
+  startedOn    DateTime        @db.Date
+  endedOn      DateTime?       @db.Date
+  endedReason  String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([studentUserId, courseId, academicYear])
+  @@unique([courseId, academicYear, rollNumber])
+  @@index([organizationId, status])
+  @@map("enrolments")
+}
+
+enum EnrolmentStatus {
+  ENROLLED
+  COMPLETED
+  WITHDRAWN
+}
+
+// ===========================================================================
+// PHASE 9 — ORDERS, TAX DOCUMENTS, RETURNS, EQUIPMENT SERVICE
+// ===========================================================================
+
+/// A sellable version of a product — a size, shade or pack — at a fixed,
+/// tax-inclusive price. A product with active variants is ordered by variant.
+model ProductVariant {
+  id String @id
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  label      String
+  sku        String?
+  /// Tax inclusive, like the product's own price.
+  priceMinor BigInt
+  available  Boolean       @default(true)
+  status     VariantStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cartItems CartItem[]
+
+  @@unique([productId, label])
+  @@map("product_variants")
+}
+
+enum VariantStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// A line in a signed-in buyer's cart. One line per product and variant
+/// (`lineKey`); adding again sets the quantity.
+model CartItem {
+  id String @id
+
+  userId    String
+  user      User            @relation("CartItems", fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int
+  lineKey   String          @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("cart_items")
+}
+
+/// An order to one seller at the listed prices. No money moves through
+/// Toothlogy while no payment provider is connected: the buyer pays the
+/// seller directly and the seller records what it received.
+model Order {
+  id     String @id
+  number String @unique
+
+  sellerOrganizationId String
+  seller               Organization  @relation("OrdersReceived", fields: [sellerOrganizationId], references: [id])
+  buyerUserId          String
+  buyer                User          @relation("OrdersPlaced", fields: [buyerUserId], references: [id])
+  buyerOrganizationId  String?
+  buyerOrganization    Organization? @relation("OrdersPlacedFor", fields: [buyerOrganizationId], references: [id], onDelete: SetNull)
+
+  status        OrderStatus        @default(PLACED)
+  paymentStatus OrderPaymentStatus @default(UNPAID)
+
+  currency      String
+  /// Net of tax, tax, and the tax-inclusive total the buyer pays.
+  subtotalMinor BigInt
+  taxMinor      BigInt
+  totalMinor    BigInt
+  paidMinor     BigInt @default(0)
+  refundedMinor BigInt @default(0)
+
+  deliveryName       String
+  deliveryPhone      String
+  deliveryAddress    String
+  deliveryDistrictId String
+  deliveryDistrict   District @relation(fields: [deliveryDistrictId], references: [id])
+  buyerTaxIdentifier String?
+  buyerNote          String?
+
+  sellerNote        String?
+  cancelReason      String?
+  carrier           String?
+  trackingReference String?
+
+  placedAt     DateTime  @default(now())
+  confirmedAt  DateTime?
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+  closedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines        OrderLine[]
+  events       OrderEvent[]
+  payments     OrderPayment[]
+  taxDocuments TaxDocument[]
+  returns      ReturnRequest[]
+
+  @@index([sellerOrganizationId, status, placedAt])
+  @@index([buyerUserId, placedAt])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+  DECLINED
+}
+
+enum OrderPaymentStatus {
+  UNPAID
+  PARTLY_PAID
+  PAID
+  PARTLY_REFUNDED
+  REFUNDED
+}
+
+/// What was ordered, frozen at the price and tax rate of the moment.
+model OrderLine {
+  id String @id
+
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId String?
+
+  name               String
+  variantLabel       String?
+  sku                String?
+  unit               String?
+  /// A tax classification code (HSN or SAC in India) as the seller states it.
+  taxCode            String?
+  quantity           Int
+  /// Tax inclusive, per unit.
+  unitPriceMinor     BigInt
+  taxRateBasisPoints Int
+  netMinor           BigInt
+  taxMinor           BigInt
+  grossMinor         BigInt
+  returnedQuantity   Int     @default(0)
+
+  @@index([orderId])
+  @@map("order_lines")
+}
+
+/// Append-only history of an order.
+model OrderEvent {
+  id String @id
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  action      String
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus?
+  actorUserId String?
+  note        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_events")
+}
+
+/// Money the seller says it received for an order, or paid back. Recorded by
+/// the seller — Toothlogy did not move it — and shown to the buyer as such.
+model OrderPayment {
+  id String @id
+
+  orderId         String
+  order           Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  returnRequestId String?
+  returnRequest   ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: SetNull)
+
+  kind             OrderPaymentKind
+  method           PaymentMethod
+  /// Always positive; `kind` says which way it went.
+  amountMinor      BigInt
+  currency         String
+  reference        String?
+  receivedOn       DateTime
+  recordedByUserId String
+  note             String?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@map("order_payments")
+}
+
+enum OrderPaymentKind {
+  RECEIPT
+  REFUND
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  UPI
+  CASH
+  CHEQUE
+  CARD_ON_DELIVERY
+  OTHER
+}
+
+/// A tax invoice or credit note a seller issued through Toothlogy. Numbered
+/// without gaps per seller, kind and fiscal year; frozen once issued.
+model TaxDocument {
+  id     String          @id
+  kind   TaxDocumentKind
+  number String
+
+  sellerOrganizationId String
+  seller               Organization   @relation("TaxDocumentsIssued", fields: [sellerOrganizationId], references: [id])
+  orderId              String
+  order                Order          @relation(fields: [orderId], references: [id])
+  /// The order id, on an invoice only: one invoice per order.
+  invoiceKey           String?        @unique
+  returnRequestId      String?        @unique
+  returnRequest        ReturnRequest? @relation(fields: [returnRequestId], references: [id])
+
+  fiscalYear String
+  sequence   Int
+  issuedAt   DateTime  @default(now())
+  currency   String
+  taxRegime  TaxRegime
+
+  sellerName          String
+  sellerTaxIdentifier String?
+  sellerAddress       String?
+  sellerRegion        String
+  buyerName           String
+  buyerTaxIdentifier  String?
+  buyerAddress        String
+  placeOfSupply       String
+  /// The tax pack's classification of the supply (in India: within a state or between states).
+  supplyKind          String?
+
+  /// Frozen line snapshot with each line's tax components.
+  lines        Json
+  /// Tax totals by component, e.g. CGST and SGST, or IGST.
+  taxBreakdown Json
+  netMinor     BigInt
+  taxMinor     BigInt
+  totalMinor   BigInt
+
+  @@unique([sellerOrganizationId, kind, fiscalYear, sequence])
+  @@unique([sellerOrganizationId, number])
+  @@index([orderId])
+  @@map("tax_documents")
+}
+
+enum TaxDocumentKind {
+  INVOICE
+  CREDIT_NOTE
+}
+
+/// The last number used per seller, document kind and fiscal year. Taken
+/// with an upsert in the issuing transaction, so numbers are gapless.
+model TaxDocumentSeries {
+  sellerOrganizationId String
+  seller               Organization    @relation(fields: [sellerOrganizationId], references: [id], onDelete: Cascade)
+  kind                 TaxDocumentKind
+  fiscalYear           String
+  lastSequence         Int
+
+  @@id([sellerOrganizationId, kind, fiscalYear])
+  @@map("tax_document_series")
+}
+
+/// A buyer's request to return delivered items. One open request per order.
+model ReturnRequest {
+  id String @id
+
+  orderId           String
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedByUserId String
+  status            ReturnStatus @default(REQUESTED)
+  reason            ReturnReason
+  details           String?
+  /// [{ orderLineId, quantity }]
+  lines             Json
+  /// Tax-inclusive amount to refund for the returned quantities.
+  refundMinor       BigInt
+  sellerNote        String?
+  openKey           String?      @unique
+
+  decidedAt  DateTime?
+  receivedAt DateTime?
+  refundedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  creditNote TaxDocument?
+  payments   OrderPayment[]
+
+  @@index([orderId])
+  @@map("return_requests")
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED
+  REFUNDED
+  CANCELLED
+}
+
+enum ReturnReason {
+  DAMAGED
+  WRONG_ITEM
+  NOT_AS_DESCRIBED
+  EXPIRED
+  OTHER
+}
+
+/// A piece of equipment a practice owns: what, from whom, and its warranty.
+model EquipmentAsset {
+  id String @id
+
+  organizationId         String
+  organization           Organization  @relation("EquipmentOwned", fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierOrganizationId String?
+  supplier               Organization? @relation("EquipmentSupplied", fields: [supplierOrganizationId], references: [id], onDelete: SetNull)
+  orderLineId            String?
+
+  name                String
+  category            String
+  brand               String?
+  model               String?
+  serialNumber        String?
+  purchasedOn         DateTime?
+  warrantyUntil       DateTime?
+  status              AssetStatus @default(IN_USE)
+  notes               String?
+  /// The warranty end a reminder was sent for; a changed date reminds again.
+  warrantyReminderFor DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contracts ServiceContractAsset[]
+  visits    ServiceVisit[]
+
+  @@unique([organizationId, serialNumber])
+  @@index([organizationId, status])
+  @@index([warrantyUntil])
+  @@map("equipment_assets")
+}
+
+enum AssetStatus {
+  IN_USE
+  RETIRED
+}
+
+/// An annual (AMC) or comprehensive (CMC) maintenance contract between a
+/// service business and a practice: proposed by the business, accepted by
+/// the practice. Paid between them; Toothlogy records it.
+model ServiceContract {
+  id   String              @id
+  kind ServiceContractKind
+
+  providerOrganizationId String
+  provider               Organization @relation("ServiceContractsProvided", fields: [providerOrganizationId], references: [id])
+  clientOrganizationId   String
+  client                 Organization @relation("ServiceContractsHeld", fields: [clientOrganizationId], references: [id])
+
+  status         ServiceContractStatus @default(PROPOSED)
+  startsOn       DateTime
+  endsOn         DateTime
+  visitsIncluded Int
+  /// The provider's stated time to respond to a breakdown, in hours.
+  responseHours  Int?
+  /// Tax inclusive.
+  priceMinor     BigInt
+  currency       String
+  terms          String?
+
+  proposedByUserId String
+  decidedByUserId  String?
+  decidedAt        DateTime?
+  cancelReason     String?
+  expiryReminderAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets ServiceContractAsset[]
+  visits ServiceVisit[]
+
+  @@index([providerOrganizationId, status])
+  @@index([clientOrganizationId, status])
+  @@index([status, endsOn])
+  @@map("service_contracts")
+}
+
+enum ServiceContractKind {
+  AMC
+  CMC
+}
+
+enum ServiceContractStatus {
+  PROPOSED
+  ACTIVE
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+model ServiceContractAsset {
+  contractId String
+  contract   ServiceContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  assetId    String
+  asset      EquipmentAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([contractId, assetId])
+  @@index([assetId])
+  @@map("service_contract_assets")
+}
+
+/// A service visit under a contract: preventive, or a breakdown call.
+model ServiceVisit {
+  id String @id
+
+  contractId String
+  contract   ServiceContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  assetId    String?
+  asset      EquipmentAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  kind              ServiceVisitKind
+  status            ServiceVisitStatus @default(REQUESTED)
+  issue             String?
+  requestedByUserId String
+  scheduledFor      DateTime?
+  completedAt       DateTime?
+  report            String?
+  cancelReason      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractId, status])
+  @@map("service_visits")
+}
+
+enum ServiceVisitKind {
+  PREVENTIVE
+  BREAKDOWN
+}
+
+enum ServiceVisitStatus {
+  REQUESTED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+// ===========================================================================
+// PHASE 10 — PRIME MEMBERSHIP
+// ===========================================================================
+
+/// A Prime plan staff configure: who it is for, its price and period, and what
+/// it entitles. Nothing is seeded — the price and benefits are a business
+/// decision, entered here like lead pricing, never written in code.
+model MembershipPlan {
+  id   String @id
+  code String @unique
+  name String
+
+  audience     MembershipAudience
+  countryCode  String             @db.Char(2)
+  currency     String
+  /// Net of tax, per period.
+  priceMinor   BigInt
+  taxCategory  String             @default("platform_fees")
+  periodMonths Int
+
+  /// Extra free qualified leads in each paid period (organizations only).
+  bonusFreeLeads  Int     @default(0)
+  /// A labelled "Prime member" badge on public pages; ranking never reads it.
+  primeBadge      Boolean @default(false)
+  /// The member's support tickets are answered first.
+  prioritySupport Boolean @default(false)
+  description     String?
+
+  status          MembershipPlanStatus @default(DRAFT)
+  createdByUserId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+
+  @@index([audience, status, countryCode])
+  @@map("membership_plans")
+}
+
+enum MembershipAudience {
+  ORGANIZATION
+  INDIVIDUAL
+}
+
+enum MembershipPlanStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+/// One paid period of a plan for an organization (or, once a payment provider
+/// is connected, a person). Renewal writes the next period; a member has one
+/// current period (`openKey`), and a period is renewed at most once
+/// (`renewedFromId`).
+model Membership {
+  id String @id
+
+  planId         String
+  plan           MembershipPlan @relation(fields: [planId], references: [id])
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?          @relation("Memberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  status    MembershipStatus @default(ACTIVE)
+  startsAt  DateTime
+  endsAt    DateTime
+  autoRenew Boolean          @default(true)
+  openKey   String?          @unique
+
+  /// Frozen at purchase.
+  netMinor      BigInt
+  taxMinor      BigInt
+  currency      String
+  chargeEntryId String? @unique
+  renewedFromId String? @unique
+  endedReason   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads Lead[]
+
+  @@index([organizationId, status])
+  @@index([status, endsAt])
+  @@map("memberships")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  ENDED
+}
+
+// ===========================================================================
+// PHASE 12 — GLOBAL EXPANSION AND ENTERPRISE
+// ===========================================================================
+
+/// An exchange rate staff recorded from a named source. Used only to show a
+/// clearly labelled approximate total across currencies in platform reports —
+/// never to price, charge or convert anyone's money.
+model ExchangeRate {
+  id String @id
+
+  baseCurrency     String   @db.Char(3)
+  quoteCurrency    String   @db.Char(3)
+  /// One unit of the base currency in the quote currency, times 1,000,000:
+  /// an exact integer, so no rate is ever a float.
+  rateMicros       BigInt
+  source           String
+  asOf             DateTime
+  recordedByUserId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([baseCurrency, quoteCurrency, asOf])
+  @@index([quoteCurrency, asOf])
+  @@map("exchange_rates")
+}
+
+/// An enterprise agreement with a group — a dental chain or hospital group —
+/// recorded by staff from the signed contract: its term, the support service
+/// levels Toothlogy committed to, where the group's data must be held, and
+/// whether its people must sign in through the group's identity provider.
+/// One current agreement per group (`openKey`).
+model EnterpriseAgreement {
+  id String @id
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  reference          String
+  status             EnterpriseAgreementStatus @default(ACTIVE)
+  startsOn           DateTime
+  endsOn             DateTime
+  /// Support service levels, in hours from a ticket being opened.
+  firstResponseHours Int
+  resolutionHours    Int
+  /// ISO country code where the group's data must be held.
+  dataResidency      String                    @db.Char(2)
+  ssoRequired        Boolean                   @default(false)
+  notes              String?
+  openKey            String?                   @unique
+
+  createdByUserId String
+  endedAt         DateTime?
+  endedReason     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets SupportTicket[]
+
+  @@index([status, endsOn])
+  @@map("enterprise_agreements")
+}
+
+enum EnterpriseAgreementStatus {
+  ACTIVE
+  ENDED
+}
+
+// ---------------------------------------------------------------------------
+// Treatment plans (Phase 6, 2026-09-11)
+// ---------------------------------------------------------------------------
+
+enum TreatmentPlanStatus {
+  PROPOSED
+  ACCEPTED
+  DECLINED
+  COMPLETED
+  CANCELLED
+}
+
+enum TreatmentPlanItemStatus {
+  PLANNED
+  DONE
+  SKIPPED
+}
+
+/// A practice's proposed course of treatment. Owned by the patient like the
+/// rest of the record: proposed under a read-and-add grant, accepted or
+/// declined by the patient, visible to the patient for good. Estimates are
+/// estimates, tax included — never a bill.
+model TreatmentPlan {
+  id String @id
+
+  patientUserId  String
+  patient        User         @relation("TreatmentPlansPatient", fields: [patientUserId], references: [id])
+  dependentId    String?
+  dependent      Dependent?   @relation(fields: [dependentId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  authorUserId   String
+  author         User         @relation("TreatmentPlansAuthored", fields: [authorUserId], references: [id])
+
+  title         String
+  notes         String?
+  currency      String
+  /// Sum of the items' estimates, tax included, in minor units.
+  estimateMinor BigInt
+
+  status          TreatmentPlanStatus @default(PROPOSED)
+  decidedAt       DateTime?
+  declineReason   String?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  cancelledReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items TreatmentPlanItem[]
+
+  @@index([patientUserId, createdAt])
+  @@index([organizationId, status])
+  @@map("treatment_plans")
+}
+
+model TreatmentPlanItem {
+  id String @id
+
+  planId String
+  plan   TreatmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  position      Int
+  description   String
+  /// A treatment catalogue key, when the item is one.
+  treatmentKey  String?
+  /// FDI two-digit tooth numbers.
+  teeth         Int[]
+  estimateMinor BigInt
+
+  status       TreatmentPlanItemStatus @default(PLANNED)
+  doneAt       DateTime?
+  doneByUserId String?
+  skipReason   String?
+
+  @@unique([planId, position])
+  @@map("treatment_plan_items")
 }

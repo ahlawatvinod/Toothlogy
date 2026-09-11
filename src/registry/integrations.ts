@@ -83,10 +83,54 @@ export const INTEGRATIONS: readonly Integration[] = [
     ],
   },
   {
-    id: 'TL-INT-STORAGE-001',
-    name: 'Object Storage',
+    id: 'TL-INT-VIDEO-001',
+    name: 'Video Consultation Provider',
     description:
-      'Stores uploaded files. Sensitive objects are private and served only through short-lived, authorization-checked URLs.',
+      'Creates and cancels the meeting room for a confirmed video appointment (meeting id, participant and host links, expiry). Not configured: video appointments book a time only, no meeting row is written, and no screen shows a link — the clinic sends its own.',
+    status: 'prepared',
+    phase: 4,
+    category: 'video',
+    port: '@/platform/video/ports#VideoPort',
+    envVars: ['VIDEO_PROVIDER', 'VIDEO_API_KEY', 'VIDEO_API_SECRET'],
+  },
+  {
+    id: 'TL-INT-EXTRACTOR-001',
+    name: 'Directory Data Extractor',
+    description:
+      'Collects dentist, clinic, hospital and college rows for a district from a licensed external source. Not configured: nothing is collected automatically or scraped; operator-supplied files are imported instead.',
+    status: 'prepared',
+    phase: 5,
+    category: 'data',
+    port: '@/platform/india-data/extractor-port#ExtractorPort',
+    envVars: ['EXTRACTOR_PROVIDER', 'EXTRACTOR_API_KEY'],
+  },
+  {
+    id: 'TL-INT-STORAGE-LOCAL-001',
+    name: 'Local Disk Storage',
+    description:
+      'A real storage adapter that keeps files on the server’s own disk (STORAGE_PROVIDER=local). Single-node only; downloads go through HMAC-signed, expiring URLs served by the application. Suitable for development and single-host deployments, not for a multi-instance cluster.',
+    status: 'implemented',
+    phase: 1,
+    category: 'storage',
+    port: '@/platform/storage/ports#StoragePort',
+    envVars: ['STORAGE_PROVIDER', 'STORAGE_LOCAL_DIR'],
+  },
+  {
+    id: 'TL-INT-SCANNER-001',
+    name: 'Malware Scanner',
+    description:
+      'Scans every upload before it becomes usable (ClamAV or a cloud AV API). Not configured: uploads are recorded SCANNER_NOT_CONFIGURED — never CLEAN — and FILE_SCAN_REQUIRED decides whether they are quarantined.',
+    status: 'prepared',
+    phase: 1,
+    category: 'storage',
+    port: '@/platform/storage/scanner#MalwareScannerPort',
+    envVars: ['FILE_SCANNER_PROVIDER', 'FILE_SCANNER_URL'],
+  },
+  {
+    id: 'TL-INT-STORAGE-001',
+    name: 'Cloud Object Storage',
+    description:
+      'Stores uploaded files in S3-compatible object storage with direct signed uploads, for multi-instance deployments. Not implemented yet: the local disk adapter is the only storage adapter.',
     status: 'prepared',
     phase: 1,
     category: 'storage',
@@ -108,6 +152,28 @@ export const INTEGRATIONS: readonly Integration[] = [
     category: 'maps',
     port: '@/platform/location/ports#GeocodingPort',
     envVars: ['MAPS_PROVIDER', 'MAPS_API_KEY'],
+  },
+  {
+    id: 'TL-INT-GEOCODER-REF-001',
+    name: 'Reference Geocoder (city level)',
+    description:
+      'Geocodes place names to city centres, and coordinates to the nearest city, from the seeded gazetteer. Real but coarse: every result is labelled precision "city" with confidence ≤ 0.5. Never used to place a clinic.',
+    status: 'implemented',
+    phase: 1,
+    category: 'maps',
+    port: '@/platform/location/ports#GeocodingPort',
+    envVars: ['MAPS_PROVIDER'],
+  },
+  {
+    id: 'TL-INT-SEARCH-PG-001',
+    name: 'PostgreSQL Search',
+    description:
+      'The search port implemented on the application database: weighted tsvector, synonyms, pg_trgm typo tolerance, facets and radius. Selected when SEARCH_PROVIDER is unset or "postgres".',
+    status: 'implemented',
+    phase: 1,
+    category: 'search',
+    port: '@/platform/search/ports#SearchPort',
+    envVars: ['SEARCH_PROVIDER'],
   },
   {
     id: 'TL-INT-SEARCH-001',
@@ -135,12 +201,23 @@ export const INTEGRATIONS: readonly Integration[] = [
     id: 'TL-INT-AI-001',
     name: 'AI Model Provider',
     description:
-      'Language-model inference for summarisation, translation and drafting, bound by the AI covenant (Constitution §5).',
-    status: 'planned',
+      'Language-model inference, bound by the AI covenant (Constitution §5). The port exists and answers NOT_CONFIGURED until a provider is connected; the one purpose allowed today is a labelled summary of a published, reviewed article.',
+    status: 'prepared',
     phase: 11,
     category: 'ai',
     port: '@/platform/ai/ports#AiPort',
     envVars: ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL'],
+  },
+  {
+    id: 'TL-INT-SSO-001',
+    name: 'Enterprise Sign-in (OIDC / SAML)',
+    description:
+      'Staff of an organization with its own identity provider sign in through it. The port exists and answers NOT_CONFIGURED until a provider is connected; the sign-in page offers nothing until then. An enterprise identity may only sign in to the existing account with the same verified email — never create a second account.',
+    status: 'prepared',
+    phase: 12,
+    category: 'identity',
+    port: '@/platform/auth/sso-ports#SsoPort',
+    envVars: ['SSO_PROVIDER', 'SSO_ISSUER_URL', 'SSO_CLIENT_ID', 'SSO_CLIENT_SECRET'],
   },
   {
     id: 'TL-INT-ERRORS-001',

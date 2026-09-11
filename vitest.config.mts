@@ -48,9 +48,26 @@ function loadEnvLocal(): Record<string, string> {
   return out;
 }
 
+/**
+ * Tests never run against the development database.
+ *
+ * Integration suites TRUNCATE every mutable table between tests. Pointed at the
+ * database a developer is working in, one `npm test` erases their data. So a
+ * `TEST_DATABASE_URL` (from the shell or `.env.local`) always wins over
+ * `DATABASE_URL`, and `tests/helpers/database.ts` independently refuses to
+ * truncate any database whose name does not end in `_test`. CI sets
+ * `DATABASE_URL` to its ephemeral `toothlogy_test` service, which passes both.
+ */
+function testEnv(): Record<string, string> {
+  const fromFile = loadEnvLocal();
+  const testUrl = process.env.TEST_DATABASE_URL ?? fromFile.TEST_DATABASE_URL;
+  if (testUrl) fromFile.DATABASE_URL = testUrl;
+  return fromFile;
+}
+
 // `as const` on NODE_ENV: Vitest types it as the narrow ProcessEnv union, and a
 // widened `string` is rejected.
-const sharedEnv = { ...loadEnvLocal(), NODE_ENV: 'test' as const };
+const sharedEnv = { ...testEnv(), NODE_ENV: 'test' as const };
 
 export default defineConfig({
   plugins: [tsconfigPaths(), react()],

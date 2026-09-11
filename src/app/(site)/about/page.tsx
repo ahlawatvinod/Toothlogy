@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   description:
     'Toothlogy connects patients, dentists, clinics, colleges, students and suppliers — built so competence is discoverable, not just marketing budgets.',
   robots: { index: true, follow: true },
+  alternates: { canonical: '/about' },
 };
 
 const PRINCIPLES = [

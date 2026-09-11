@@ -14,7 +14,9 @@ import { currentPrincipal, currentUserCan } from '@/platform/auth/server';
 import { isAuthenticated } from '@/platform/rbac';
 import { getOwnDentistProfile } from '@/platform/dentists/service';
 import { db } from '@/platform/db/client';
+import { listMyPractices } from '@/platform/dentists/practice';
 import { ProfileEditor } from './profile-editor';
+import { PracticeSettingsCard } from './practice-settings';
 
 export const metadata: Metadata = {
   title: 'Your dentist profile',
@@ -29,13 +31,14 @@ export default async function DentistProfilePage() {
 
   if (!(await currentUserCan('tl.dentist.profile.manage.self'))) notFound();
 
-  const [profile, specialties] = await Promise.all([
+  const [profile, specialties, practices] = await Promise.all([
     getOwnDentistProfile(principal.userId),
     db().specialty.findMany({ orderBy: { name: 'asc' } }),
+    listMyPractices(principal.userId),
   ]);
 
   return (
-    <div className="tl-container tl-page" style={{ maxWidth: '46rem' }}>
+    <div className="tl-page" style={{ maxWidth: '46rem' }}>
       <nav aria-label="Breadcrumb" className="tl-breadcrumb">
         <Link href="/account">Account</Link>
         <span aria-hidden="true"> / </span>
@@ -46,6 +49,9 @@ export default async function DentistProfilePage() {
         <h1>Your dentist profile</h1>
         <p className="tl-page__lead">
           This is what patients see, and what determines whether they find you at all.
+        </p>
+        <p className="tl-muted">
+          <Link href="/account/dentist-profile/analytics">Your numbers</Link> — bookings, reviews and profile views across your practices.
         </p>
       </header>
 
@@ -99,6 +105,31 @@ export default async function DentistProfilePage() {
           description: s.description,
         }))}
       />
+
+      {profile ? (
+        <PracticeSettingsCard
+          practices={practices.map((p) => ({
+            id: p.id,
+            isConfirmed: p.isConfirmed,
+            locationName: p.location.name,
+            organizationName: p.location.organization.name,
+            currency: p.location.organization.currency,
+            homeVisitAvailable: p.location.homeVisitRadiusKm !== null,
+            settings: {
+              consultationFeeMinor: p.consultationFeeMinor,
+              autoConfirm: p.autoConfirm,
+              acceptsVideo: p.acceptsVideo,
+              acceptsHomeVisit: p.acceptsHomeVisit,
+              acceptsEmergency: p.acceptsEmergency,
+              slotMinutes: p.slotMinutes,
+              bufferMinutes: p.bufferMinutes,
+              minNoticeMinutes: p.minNoticeMinutes,
+              maxAdvanceDays: p.maxAdvanceDays,
+              bookingPaused: p.bookingPaused,
+            },
+          }))}
+        />
+      ) : null}
     </div>
   );
 }

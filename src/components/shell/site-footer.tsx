@@ -24,6 +24,11 @@ const SECTIONS: ReadonlyArray<{
     heading: 'Patients',
     links: [
       { href: '/find', label: 'Find a dentist' },
+      { href: '/community', label: 'Community questions' },
+      { href: '/camps', label: 'Dental camps' },
+      { href: '/colleges', label: 'Dental colleges' },
+      { href: '/marketplace', label: 'Dental marketplace' },
+      { href: '/academics', label: 'Researchers and faculty' },
       { href: '/knowledge', label: 'Dental knowledge' },
       { href: '/help', label: 'Help centre' },
     ],

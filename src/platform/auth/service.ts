@@ -25,9 +25,14 @@ import { db, isUniqueConstraintError, transaction } from '../db/client';
 import { recordAuditEvent } from '../audit';
 import { logger } from '../observability/logger';
 import { DEFAULT_COUNTRY, DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '@/registry/globalization';
+import { absoluteUrl, notifyUser } from '../notifications';
+import { derivedSecret } from '../security/crypto';
 import { checkPasswordPolicy, hashPassword, needsRehash, verifyPassword } from './password';
 import { createSession, revokeAllSessions, type CreatedSession } from './session';
 import { issueToken, redeemToken } from './tokens';
+import { hasMfa, issueMfaChallenge } from './mfa';
+import { assessLogin, recordSecurityEvent } from './security-events';
+import { OTP_TTL_SECONDS, canResendOtp, createOtpChallenge, verifyOtpCode } from './otp';
 
 // ---------------------------------------------------------------------------
 // Input contracts
@@ -269,10 +274,20 @@ function profileTypeForRole(role: string): 'PATIENT' | 'DENTIST' | 'STUDENT' | '
 const MAX_FAILED_ATTEMPTS = 10;
 const LOCKOUT_WINDOW_MINUTES = 15;
 
-export interface LoginResult {
-  readonly userId: string;
-  readonly session: CreatedSession;
-}
+/**
+ * A correct password yields a session — unless the account has a second
+ * factor, in which case it yields only a short-lived challenge that must be
+ * redeemed with that factor (see ./mfa.ts). The union makes it impossible for
+ * a caller to treat a half-authenticated user as signed in.
+ */
+export type LoginResult =
+  | { readonly kind: 'session'; readonly userId: string; readonly session: CreatedSession }
+  | {
+      readonly kind: 'mfa_required';
+      readonly userId: string;
+      readonly challengeToken: string;
+      readonly expiresAt: Date;
+    };
 
 /**
  * Authenticate.
@@ -297,6 +312,18 @@ export async function login(
   const recentFailures = await countRecentFailures(identifier);
   if (recentFailures >= MAX_FAILED_ATTEMPTS) {
     await recordAttempt(identifier, user?.id ?? null, false, 'locked_out', context);
+    // The owner is told once per lockout window, not once per blocked attempt:
+    // an attacker hammering the form must not become a notification flood.
+    if (user) {
+      const alreadyAlerted = await db().securityEvent.count({
+        where: {
+          userId: user.id,
+          type: 'ACCOUNT_LOCKED',
+          occurredAt: { gte: new Date(Date.now() - LOCKOUT_WINDOW_MINUTES * 60 * 1000) },
+        },
+      });
+      if (alreadyAlerted === 0) await recordSecurityEvent(user.id, 'ACCOUNT_LOCKED', context);
+    }
     throw errors.rateLimited(LOCKOUT_WINDOW_MINUTES * 60);
   }
 
@@ -320,6 +347,19 @@ export async function login(
 
   if (user.status !== 'ACTIVE' || user.deletedAt !== null) {
     await recordAttempt(identifier, user.id, false, `status_${user.status}`, context);
+
+    // An account in its deletion grace period can be restored by its owner.
+    // Saying so is safe: the caller has just proved they hold the password.
+    if (user.status === 'DEACTIVATED' && user.deletedAt === null) {
+      const pending = await db().accountDeletionRequest.findUnique({ where: { userId: user.id } });
+      if (pending?.status === 'PENDING') {
+        throw errors.preconditionFailed(
+          'This account is scheduled for deletion. You can restore it before the deletion date.',
+          { restorable: true, scheduledFor: pending.scheduledFor.toISOString() },
+        );
+      }
+    }
+
     // Suspension is stated plainly: the user needs to know to contact support,
     // and someone who has just proved they hold the password is not an
     // anonymous attacker.
@@ -335,16 +375,33 @@ export async function login(
       .catch((error: unknown) => logger.warn('Password rehash failed', { error }));
   }
 
-  await recordAttempt(identifier, user.id, true, null, context);
   await db().credential.update({
     where: { id: credential.id },
     data: { lastUsedAt: new Date() },
   });
 
+  // Second factor: the password was right, but it is not enough on its own.
+  // No session and no "successful login" record until the factor is proven.
+  if (await hasMfa(user.id)) {
+    await recordAttempt(identifier, user.id, false, 'mfa_pending', context);
+    const challenge = await issueMfaChallenge(user.id, context);
+    return { kind: 'mfa_required', userId: user.id, ...challenge };
+  }
+
+  // Assessed before this attempt is recorded, so it is not its own precedent.
+  const risk = await assessLogin(user.id, identifier, context);
+  await recordAttempt(identifier, user.id, true, null, context);
+
   const session = await createSession(user.id, {
     ipAddress: context.ipAddress,
     userAgent: context.userAgent,
   });
+
+  if (risk.suspicious) {
+    await recordSecurityEvent(user.id, 'SUSPICIOUS_LOGIN', context);
+  } else if (risk.newDevice) {
+    await recordSecurityEvent(user.id, 'NEW_DEVICE_LOGIN', context);
+  }
 
   await recordAuditEvent({
     action: 'USER_LOGIN',
@@ -354,9 +411,47 @@ export async function login(
     requestId: context.requestId,
     ipAddress: context.ipAddress ?? undefined,
     userAgent: context.userAgent ?? undefined,
+    detail: { newDevice: risk.newDevice, suspicious: risk.suspicious },
   });
 
-  return { userId: user.id, session };
+  return { kind: 'session', userId: user.id, session };
+}
+
+/**
+ * Restore an account during its deletion grace period, then sign in.
+ *
+ * Takes the password rather than a session because the account has none —
+ * requesting deletion signed it out everywhere. Every failure is the same
+ * generic login failure, so this cannot be used to find accounts pending
+ * deletion.
+ */
+export async function restoreAccount(
+  input: LoginInput,
+  context: { ipAddress?: string | null; userAgent?: string | null; requestId?: string } = {},
+): Promise<LoginResult> {
+  const identifier = input.identifier.trim().toLowerCase();
+  const user = await db().user.findFirst({
+    where: identifier.includes('@') ? { email: identifier } : { phone: input.identifier.trim() },
+    include: { credentials: { where: { type: 'PASSWORD' } }, accountDeletionRequest: true },
+  });
+
+  const credential = user?.credentials[0];
+  if (!user || !credential) {
+    await hashPassword(input.password);
+    throw genericLoginFailure();
+  }
+  if (!(await verifyPassword(input.password, credential.secretHash))) {
+    await recordAttempt(identifier, user.id, false, 'bad_password', context);
+    throw genericLoginFailure();
+  }
+  if (user.accountDeletionRequest?.status !== 'PENDING' || user.deletedAt !== null) {
+    throw genericLoginFailure();
+  }
+
+  await cancelAccountDeletion(user.id, context);
+  await recordSecurityEvent(user.id, 'ACCOUNT_RESTORED', context);
+
+  return login(input, context);
 }
 
 /**
@@ -366,7 +461,8 @@ export async function login(
  * login form and an account-enumeration API.
  */
 function genericLoginFailure() {
-  return errors.validation('That email, phone number or password is incorrect.');
+  // 401, the same for a wrong password and an unknown account.
+  return errors.unauthenticated('That email, phone number or password is incorrect.');
 }
 
 async function countRecentFailures(identifier: string): Promise<number> {
@@ -423,13 +519,27 @@ export async function verifyContact(
   }
 
   const now = new Date();
-  await db().user.update({
-    where: { id: redemption.userId },
-    data:
-      type === 'EMAIL_VERIFICATION'
-        ? { emailVerifiedAt: now }
-        : { phoneVerifiedAt: now },
-  });
+
+  if (type === 'EMAIL_VERIFICATION') {
+    // A token issued to a NEW address is an email change: the address the
+    // token was sent to becomes the account's email only now, once the user
+    // has proved they read mail there.
+    const user = await db().user.findUnique({ where: { id: redemption.userId }, select: { email: true } });
+    const changing = user?.email?.toLowerCase() !== redemption.destination.toLowerCase();
+    try {
+      await db().user.update({
+        where: { id: redemption.userId },
+        data: changing ? { email: redemption.destination, emailVerifiedAt: now } : { emailVerifiedAt: now },
+      });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw errors.conflict('That email address is already used by another account.');
+      }
+      throw error;
+    }
+  } else {
+    await db().user.update({ where: { id: redemption.userId }, data: { phoneVerifiedAt: now } });
+  }
 
   await recordAuditEvent({
     action: type === 'EMAIL_VERIFICATION' ? 'EMAIL_VERIFIED' : 'PHONE_VERIFIED',
@@ -438,8 +548,220 @@ export async function verifyContact(
     outcome: 'success',
     requestId: context.requestId,
   });
+  await recordSecurityEvent(
+    redemption.userId,
+    type === 'EMAIL_VERIFICATION' ? 'EMAIL_VERIFIED' : 'PHONE_VERIFIED',
+    { requestId: context.requestId },
+  );
 
   return { userId: redemption.userId };
+}
+
+/**
+ * Issue and send an email verification link.
+ *
+ * The link travels as transient data: it is interpolated into the email and
+ * never written to the delivery record. Returns the REAL delivery outcome —
+ * with no email provider configured, `sent` is false and the UI must say so
+ * rather than "check your inbox".
+ */
+export async function sendEmailVerification(
+  userId: string,
+  context: { ipAddress?: string | null; requestId?: string } = {},
+): Promise<{ sent: boolean; reason: string | null }> {
+  const user = await db().user.findUnique({ where: { id: userId } });
+  if (!user?.email) throw errors.preconditionFailed('Add an email address first.');
+  if (user.emailVerifiedAt) throw errors.preconditionFailed('Your email address is already verified.');
+
+  const issued = await issueToken(userId, 'EMAIL_VERIFICATION', user.email, {
+    ipAddress: context.ipAddress,
+  });
+
+  const result = await notifyUser({
+    userId,
+    notificationId: 'TL-NOTIF-EMAIL-VERIFY-001',
+    // Sent to the address being verified — the only message that may go to an
+    // unverified address, because proving ownership of it is the point.
+    overrideContact: { email: user.email },
+    data: { name: user.displayName ?? 'there' },
+    transientData: { verifyUrl: absoluteUrl(`/verify?token=${encodeURIComponent(issued.token)}`) },
+    requestId: context.requestId,
+  });
+
+  const email = result.outcomes.find((o) => o.channel === 'email');
+  return { sent: email?.status === 'sent', reason: email?.status === 'sent' ? null : (email?.reason ?? null) };
+}
+
+/**
+ * Change the account's email address.
+ *
+ * Needs the password — an unattended signed-in session must not be able to
+ * redirect the account's recovery channel — and completes only when the link
+ * sent to the NEW address is opened. Until then the old address stays in
+ * force. Whether the new address belongs to another account is not revealed
+ * here; it surfaces as a conflict when the link is used, to the person who
+ * controls that mailbox.
+ */
+export async function requestEmailChange(
+  userId: string,
+  rawNewEmail: string,
+  password: string,
+  context: { ipAddress?: string | null; requestId?: string } = {},
+): Promise<{ sent: boolean; reason: string | null }> {
+  const parsed = emailSchema.safeParse(rawNewEmail);
+  if (!parsed.success) throw errors.validation('Enter a valid email address.', { field: 'newEmail' });
+  const newEmail = parsed.data;
+
+  const credential = await db().credential.findFirst({ where: { userId, type: 'PASSWORD' } });
+  if (!credential || !(await verifyPassword(password, credential.secretHash))) {
+    throw errors.validation('Your password is incorrect.', { field: 'password' });
+  }
+
+  const user = await db().user.findUnique({ where: { id: userId }, select: { email: true, displayName: true } });
+  if (!user) throw errors.notFound('Account');
+  if (user.email?.toLowerCase() === newEmail) {
+    throw errors.validation('That is already your email address.', { field: 'newEmail' });
+  }
+
+  const issued = await issueToken(userId, 'EMAIL_VERIFICATION', newEmail, { ipAddress: context.ipAddress });
+  const result = await notifyUser({
+    userId,
+    notificationId: 'TL-NOTIF-EMAIL-VERIFY-001',
+    overrideContact: { email: newEmail },
+    data: { name: user.displayName ?? 'there' },
+    transientData: { verifyUrl: absoluteUrl(`/verify?token=${encodeURIComponent(issued.token)}`) },
+    requestId: context.requestId,
+  });
+
+  await recordAuditEvent({
+    action: 'EMAIL_CHANGE_REQUESTED',
+    actor: userId,
+    subject: userId,
+    outcome: 'success',
+    requestId: context.requestId,
+  });
+
+  const email = result.outcomes.find((o) => o.channel === 'email');
+  return { sent: email?.status === 'sent', reason: email?.status === 'sent' ? null : (email?.reason ?? null) };
+}
+
+// ---------------------------------------------------------------------------
+// Phone verification by one-time code
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a six-digit code to a phone number.
+ *
+ * The challenge (a keyed hash of the code, bound to the number) is held in an
+ * `OTP_PHONE` credential with an attempt budget. The number the code was sent
+ * to is recorded with it, so the code cannot confirm a different number.
+ */
+export async function requestPhoneVerification(
+  userId: string,
+  rawPhone: string | undefined,
+  context: { requestId?: string } = {},
+): Promise<{ sent: boolean; reason: string | null; expiresAt: Date }> {
+  const user = await db().user.findUnique({ where: { id: userId } });
+  if (!user) throw errors.notFound('Account');
+
+  const phone = rawPhone ? phoneSchema.parse(rawPhone) : user.phone;
+  if (!phone) throw errors.validation('Enter a phone number.', { field: 'phone' });
+  if (user.phone === phone && user.phoneVerifiedAt) {
+    throw errors.preconditionFailed('That phone number is already verified.');
+  }
+
+  const existing = await db().credential.findFirst({ where: { userId, type: 'OTP_PHONE' } });
+  if (existing && !canResendOtp(existing.updatedAt)) {
+    throw errors.rateLimited(60);
+  }
+
+  const { challenge, code } = createOtpChallenge(phone, derivedSecret('otp-code'));
+
+  await transaction(async (tx) => {
+    await tx.credential.deleteMany({ where: { userId, type: 'OTP_PHONE' } });
+    await tx.credential.create({
+      data: {
+        id: newId('credential'),
+        userId,
+        type: 'OTP_PHONE',
+        secretHash: challenge.codeHash,
+        externalId: phone,
+        attemptsRemaining: challenge.attemptsRemaining,
+        expiresAt: challenge.expiresAt,
+      },
+    });
+  });
+
+  const result = await notifyUser({
+    userId,
+    notificationId: 'TL-NOTIF-PHONE-OTP-001',
+    overrideContact: { phone },
+    transientData: { code, minutes: String(Math.round(OTP_TTL_SECONDS / 60)) },
+    requestId: context.requestId,
+  });
+
+  const sms = result.outcomes.find((o) => o.channel === 'sms');
+  return {
+    sent: sms?.status === 'sent',
+    reason: sms?.status === 'sent' ? null : (sms?.reason ?? null),
+    expiresAt: challenge.expiresAt,
+  };
+}
+
+export async function confirmPhoneVerification(
+  userId: string,
+  code: string,
+  context: { requestId?: string } = {},
+): Promise<{ phone: string }> {
+  const credential = await db().credential.findFirst({ where: { userId, type: 'OTP_PHONE' } });
+  if (!credential?.externalId || !credential.expiresAt) {
+    throw errors.preconditionFailed('Request a new code first.');
+  }
+
+  const { result, challenge } = verifyOtpCode(
+    {
+      codeHash: credential.secretHash,
+      expiresAt: credential.expiresAt,
+      attemptsRemaining: credential.attemptsRemaining ?? 0,
+      createdAt: credential.createdAt,
+    },
+    code.trim(),
+    credential.externalId,
+    derivedSecret('otp-code'),
+  );
+
+  if (!result.ok) {
+    await db().credential.update({
+      where: { id: credential.id },
+      data: { attemptsRemaining: challenge.attemptsRemaining },
+    });
+    throw errors.validation(
+      result.reason === 'expired'
+        ? 'That code has expired. Request a new one.'
+        : result.reason === 'exhausted'
+          ? 'Too many incorrect codes. Request a new one.'
+          : `That code is not correct. ${challenge.attemptsRemaining} attempt(s) left.`,
+      { field: 'code' },
+    );
+  }
+
+  try {
+    await transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { phone: credential.externalId, phoneVerifiedAt: new Date() },
+      });
+      await tx.credential.delete({ where: { id: credential.id } });
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw errors.conflict('That phone number is linked to another account.');
+    }
+    throw error;
+  }
+
+  await recordSecurityEvent(userId, 'PHONE_VERIFIED', { requestId: context.requestId });
+  return { phone: credential.externalId };
 }
 
 // ---------------------------------------------------------------------------
@@ -552,6 +874,10 @@ export async function completePasswordReset(
   });
 
   const sessionsRevoked = await revokeAllSessions(redemption.userId);
+  await recordSecurityEvent(redemption.userId, 'PASSWORD_RESET', {
+    ipAddress: context.ipAddress,
+    requestId: context.requestId,
+  });
 
   await recordAuditEvent({
     action: 'PASSWORD_RESET_COMPLETED',
@@ -613,6 +939,7 @@ export async function changePassword(
   const sessionsRevoked = await revokeAllSessions(userId, {
     exceptSessionId: options.keepSessionId,
   });
+  await recordSecurityEvent(userId, 'PASSWORD_CHANGED', { requestId: options.requestId });
 
   await recordAuditEvent({
     action: 'PASSWORD_CHANGE',
@@ -665,6 +992,9 @@ export async function requestAccountDeletion(
 
   await db().user.update({ where: { id: userId }, data: { status: 'DEACTIVATED' } });
   await revokeAllSessions(userId);
+  await recordSecurityEvent(userId, 'DELETION_REQUESTED', { requestId: context.requestId }, {
+    scheduledFor: scheduledFor.toISOString(),
+  });
 
   await recordAuditEvent({
     action: 'ACCOUNT_DELETION_REQUESTED',

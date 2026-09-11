@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   description:
     'Join Toothlogy as a patient, dentist, student or supplier. Find the right dental care, or be found by the patients who need you.',
   robots: { index: true, follow: true },
+  alternates: { canonical: '/register' },
 };
 
 export const dynamic = 'force-dynamic';

@@ -39,6 +39,7 @@ export const metadata: Metadata = {
   description:
     'Toothlogy connects patients, dentists, clinics, colleges, students and suppliers. Find the right dentist at the right time, and give practices the tools to be found.',
   robots: { index: true, follow: true },
+  alternates: { canonical: '/' },
   openGraph: {
     title: 'Toothlogy — find the right dentist',
     description:
@@ -133,8 +134,8 @@ export default function HomePage() {
             </div>
 
             <p className="tl-hero__note">
-              Accounts, clinics and dentist verification are live today. Search and booking
-              arrive in Phase 4 — see what works below.
+              Accounts, clinics, dentist verification, search and online booking work today.
+              Reviews and dental records come later — see what works below.
             </p>
           </Reveal>
 
@@ -196,8 +197,8 @@ export default function HomePage() {
               lead={
                 <>
                   These are the {DENTAL_SPECIALTIES.length} specialties Toothlogy recognises
-                  today. A dentist selects theirs on their profile, and each one becomes a
-                  discovery filter when search ships in Phase 4.
+                  today. A dentist selects theirs on their profile, and each one is a
+                  filter in dentist search.
                 </>
               }
             />

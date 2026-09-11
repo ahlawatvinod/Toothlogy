@@ -91,6 +91,14 @@ export type FeatureFlagKey = (typeof FEATURE_FLAGS)[number]['key'];
  */
 export const CONFIG_ENTRIES: readonly ConfigEntry[] = [
   {
+    key: 'TOOTHLOGY_HOSTING_REGION',
+    description: 'ISO country code of where this deployment runs and stores data, as its operator declares it. Enterprise agreements compare their required data residency with it; unset means undeclared, never assumed.',
+    secret: false,
+    required: false,
+    scope: 'server',
+    defaultValue: null,
+  },
+  {
     key: 'NODE_ENV',
     description: 'Runtime environment: development, test or production.',
     secret: false,
@@ -146,6 +154,41 @@ export const CONFIG_ENTRIES: readonly ConfigEntry[] = [
     required: false,
     scope: 'server',
     defaultValue: 'info',
+  },
+  {
+    key: 'JOB_RUNNER_SECRET',
+    description:
+      'Bearer secret a scheduler presents to POST /api/v1/internal/jobs. At least 32 characters. Unset means the scheduler path is closed and only an administrator can run jobs.',
+    secret: true,
+    required: false,
+    scope: 'server',
+    defaultValue: null,
+  },
+  {
+    key: 'STORAGE_PROVIDER',
+    description:
+      'Object storage adapter: `local` stores files on the server disk under STORAGE_LOCAL_DIR (single-node only). Unset means uploads fail with NOT_CONFIGURED.',
+    secret: false,
+    required: false,
+    scope: 'server',
+    defaultValue: null,
+  },
+  {
+    key: 'STORAGE_LOCAL_DIR',
+    description: 'Directory for the `local` storage adapter. Must be outside the public web root.',
+    secret: false,
+    required: false,
+    scope: 'server',
+    defaultValue: '.data/storage',
+  },
+  {
+    key: 'FILE_SCAN_REQUIRED',
+    description:
+      'When `true`, uploads stay QUARANTINED until a malware scanner marks them clean. Defaults to true in production. With no scanner configured, required scanning means uploads never become usable — by design.',
+    secret: false,
+    required: false,
+    scope: 'server',
+    defaultValue: null,
   },
 ] as const;
 

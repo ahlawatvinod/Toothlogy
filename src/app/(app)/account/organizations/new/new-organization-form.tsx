@@ -22,9 +22,12 @@ const TYPES = [
   { value: 'CLINIC', label: 'Dental clinic' },
   { value: 'HOSPITAL', label: 'Hospital' },
   { value: 'COLLEGE', label: 'Dental college' },
-  { value: 'SUPPLIER', label: 'Supplier' },
+  { value: 'SUPPLIER', label: 'Supplier / vendor' },
   { value: 'MANUFACTURER', label: 'Manufacturer' },
   { value: 'DISTRIBUTOR', label: 'Distributor' },
+  { value: 'WHOLESALER', label: 'Wholesaler' },
+  { value: 'RETAILER', label: 'Retailer' },
+  { value: 'LABORATORY', label: 'Dental laboratory' },
   { value: 'EMPLOYER', label: 'Employer' },
 ] as const;
 

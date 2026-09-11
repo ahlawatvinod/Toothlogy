@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   title: 'Terms of use',
   description: 'The terms on which Toothlogy is provided.',
   robots: { index: true, follow: true },
+  alternates: { canonical: '/terms' },
 };
 
 export default function TermsPage() {

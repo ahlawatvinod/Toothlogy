@@ -59,6 +59,99 @@ export const describeIntegration: typeof describe | typeof describe.skip = hasTe
  * the suite slow for no benefit.
  */
 const MUTABLE_TABLES = [
+  // Phase 4. Qualification and pricing rules are seeded reference data: kept.
+  'treatment_plan_items',
+  'treatment_plans',
+  'exchange_rates',
+  'enterprise_agreements',
+  'memberships',
+  'membership_plans',
+  'service_visits',
+  'service_contract_assets',
+  'service_contracts',
+  'equipment_assets',
+  'order_payments',
+  'tax_documents',
+  'tax_document_series',
+  'return_requests',
+  'order_events',
+  'order_lines',
+  'orders',
+  'cart_items',
+  'product_variants',
+  'enrolments',
+  'device_alerts',
+  'device_readings',
+  'device_limits',
+  'devices',
+  'job_applications',
+  'job_postings',
+  'articles',
+  'prescriptions',
+  'record_entries',
+  'record_access_grants',
+  'support_messages',
+  'support_tickets',
+  'messages',
+  'message_threads',
+  'review_responses',
+  'reviews',
+  'community_reports',
+  'community_answers',
+  'community_questions',
+  'faculty_appointments',
+  'publications',
+  'academic_profiles',
+  'quote_events',
+  'quote_requests',
+  'products',
+  'business_service_areas',
+  'business_profiles',
+  'camp_registrations',
+  'camp_doctors',
+  'camps',
+  'admission_enquiry_events',
+  'admission_enquiries',
+  'admission_cycles',
+  'courses',
+  'college_profiles',
+  'outreach_activities',
+  'outreach_tasks',
+  'extracted_records',
+  'extraction_batches',
+  'sponsored_events',
+  'sponsored_campaign_days',
+  'sponsored_campaigns',
+  'geofences',
+  'lead_disputes',
+  'invoices',
+  'ledger_entries',
+  'wallets',
+  'lead_events',
+  'leads',
+  'appointment_events',
+  'appointments',
+  'waitlist_entries',
+  'dependents',
+  'availability_exceptions',
+  'availability_rules',
+  // Phase 3. Most would go by CASCADE from users/locations anyway; listed so
+  // the reset does not depend on that, and analytics_events has no FK at all.
+  // treatments and specialties are reference data: not truncated.
+  'analytics_events',
+  'service_offerings',
+  'location_closures',
+  'dentist_practices',
+  'verification_requests',
+  'dentist_specialties',
+  'qualifications',
+  'dentist_profiles',
+  'event_handler_receipts',
+  // search_synonyms is reference data from the seed, like countries: not truncated.
+  'security_events',
+  'recovery_codes',
+  'user_preferences',
+  'file_access_logs',
   'in_app_notifications',
   'notification_records',
   'login_attempts',
@@ -88,6 +181,24 @@ const MUTABLE_TABLES = [
 ] as const;
 
 /**
+ * Refuse to truncate anything that is not a disposable test database.
+ *
+ * `resetDatabase` erases every mutable table. Run against a development or
+ * production database it destroys real data with no way back, and the only
+ * thing standing between a misconfigured `DATABASE_URL` and that outcome would
+ * otherwise be the developer noticing in time. The database name must end in
+ * `_test`; CI's ephemeral service and the local `toothlogy_test` both do.
+ */
+export function assertDisposableDatabase(url: string | undefined = process.env.DATABASE_URL): void {
+  const name = url ? new URL(url).pathname.replace(/^\//, '') : '';
+  if (!/_test$/.test(name)) {
+    throw new Error(
+      `Refusing to truncate database '${name || '(none)'}': integration tests only run against a database whose name ends in "_test". Set TEST_DATABASE_URL.`,
+    );
+  }
+}
+
+/**
  * Empty every mutable table.
  *
  * `TRUNCATE … CASCADE` in one statement rather than per-table deletes: it is
@@ -97,8 +208,12 @@ const MUTABLE_TABLES = [
  */
 export async function resetDatabase(): Promise<void> {
   if (!hasTestDatabase) return;
+  assertDisposableDatabase();
   const quoted = MUTABLE_TABLES.map((t) => `"${t}"`).join(', ');
   await testDb().$executeRawUnsafe(`TRUNCATE TABLE ${quoted} RESTART IDENTITY CASCADE`);
+  // Seeded country-wide pricing is reference data and stays; rules a test
+  // created for one organization or dentist go with that test's data.
+  await testDb().$executeRawUnsafe(`DELETE FROM "lead_pricing_rules" WHERE "organizationId" IS NOT NULL OR "dentistProfileId" IS NOT NULL`);
 }
 
 /**

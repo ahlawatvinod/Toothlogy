@@ -25,6 +25,7 @@ import { newId } from '../kernel/ids';
 import { errors } from '../kernel/errors';
 import { db, isUniqueConstraintError, transaction } from '../db/client';
 import { recordAuditEvent } from '../audit';
+import { emitInTransaction } from '../events/outbox';
 
 // ---------------------------------------------------------------------------
 // Contracts
@@ -75,6 +76,9 @@ export const ORGANIZATION_TYPES = [
   'SUPPLIER',
   'MANUFACTURER',
   'DISTRIBUTOR',
+  'WHOLESALER',
+  'RETAILER',
+  'LABORATORY',
   'EMPLOYER',
 ] as const;
 
@@ -96,6 +100,7 @@ export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 /** Roles assignable within an organization. */
 export const ORGANIZATION_ROLES = [
   'clinic_admin',
+  'clinician',
   'clinic_staff',
   'dentist',
   'supplier',
@@ -150,6 +155,10 @@ export async function createOrganization(
 
   const country = COUNTRY_BY_CODE.get(input.countryCode);
   if (!country) throw errors.validation('That country is not supported yet.');
+  // Modelled is not open: the database switch (set by staff once the country
+  // is configured) decides where organizations may be created (Phase 12).
+  const open = await db().country.findUnique({ where: { code: input.countryCode }, select: { enabled: true } });
+  if (!open?.enabled) throw errors.validation('Toothlogy is not open for organizations in that country yet.', { field: 'countryCode' });
 
   const organizationId = newId('organization');
 
@@ -165,6 +174,7 @@ export async function createOrganization(
           timezone: input.timezone,
           currency: input.currency ?? country.defaultCurrency,
           status: 'PENDING',
+          ownerUserId,
         },
       });
 
@@ -415,6 +425,13 @@ export async function acceptInvitation(
         acceptedByUserId: acceptingUserId,
       },
     });
+
+    await emitInTransaction(
+      tx,
+      'ORGANIZATION_MEMBER_JOINED',
+      { organizationId: invitation.organizationId, userId: acceptingUserId, roleKey: invitation.roleKey },
+      { requestId: context.requestId, actor: acceptingUserId },
+    );
   });
 
   await recordAuditEvent({

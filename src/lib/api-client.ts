@@ -27,6 +27,8 @@ export type ApiResult<T> =
       readonly message: string;
       readonly fieldErrors: FieldErrors;
       readonly requestId: string;
+      /** Structured, client-safe context from the server, e.g. `{ restorable: true }`. */
+      readonly details?: Readonly<Record<string, unknown>>;
     };
 
 interface ErrorPayload {
@@ -61,11 +63,32 @@ function extractFieldErrors(error: ErrorPayload | undefined): FieldErrors {
   return out;
 }
 
+export interface RequestOptions {
+  /**
+   * Reuse one key across retries of the SAME intent — a booking screen creates
+   * it once when it mounts, so a retry after a dropped connection replays the
+   * original booking instead of making a second one. When omitted, each call
+   * gets a fresh key, which protects against transport-level duplicates only.
+   */
+  readonly idempotencyKey?: string;
+}
+
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/** A fresh idempotency key. */
+export function newIdempotencyKey(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
 async function request<T>(
   path: string,
   init: RequestInit & { json?: unknown } = {},
+  options: RequestOptions = {},
 ): Promise<ApiResult<T>> {
   const { json, ...rest } = init;
+  const method = (rest.method ?? 'GET').toUpperCase();
 
   let response: Response;
   try {
@@ -73,6 +96,9 @@ async function request<T>(
       ...rest,
       headers: {
         ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(MUTATING.has(method)
+          ? { 'Idempotency-Key': options.idempotencyKey ?? newIdempotencyKey() }
+          : {}),
         ...rest.headers,
       },
       body: json !== undefined ? JSON.stringify(json) : rest.body,
@@ -118,13 +144,21 @@ async function request<T>(
     message: payload.error?.message ?? 'Something went wrong.',
     fieldErrors: extractFieldErrors(payload.error),
     requestId,
+    details: payload.error?.details as Record<string, unknown> | undefined,
   };
 }
 
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
-  post: <T>(path: string, json?: unknown) => request<T>(path, { method: 'POST', json }),
-  put: <T>(path: string, json?: unknown) => request<T>(path, { method: 'PUT', json }),
-  patch: <T>(path: string, json?: unknown) => request<T>(path, { method: 'PATCH', json }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  post: <T>(path: string, json?: unknown, options?: RequestOptions) =>
+    request<T>(path, { method: 'POST', json }, options),
+  put: <T>(path: string, json?: unknown, options?: RequestOptions) =>
+    request<T>(path, { method: 'PUT', json }, options),
+  patch: <T>(path: string, json?: unknown, options?: RequestOptions) =>
+    request<T>(path, { method: 'PATCH', json }, options),
+  delete: <T>(path: string, options?: RequestOptions) =>
+    request<T>(path, { method: 'DELETE' }, options),
+  /** Multipart upload. The browser sets the boundary header itself. */
+  upload: <T>(path: string, form: FormData, options?: RequestOptions) =>
+    request<T>(path, { method: 'POST', body: form }, options),
 };

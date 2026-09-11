@@ -43,4 +43,10 @@ export { Icon, type IconName, type IconProps } from './components/icon';
 export { Tabs, type TabItem, type TabsProps } from './components/tabs';
 export { Dialog, type DialogProps } from './components/dialog';
 export { ThemeToggle, THEME_STORAGE_KEY, type ThemePreference } from './components/theme-toggle';
-export { THEME_SCRIPT } from './components/theme-script';
+export {
+  THEME_SCRIPT,
+  PREFS_STORAGE_KEY,
+  applyPresentation,
+  storePresentation,
+  type StoredPresentation,
+} from './components/theme-script';

@@ -35,6 +35,11 @@ export const TOKEN_TTL_MINUTES = {
   PASSWORD_RESET: 30,
   MAGIC_LINK: 15,
   ACTION_CONFIRMATION: 15,
+  /**
+   * Five minutes: long enough to open an authenticator app, short enough that
+   * a password-verified-but-unfinished sign-in cannot be picked up later.
+   */
+  MFA_CHALLENGE: 5,
 } as const;
 
 export type TokenPurpose = keyof typeof TOKEN_TTL_MINUTES;
@@ -136,6 +141,18 @@ export async function redeemToken(
   if (result.count !== 1) return { ok: false, reason: 'already_used' };
 
   return { ok: true, userId: existing.userId, destination: existing.destination };
+}
+
+/**
+ * Check a token without consuming it: who it belongs to, if it is still
+ * usable. For flows that must verify a second factor before spending the
+ * first — a wrong one-time code must not burn the email link as well. The
+ * caller still redeems with `redeemToken`, which remains the only way to use it.
+ */
+export async function peekToken(token: string, type: TokenPurpose): Promise<{ userId: string; destination: string } | null> {
+  const existing = await db().verificationToken.findUnique({ where: { tokenHash: hashToken(token) } });
+  if (!existing || existing.type !== type || existing.consumedAt !== null || existing.expiresAt <= new Date()) return null;
+  return { userId: existing.userId, destination: existing.destination };
 }
 
 /** Delete tokens that expired long ago. For the maintenance job. */

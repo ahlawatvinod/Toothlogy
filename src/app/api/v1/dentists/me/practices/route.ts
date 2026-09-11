@@ -11,6 +11,7 @@
 
 import { z } from 'zod';
 import { claimPractice } from '@/platform/dentists/service';
+import { listMyPractices } from '@/platform/dentists/practice';
 import { defineRoute } from '@/platform/http/handler';
 import { isAuthenticated } from '@/platform/rbac';
 import { errors } from '@/platform/kernel/errors';
@@ -19,6 +20,40 @@ export const dynamic = 'force-dynamic';
 
 const bodySchema = z.object({
   locationId: z.string().min(1, 'Choose a clinic location.'),
+});
+
+/** TL-API-DENTIST-PRACTICE-LIST-001 — GET: my practices, with booking settings. */
+export const GET = defineRoute({
+  id: 'TL-API-DENTIST-PRACTICE-LIST-001',
+  permissions: ['tl.dentist.profile.manage.self'],
+  authRequired: true,
+  rateLimit: 'authenticated-standard',
+  audit: false,
+  handler: async ({ principal }) => {
+    if (!isAuthenticated(principal)) throw errors.unauthenticated();
+    const practices = await listMyPractices(principal.userId);
+    return {
+      practices: practices.map((p) => ({
+        id: p.id,
+        isConfirmed: p.isConfirmed,
+        location: { id: p.location.id, name: p.location.name, timezone: p.location.timezone },
+        organization: p.location.organization,
+        homeVisitAvailable: p.location.homeVisitRadiusKm !== null,
+        settings: {
+          consultationFeeMinor: p.consultationFeeMinor,
+          autoConfirm: p.autoConfirm,
+          acceptsVideo: p.acceptsVideo,
+          acceptsHomeVisit: p.acceptsHomeVisit,
+          acceptsEmergency: p.acceptsEmergency,
+          slotMinutes: p.slotMinutes,
+          bufferMinutes: p.bufferMinutes,
+          minNoticeMinutes: p.minNoticeMinutes,
+          maxAdvanceDays: p.maxAdvanceDays,
+          bookingPaused: p.bookingPaused,
+        },
+      })),
+    };
+  },
 });
 
 export const POST = defineRoute({

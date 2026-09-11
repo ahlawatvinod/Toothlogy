@@ -39,6 +39,8 @@
 @import "../design-system/styles.css";
 @import "../design-system/app-styles.css";
 @import "../design-system/site-styles.css";
+/* Personalisation (palettes, contrast, motion) last, so it refines every layer above. */
+@import "../design-system/preferences.css";
 
 :root {
   /* --- Brand -------------------------------------------------------------
@@ -80,7 +82,8 @@
   /* --- Text -------------------------------------------------------------- */
   --tl-color-text: #0c1b26;
   --tl-color-text-muted: #4f616d;
-  --tl-color-text-subtle: #71838f;
+  /* 4.7:1 on the sunken surface and 5.1:1 on white (WCAG AA 4.5:1); #71838f was 3.7:1, found by the axe scan. */
+  --tl-color-text-subtle: #5f717c;
   --tl-color-text-inverse: #ffffff;
 
   /* --- Borders ----------------------------------------------------------- */
@@ -92,7 +95,8 @@
    * text and an icon as well, because ~1 in 12 men has colour-vision
    * deficiency and colour alone fails them entirely.
    */
-  --tl-color-success: #15803d;
+  /* 4.9:1 on success-subtle and 5.4:1 on white; #15803d measured 4.49:1 on the Verified badge (axe scan). */
+  --tl-color-success: #137a38;
   --tl-color-success-subtle: #e8f6ed;
   --tl-color-warning: #a15c00;
   --tl-color-warning-subtle: #fdf3e2;

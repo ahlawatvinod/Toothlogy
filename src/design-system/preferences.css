@@ -1,0 +1,227 @@
+/*
+ * TOOTHLOGY PERSONALISATION LAYER — palettes, contrast, motion
+ *
+ * Applied through attributes on <html>, set before first paint by the theme
+ * script (design-system/components/theme-script.ts):
+ *
+ *   data-palette="indigo|rose|amber|slate"   accent family (teal is the default, no attribute)
+ *   data-contrast="more"                      stronger text, borders and focus
+ *   data-motion="reduce"                      no transitions or animations
+ *
+ * A palette overrides ONLY the brand family — brand, accent, highlight, the
+ * gradients and the brand shadow. Status colours (success, warning, danger)
+ * never change with a palette: a warning must look like a warning in every
+ * theme a user picks.
+ *
+ * Every palette's `--tl-color-brand` carries `--tl-color-on-brand` at ≥ 4.5:1 in
+ * light mode (white text) and in dark mode (dark text on a light brand), the
+ * same bar the default teal meets.
+ */
+
+/* --- Indigo ------------------------------------------------------------- */
+:root[data-palette='indigo'] {
+  --tl-color-brand: #4338ca;
+  --tl-color-brand-strong: #3730a3;
+  --tl-color-brand-subtle: #eef2ff;
+  --tl-color-on-brand: #ffffff;
+  --tl-color-accent: #5b5bd6;
+  --tl-color-accent-strong: #4338ca;
+  --tl-color-accent-subtle: #eef0ff;
+  --tl-color-highlight: #818cf8;
+  --tl-gradient-brand: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #3730a3 100%);
+  --tl-gradient-brand-soft: linear-gradient(135deg, #f1f2ff 0%, #eef0fe 55%, #f3f1fe 100%);
+  --tl-gradient-text: linear-gradient(100deg, #5b5bd6 0%, #4338ca 60%, #3730a3 100%);
+  --tl-shadow-brand: 0 2px 6px rgb(67 56 202 / 0.22), 0 10px 24px rgb(67 56 202 / 0.2);
+  --tl-glass-border: rgb(67 56 202 / 0.1);
+}
+
+/* --- Rose ---------------------------------------------------------------- */
+:root[data-palette='rose'] {
+  --tl-color-brand: #be123c;
+  --tl-color-brand-strong: #9f1239;
+  --tl-color-brand-subtle: #fff1f2;
+  --tl-color-on-brand: #ffffff;
+  --tl-color-accent: #db2777;
+  --tl-color-accent-strong: #be185d;
+  --tl-color-accent-subtle: #fdf2f8;
+  --tl-color-highlight: #fb7185;
+  --tl-gradient-brand: linear-gradient(135deg, #e11d48 0%, #be123c 55%, #9f1239 100%);
+  --tl-gradient-brand-soft: linear-gradient(135deg, #fff5f6 0%, #fdf2f6 55%, #fcf3f8 100%);
+  --tl-gradient-text: linear-gradient(100deg, #db2777 0%, #be123c 60%, #9f1239 100%);
+  --tl-shadow-brand: 0 2px 6px rgb(190 18 60 / 0.22), 0 10px 24px rgb(190 18 60 / 0.18);
+  --tl-glass-border: rgb(190 18 60 / 0.1);
+}
+
+/* --- Amber --------------------------------------------------------------- */
+:root[data-palette='amber'] {
+  --tl-color-brand: #b45309;
+  --tl-color-brand-strong: #92400e;
+  --tl-color-brand-subtle: #fffbeb;
+  --tl-color-on-brand: #ffffff;
+  --tl-color-accent: #c2410c;
+  --tl-color-accent-strong: #9a3412;
+  --tl-color-accent-subtle: #fff7ed;
+  --tl-color-highlight: #f59e0b;
+  --tl-gradient-brand: linear-gradient(135deg, #d97706 0%, #b45309 55%, #92400e 100%);
+  --tl-gradient-brand-soft: linear-gradient(135deg, #fffaf0 0%, #fff8ec 55%, #fdf5ea 100%);
+  --tl-gradient-text: linear-gradient(100deg, #c2410c 0%, #b45309 60%, #92400e 100%);
+  --tl-shadow-brand: 0 2px 6px rgb(180 83 9 / 0.22), 0 10px 24px rgb(180 83 9 / 0.18);
+  --tl-glass-border: rgb(180 83 9 / 0.12);
+}
+
+/* --- Slate --------------------------------------------------------------- */
+:root[data-palette='slate'] {
+  --tl-color-brand: #334155;
+  --tl-color-brand-strong: #1e293b;
+  --tl-color-brand-subtle: #f1f5f9;
+  --tl-color-on-brand: #ffffff;
+  --tl-color-accent: #475569;
+  --tl-color-accent-strong: #334155;
+  --tl-color-accent-subtle: #f1f5f9;
+  --tl-color-highlight: #94a3b8;
+  --tl-gradient-brand: linear-gradient(135deg, #64748b 0%, #475569 50%, #1e293b 100%);
+  --tl-gradient-brand-soft: linear-gradient(135deg, #f8fafc 0%, #f4f6f9 55%, #f1f4f8 100%);
+  --tl-gradient-text: linear-gradient(100deg, #475569 0%, #334155 60%, #1e293b 100%);
+  --tl-shadow-brand: 0 2px 6px rgb(51 65 85 / 0.22), 0 10px 24px rgb(51 65 85 / 0.18);
+  --tl-glass-border: rgb(51 65 85 / 0.12);
+}
+
+/*
+ * Dark variants. Written twice — once for "system" users whose OS is dark,
+ * once for an explicit dark choice — mirroring the base theme's structure in
+ * globals.css, so an explicit light choice always wins.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light'])[data-palette='indigo'] {
+    --tl-color-brand: #a5b4fc;
+    --tl-color-brand-strong: #c7d2fe;
+    --tl-color-brand-subtle: #1b1f44;
+    --tl-color-on-brand: #0b1030;
+    --tl-color-accent: #a78bfa;
+    --tl-color-accent-subtle: #1f1740;
+    --tl-gradient-brand: linear-gradient(135deg, #4f46e5 0%, #3730a3 55%, #312e81 100%);
+    --tl-gradient-text: linear-gradient(100deg, #c4b5fd 0%, #a5b4fc 60%, #93c5fd 100%);
+  }
+  :root:not([data-theme='light'])[data-palette='rose'] {
+    --tl-color-brand: #fda4af;
+    --tl-color-brand-strong: #fecdd3;
+    --tl-color-brand-subtle: #3a1320;
+    --tl-color-on-brand: #3b0715;
+    --tl-color-accent: #f9a8d4;
+    --tl-color-accent-subtle: #3a1229;
+    --tl-gradient-brand: linear-gradient(135deg, #be123c 0%, #9f1239 55%, #881337 100%);
+    --tl-gradient-text: linear-gradient(100deg, #f9a8d4 0%, #fda4af 60%, #fecdd3 100%);
+  }
+  :root:not([data-theme='light'])[data-palette='amber'] {
+    --tl-color-brand: #fbbf24;
+    --tl-color-brand-strong: #fcd34d;
+    --tl-color-brand-subtle: #2d1f06;
+    --tl-color-on-brand: #2a1802;
+    --tl-color-accent: #fb923c;
+    --tl-color-accent-subtle: #2e1706;
+    --tl-gradient-brand: linear-gradient(135deg, #b45309 0%, #92400e 55%, #78350f 100%);
+    --tl-gradient-text: linear-gradient(100deg, #fdba74 0%, #fbbf24 60%, #fde68a 100%);
+  }
+  :root:not([data-theme='light'])[data-palette='slate'] {
+    --tl-color-brand: #cbd5e1;
+    --tl-color-brand-strong: #e2e8f0;
+    --tl-color-brand-subtle: #1c2533;
+    --tl-color-on-brand: #0f172a;
+    --tl-color-accent: #94a3b8;
+    --tl-color-accent-subtle: #1a2230;
+    --tl-gradient-brand: linear-gradient(135deg, #475569 0%, #334155 55%, #1e293b 100%);
+    --tl-gradient-text: linear-gradient(100deg, #e2e8f0 0%, #cbd5e1 60%, #94a3b8 100%);
+  }
+}
+
+:root[data-theme='dark'][data-palette='indigo'] {
+  --tl-color-brand: #a5b4fc;
+  --tl-color-brand-strong: #c7d2fe;
+  --tl-color-brand-subtle: #1b1f44;
+  --tl-color-on-brand: #0b1030;
+  --tl-color-accent: #a78bfa;
+  --tl-color-accent-subtle: #1f1740;
+  --tl-gradient-brand: linear-gradient(135deg, #4f46e5 0%, #3730a3 55%, #312e81 100%);
+  --tl-gradient-text: linear-gradient(100deg, #c4b5fd 0%, #a5b4fc 60%, #93c5fd 100%);
+}
+:root[data-theme='dark'][data-palette='rose'] {
+  --tl-color-brand: #fda4af;
+  --tl-color-brand-strong: #fecdd3;
+  --tl-color-brand-subtle: #3a1320;
+  --tl-color-on-brand: #3b0715;
+  --tl-color-accent: #f9a8d4;
+  --tl-color-accent-subtle: #3a1229;
+  --tl-gradient-brand: linear-gradient(135deg, #be123c 0%, #9f1239 55%, #881337 100%);
+  --tl-gradient-text: linear-gradient(100deg, #f9a8d4 0%, #fda4af 60%, #fecdd3 100%);
+}
+:root[data-theme='dark'][data-palette='amber'] {
+  --tl-color-brand: #fbbf24;
+  --tl-color-brand-strong: #fcd34d;
+  --tl-color-brand-subtle: #2d1f06;
+  --tl-color-on-brand: #2a1802;
+  --tl-color-accent: #fb923c;
+  --tl-color-accent-subtle: #2e1706;
+  --tl-gradient-brand: linear-gradient(135deg, #b45309 0%, #92400e 55%, #78350f 100%);
+  --tl-gradient-text: linear-gradient(100deg, #fdba74 0%, #fbbf24 60%, #fde68a 100%);
+}
+:root[data-theme='dark'][data-palette='slate'] {
+  --tl-color-brand: #cbd5e1;
+  --tl-color-brand-strong: #e2e8f0;
+  --tl-color-brand-subtle: #1c2533;
+  --tl-color-on-brand: #0f172a;
+  --tl-color-accent: #94a3b8;
+  --tl-color-accent-subtle: #1a2230;
+  --tl-gradient-brand: linear-gradient(135deg, #475569 0%, #334155 55%, #1e293b 100%);
+  --tl-gradient-text: linear-gradient(100deg, #e2e8f0 0%, #cbd5e1 60%, #94a3b8 100%);
+}
+
+/* --- Higher contrast ------------------------------------------------------
+ * For low vision and bright-sunlight use: muted text is no longer muted,
+ * borders are drawn firmly, and the focus ring thickens. Applies over any
+ * palette and either theme. */
+:root[data-contrast='more'] {
+  --tl-color-text-muted: var(--tl-color-text);
+  --tl-color-text-subtle: var(--tl-color-text);
+  --tl-color-border: var(--tl-color-border-strong);
+  --tl-focus-ring: 0 0 0 2px var(--tl-color-surface), 0 0 0 5px var(--tl-color-focus);
+}
+:root[data-contrast='more'] .tl-card,
+:root[data-contrast='more'] .tl-input {
+  border-width: 2px;
+}
+
+/* --- Reduced motion, chosen in Toothlogy ----------------------------------
+ * The OS-level prefers-reduced-motion query is honoured throughout the
+ * stylesheet already; this is the same guarantee for people who want it here
+ * without changing their whole device. */
+:root[data-motion='reduce'] {
+  --tl-duration-fast: 0ms;
+  --tl-duration-normal: 0ms;
+  --tl-duration-slow: 0ms;
+  scroll-behavior: auto;
+}
+:root[data-motion='reduce'] *,
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* A plain-text button for inline actions ("use a recovery code"). Styled as a
+ * link but a real <button>, so it is announced as an action, not navigation. */
+.tl-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--tl-color-brand);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+  border-radius: var(--tl-radius-sm);
+}
+.tl-link-button:focus-visible {
+  outline: none;
+  box-shadow: var(--tl-focus-ring);
+}

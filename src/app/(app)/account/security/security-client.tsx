@@ -34,6 +34,13 @@ export interface SessionRow {
   ipAddress: string | null;
   userAgent: string | null;
   lastActiveAt: string;
+  /**
+   * Pre-formatted on the server in the user's own locale and timezone.
+   * Formatting here with `toLocaleString()` rendered differently on the
+   * server and in the browser — a hydration mismatch, and on a security page
+   * a date that reads as 9 October on one render and 10 September on the next.
+   */
+  lastActiveLabel: string;
   isCurrent: boolean;
 }
 
@@ -157,7 +164,9 @@ export function SecurityClient({ sessions }: { sessions: readonly SessionRow[] }
                       {session.isCurrent ? <strong> (this device)</strong> : null}
                     </td>
                     <td>{session.ipAddress ?? '—'}</td>
-                    <td>{new Date(session.lastActiveAt).toLocaleString()}</td>
+                    <td>
+                      <time dateTime={session.lastActiveAt}>{session.lastActiveLabel}</time>
+                    </td>
                     <td>
                       {session.isCurrent ? (
                         <span className="tl-muted">Current</span>

@@ -24,6 +24,8 @@ import { emailProvider, pushProvider, smsProvider } from '../notifications/ports
 import { paymentProvider } from '../payments/ports';
 import { searchProvider } from '../search/ports';
 import { storageProvider } from '../storage/ports';
+import { ensureStorageConfigured } from '../storage/files';
+import { ensureSearchConfigured } from '../search/service';
 
 export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
 
@@ -116,6 +118,11 @@ function aggregate(dependencies: readonly DependencyHealth[]): HealthStatus {
  * that could disagree.
  */
 export function getHealthReport(includeDetail: boolean): HealthReport {
+  // Storage and search adapters are installed lazily on first use. Install any
+  // that are configured before reporting, so health describes configuration
+  // rather than whether a file or search request happened to run first.
+  ensureStorageConfigured();
+  ensureSearchConfigured();
   const dependencies = checkDependencies();
   return {
     status: aggregate(dependencies),

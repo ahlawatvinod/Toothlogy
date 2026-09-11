@@ -97,7 +97,7 @@ export async function createLocation(
   }
   const input = parsed.data;
 
-  const locationId = newId('request');
+  const locationId = newId('location');
 
   try {
     await transaction(async (tx) => {
@@ -150,7 +150,7 @@ export async function createLocation(
         assertNoOverlappingHours(input.hours);
         await tx.businessHours.createMany({
           data: input.hours.map((h) => ({
-            id: newId('request'),
+            id: newId('businessHours'),
             locationId,
             dayOfWeek: h.dayOfWeek,
             opensAtMinutes: h.opensAtMinutes,
@@ -236,7 +236,7 @@ export async function setBusinessHours(
     if (hours.length > 0) {
       await tx.businessHours.createMany({
         data: hours.map((h) => ({
-          id: newId('request'),
+          id: newId('businessHours'),
           locationId,
           dayOfWeek: h.dayOfWeek,
           opensAtMinutes: h.opensAtMinutes,

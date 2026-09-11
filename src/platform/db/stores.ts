@@ -17,12 +17,15 @@
 import { newId } from '../kernel/ids';
 import { logger } from '../observability/logger';
 import type { AuditEvent } from '../audit';
-import type {
-  IdempotencyRecord,
-  IdempotencyStore,
-  RateLimitPolicy,
-  RateLimitResult,
-  RateLimitStore,
+import {
+  IDEMPOTENCY_CLAIM_STALE_MS,
+  idempotencyMismatch,
+  type IdempotencyClaim,
+  type IdempotencyRecord,
+  type IdempotencyStore,
+  type RateLimitPolicy,
+  type RateLimitResult,
+  type RateLimitStore,
 } from '../http/security';
 import { db } from './client';
 
@@ -152,6 +155,67 @@ export class DatabaseIdempotencyStore implements IdempotencyStore {
         expiresAt,
       },
     });
+  }
+
+  /**
+   * Reserve a key with one atomic INSERT … ON CONFLICT DO NOTHING.
+   *
+   * `statusCode = 0` marks an in-flight claim. The INSERT is what arbitrates a
+   * race between two simultaneous retries: the unique index lets exactly one
+   * row in, and the loser reads the winner's row instead of running the
+   * operation a second time.
+   */
+  async claim(key: string, fingerprint: string): Promise<IdempotencyClaim> {
+    const expiresAt = new Date(Date.now() + IDEMPOTENCY_TTL_HOURS * 3600 * 1000);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const inserted = await db().$queryRaw<Array<{ id: string }>>`
+        INSERT INTO "idempotency_records" ("id", "key", "fingerprint", "statusCode", "responseBody", "createdAt", "expiresAt")
+        VALUES (${newId('idempotency')}, ${key}, ${fingerprint}, 0, 'null'::jsonb, now(), ${expiresAt})
+        ON CONFLICT ("key") DO NOTHING
+        RETURNING "id"
+      `;
+      if (inserted.length === 1) return { kind: 'claimed' };
+
+      const existing = await db().idempotencyRecord.findUnique({ where: { key } });
+      if (!existing) continue; // Released between the two statements; try again.
+
+      // An expired record, or an abandoned claim, is removed and re-claimed.
+      const abandoned =
+        existing.statusCode === 0 &&
+        Date.now() - existing.createdAt.getTime() >= IDEMPOTENCY_CLAIM_STALE_MS;
+      if (existing.expiresAt <= new Date() || abandoned) {
+        await db().idempotencyRecord.deleteMany({ where: { key, id: existing.id } });
+        continue;
+      }
+
+      if (existing.fingerprint !== fingerprint) throw idempotencyMismatch(key);
+      if (existing.statusCode === 0) return { kind: 'in_progress' };
+
+      return {
+        kind: 'replay',
+        record: {
+          key: existing.key,
+          fingerprint: existing.fingerprint,
+          statusCode: existing.statusCode,
+          responseBody: existing.responseBody,
+          createdAt: existing.createdAt,
+        },
+      };
+    }
+
+    return { kind: 'in_progress' };
+  }
+
+  async complete(key: string, statusCode: number, responseBody: unknown): Promise<void> {
+    await db().idempotencyRecord.updateMany({
+      where: { key },
+      data: { statusCode, responseBody: responseBody as never },
+    });
+  }
+
+  async release(key: string): Promise<void> {
+    await db().idempotencyRecord.deleteMany({ where: { key, statusCode: 0 } });
   }
 
   async prune(): Promise<number> {

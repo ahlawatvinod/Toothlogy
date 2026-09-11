@@ -34,8 +34,12 @@ export interface FormState<TValues> {
 
 export interface UseFormOptions<TValues, TResult> {
   readonly initialValues: TValues;
-  /** Client-side checks. Fast feedback only; the server re-validates. */
-  readonly validate?: (values: TValues) => FieldErrors;
+  /**
+   * Client-side checks. Fast feedback only; the server re-validates. May return
+   * a partial map — `cond ? {} : { field: 'message' }` — and fields without a
+   * message are treated as valid.
+   */
+  readonly validate?: (values: TValues) => Readonly<Partial<Record<string, string>>>;
   readonly submit: (values: TValues) => Promise<ApiResult<TResult>>;
   readonly onSuccess?: (data: TResult) => void | Promise<void>;
 }
@@ -71,7 +75,10 @@ export function useForm<TValues extends Record<string, unknown>, TResult>(
       setFormError(null);
       setRequestId(null);
 
-      const clientErrors = options.validate?.(values) ?? {};
+      const clientErrors: Record<string, string> = {};
+      for (const [field, message] of Object.entries(options.validate?.(values) ?? {})) {
+        if (message) clientErrors[field] = message;
+      }
       if (Object.keys(clientErrors).length > 0) {
         setFieldErrors(clientErrors);
         return;

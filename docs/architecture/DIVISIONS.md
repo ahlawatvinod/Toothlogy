@@ -84,16 +84,16 @@ Shared platform substrate: identity, sessions, RBAC, configuration, errors, logg
 - ✅ `TL-CORE-KERNEL-001` — Platform Kernel
 - ✅ `TL-CORE-CONFIG-001` — Configuration & Environment
 - ✅ `TL-CORE-HTTP-001` — HTTP & API Conventions
-- 🟡 `TL-CORE-AUTH-001` — Authentication
+- ✅ `TL-CORE-AUTH-001` — Authentication
 - ✅ `TL-CORE-RBAC-001` — Authorization & RBAC
 - ✅ `TL-CORE-EVENTS-001` — Domain Event Bus
 - ✅ `TL-CORE-I18N-001` — Internationalization
 - ✅ `TL-CORE-MONEY-001` — Money & Currency
 - ✅ `TL-CORE-FLAGS-001` — Feature Flags
 - ✅ `TL-CORE-OBSERVABILITY-001` — Logging & Observability
-- 🟡 `TL-CORE-SEARCH-001` — Search Abstraction
-- 🟡 `TL-CORE-STORAGE-001` — File Storage & Document Access
-- 🟡 `TL-CORE-NOTIFICATIONS-001` — Notification Service
+- ✅ `TL-CORE-SEARCH-001` — Search Abstraction
+- ✅ `TL-CORE-STORAGE-001` — File Storage & Document Access
+- ✅ `TL-CORE-NOTIFICATIONS-001` — Notification Service
 
 ### 02 — Frontend & Experience
 
@@ -109,6 +109,7 @@ The Toothlogy design system, application shell, navigation, theming, responsive 
 
 - ✅ `TL-EXPERIENCE-DESIGNSYSTEM-001` — Toothlogy Design System
 - ✅ `TL-EXPERIENCE-SHELL-001` — Application Shell
+- ✅ `TL-EXPERIENCE-PWA-001` — Installable Web App
 
 ### 03 — Users & Patients
 
@@ -119,6 +120,10 @@ User accounts, patient profiles, household/dependant relationships, consent reco
 **Owns:** `Profile`, `PatientProfile`, `Consent`, `DataExportRequest`
 
 **Depends on:** 01 Global / Core Platform
+
+**Registered modules:**
+
+- ✅ `TL-USERS-PREFERENCES-001` — User Preferences, Profile & Consent
 
 ### 04 — Dentists
 
@@ -133,6 +138,7 @@ Dentist profiles, qualifications, registration/licence verification, specialties
 **Registered modules:**
 
 - ✅ `TL-DENTIST-PROFILE-001` — Dentist Professional Profile
+- ✅ `TL-CAMPS-001` — Dental Camps
 
 ### 05 — Clinics & Hospitals
 
@@ -144,6 +150,10 @@ Clinic and hospital organizations, branches, facilities, operating hours, staff 
 
 **Depends on:** 01 Global / Core Platform · 04 Dentists · 29 Location, Maps & Geofencing
 
+**Registered modules:**
+
+- ✅ `TL-CLINIC-CATALOGUE-001` — Clinic Services & Treatment Catalogue
+
 ### 06 — Dental Colleges
 
 `TL-DIV-06-COLLEGES` · 🔴 planned · Phase 8 · Pillars: LEARN, DISCOVER, TRUST
@@ -153,6 +163,10 @@ Dental colleges and institutions, accreditation, departments, courses, faculty a
 **Owns:** `College`, `Accreditation`, `Course`, `Department`
 
 **Depends on:** 01 Global / Core Platform · 29 Location, Maps & Geofencing
+
+**Registered modules:**
+
+- ✅ `TL-EDUCATION-001` — Education: Colleges, Courses, Admissions
 
 ### 07 — Students
 
@@ -174,6 +188,10 @@ Internship and job postings, employer profiles, applications, resumes and placem
 
 **Depends on:** 01 Global / Core Platform · 07 Students · 05 Clinics & Hospitals
 
+**Registered modules:**
+
+- ✅ `TL-CAREERS-001` — Internships and Careers
+
 ### 09 — Appointments
 
 `TL-DIV-09-APPOINTMENTS` · 🔴 planned · Phase 4 · Pillars: BOOK, CONNECT
@@ -186,7 +204,9 @@ Availability, slots, booking, rescheduling, cancellation, reminders, queueing an
 
 **Registered modules:**
 
-- 🔴 `TL-APPOINTMENT-BOOKING-001` — Appointment Booking
+- ✅ `TL-AVAILABILITY-ENGINE-001` — Availability Engine
+- ✅ `TL-WAITLIST-001` — Waitlist
+- ✅ `TL-APPOINTMENT-BOOKING-001` — Appointment Booking
 
 ### 10 — Dentist Discovery
 
@@ -200,6 +220,7 @@ Search, ranking, filtering and recommendation for dentists and clinics. Merit ra
 
 **Registered modules:**
 
+- ✅ `TL-DISCOVERY-INDEX-001` — Discovery Indexer
 - 🔴 `TL-DISCOVERY-DENTIST-001` — Dentist Discovery
 
 ### 11 — Dental Records
@@ -214,7 +235,7 @@ Patient clinical records, treatment history, charts, imaging and reports. Owned 
 
 **Registered modules:**
 
-- 🔴 `TL-PATIENT-RECORD-001` — Patient Dental Record
+- ✅ `TL-PATIENT-RECORD-001` — Patient Dental Record
 
 ### 12 — Prescriptions
 
@@ -226,6 +247,10 @@ Prescription issuance, medication catalogue, dosage, validity and dispensing. He
 
 **Depends on:** 01 Global / Core Platform · 04 Dentists · 11 Dental Records
 
+**Registered modules:**
+
+- ✅ `TL-PRESCRIPTION-001` — Prescriptions
+
 ### 13 — Dental Knowledge
 
 `TL-DIV-13-KNOWLEDGE` · 🔴 planned · Phase 7 · Pillars: LEARN, TRUST
@@ -235,6 +260,10 @@ Structured, sourced dental knowledge: conditions, treatments, procedures and pat
 **Owns:** `KnowledgeArticle`, `Condition`, `Treatment`, `Procedure`, `Citation`
 
 **Depends on:** 01 Global / Core Platform
+
+**Registered modules:**
+
+- ✅ `TL-KNOWLEDGE-001` — Dental Knowledge Library
 
 ### 14 — Research
 
@@ -246,6 +275,10 @@ Research papers, authorship, citations, journals and peer discussion for the aca
 
 **Depends on:** 01 Global / Core Platform · 13 Dental Knowledge
 
+**Registered modules:**
+
+- ✅ `TL-ACADEMIC-001` — Researchers and Faculty
+
 ### 15 — Blogs, Posts & Media
 
 `TL-DIV-15-MEDIA` · 🔴 planned · Phase 7 · Pillars: LEARN, CONNECT
@@ -255,6 +288,10 @@ Community and editorial content: blogs, posts, video, images and comments, with 
 **Owns:** `Post`, `Comment`, `MediaAsset`, `ModerationDecision`
 
 **Depends on:** 01 Global / Core Platform · 03 Users & Patients
+
+**Registered modules:**
+
+- ✅ `TL-COMMUNITY-001` — Dental Community
 
 ### 16 — Marketplace
 
@@ -266,6 +303,10 @@ Catalogue, cart, checkout, orders, fulfilment, returns and seller management for
 
 **Depends on:** 01 Global / Core Platform · 23 Payments · 17 Dental Products · 19 Suppliers & Manufacturers
 
+**Registered modules:**
+
+- 🟡 `TL-MARKETPLACE-PRODUCT-001` — Businesses and Marketplace
+
 ### 17 — Dental Products
 
 `TL-DIV-17-PRODUCTS` · 🔴 planned · Phase 9 · Pillars: DISCOVER, TRUST
@@ -275,10 +316,6 @@ Product catalogue, categories, variants, specifications, pricing, stock and comp
 **Owns:** `Product`, `ProductVariant`, `ProductCategory`, `PriceListEntry`, `StockLevel`
 
 **Depends on:** 01 Global / Core Platform
-
-**Registered modules:**
-
-- 🔴 `TL-MARKETPLACE-PRODUCT-001` — Marketplace Product Catalogue
 
 ### 18 — Dental Machinery & Equipment
 
@@ -310,6 +347,10 @@ Patient-intent leads routed to dentists and clinics, including pricing, acceptan
 
 **Depends on:** 01 Global / Core Platform · 10 Dentist Discovery · 23 Payments
 
+**Registered modules:**
+
+- ✅ `TL-LEADS-ENGINE-001` — Lead Engine
+
 ### 21 — Prime
 
 `TL-DIV-21-PRIME` · 🔴 planned · Phase 10 · Pillars: TRUST, BOOK
@@ -330,6 +371,10 @@ Campaigns, placements, targeting, budgets and attribution. Every promoted placem
 
 **Depends on:** 01 Global / Core Platform · 23 Payments · 31 Analytics
 
+**Registered modules:**
+
+- ✅ `TL-SPONSORED-PLACEMENT-001` — Sponsored Placement (Prime)
+
 ### 23 — Payments
 
 `TL-DIV-23-PAYMENTS` · 🟡 prepared · Phase 4 · Pillars: BOOK, TRUST
@@ -343,6 +388,7 @@ Payment intents, captures, refunds, provider webhooks, idempotency and reconcili
 **Registered modules:**
 
 - 🟡 `TL-PAYMENTS-GATEWAY-001` — Payment Gateway Abstraction
+- ✅ `TL-BILLING-WALLET-001` — Lead Billing: Wallet and Ledger
 
 ### 24 — Wallet & Billing
 
@@ -364,6 +410,10 @@ Messaging, threads, calls, notifications delivery and templates connecting every
 
 **Depends on:** 01 Global / Core Platform · 03 Users & Patients
 
+**Registered modules:**
+
+- ✅ `TL-MESSAGING-001` — Patient–Practice Messaging
+
 ### 26 — Reviews & Trust
 
 `TL-DIV-26-REVIEWS` · 🔴 planned · Phase 5 · Pillars: TRUST, DISCOVER
@@ -377,6 +427,7 @@ Reviews, ratings, verification badges, trust signals and dispute handling. Subje
 **Registered modules:**
 
 - ✅ `TL-DENTIST-VERIFICATION-001` — Credential Verification
+- ✅ `TL-REVIEWS-001` — Reviews and Ratings
 
 ### 27 — AI
 
@@ -388,6 +439,10 @@ Summarisation, triage routing, ranking assistance, translation and drafting — 
 
 **Depends on:** 01 Global / Core Platform · 33 Security & Compliance
 
+**Registered modules:**
+
+- 🟡 `TL-AI-001` — AI under the Covenant
+
 ### 28 — IoT
 
 `TL-DIV-28-IOT` · 🔴 planned · Phase 11 · Pillars: CONNECT, TRUST
@@ -397,6 +452,10 @@ Connected dental devices and chairside equipment: registration, pairing, telemet
 **Owns:** `Device`, `DevicePairing`, `TelemetryReading`, `DeviceAlert`
 
 **Depends on:** 01 Global / Core Platform · 18 Dental Machinery & Equipment
+
+**Registered modules:**
+
+- 🟡 `TL-IOT-001` — Connected Equipment
 
 ### 29 — Location, Maps & Geofencing
 
@@ -410,7 +469,8 @@ Geography reference data, geocoding, distance and radius search, routing and geo
 
 **Registered modules:**
 
-- 🟡 `TL-LOCATION-GEO-001` — Geolocation & Geofencing
+- ✅ `TL-LOCATION-GEO-001` — Geolocation & Geofencing
+- 🟡 `TL-GLOBAL-EXPANSION-001` — Market Opening and Enterprise
 
 ### 30 — Support & Help
 
@@ -422,6 +482,11 @@ Help centre, tickets, escalation, SLAs and self-service resolution for every con
 
 **Depends on:** 01 Global / Core Platform · 25 Communication
 
+**Registered modules:**
+
+- ✅ `TL-SUPPORT-001` — Help and Support Tickets
+- ✅ `TL-OPERATIONS-001` — Operations: Lead Work, Outreach, District Command Centre
+
 ### 31 — Analytics
 
 `TL-DIV-31-ANALYTICS` · 🔴 planned · Phase 10 · Pillars: DISCOVER, TRUST
@@ -431,6 +496,10 @@ Product and business analytics: event capture, funnels, cohorts, dashboards and 
 **Owns:** `AnalyticsEvent`, `Funnel`, `Report`, `Dashboard`
 
 **Depends on:** 01 Global / Core Platform
+
+**Registered modules:**
+
+- 🟡 `TL-ANALYTICS-001` — Analytics and Dashboards
 
 ### 32 — Administration
 
@@ -445,6 +514,7 @@ Internal operations console: user and organization administration, verification 
 **Registered modules:**
 
 - ✅ `TL-ADMIN-REGISTRY-001` — Registry Introspection
+- ✅ `TL-INDIA-DATA-001` — India Data: Districts, Extraction, Pre-made Accounts
 
 ### 33 — Security & Compliance
 
@@ -486,5 +556,6 @@ Build, deploy, environments, migrations, health checks, observability, backup an
 
 **Registered modules:**
 
+- ✅ `TL-DEVOPS-JOBS-001` — Background Jobs & Outbox Relay
 - ✅ `TL-DEVOPS-HEALTH-001` — Health & Readiness
 

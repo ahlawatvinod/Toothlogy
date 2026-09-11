@@ -13,9 +13,12 @@
 
 import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google';
+import Script from 'next/script';
+import { headers } from 'next/headers';
 import { DEFAULT_LOCALE } from '@/registry/globalization';
 import { getDirection } from '@/platform/i18n';
 import { THEME_SCRIPT } from '@/design-system';
+import { ServiceWorkerRegistration } from '@/components/pwa/service-worker';
 import './globals.css';
 
 /*
@@ -43,10 +46,19 @@ const sans = Manrope({
 });
 
 export const metadata: Metadata = {
+  // Resolves relative canonical, Open Graph and Twitter URLs against the
+  // configured public origin, so no page hard-codes a hostname.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: {
     default: 'Toothlogy',
     template: '%s · Toothlogy',
   },
+  openGraph: {
+    siteName: 'Toothlogy',
+    type: 'website',
+    locale: 'en_IN',
+  },
+  twitter: { card: 'summary' },
   description:
     'Toothlogy is a global dental ecosystem connecting patients, dentists, clinics, colleges, students and suppliers.',
   applicationName: 'Toothlogy',
@@ -69,25 +81,34 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = DEFAULT_LOCALE;
+  // The request proxy's per-request CSP nonce (src/proxy.ts). Reading it makes
+  // every page render per request, which a nonce requires.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
 
   return (
     <html
       lang={locale}
       dir={getDirection(locale)}
       className={sans.variable}
+      // Next 16 no longer overrides smooth scrolling during route changes on
+      // its own; this attribute asks it to, so navigation jumps to the top
+      // instantly while in-page anchor links still scroll smoothly.
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <head>
-        {/*
-         * Runs before first paint to apply the stored theme, preventing a flash
-         * of the wrong theme. It must be inline and synchronous, so it cannot
-         * come from a bundle. See design-system/components/theme-script.ts.
-         */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-      </head>
       <body>
+        {/*
+         * Applies the stored theme, palette, contrast, motion and text size
+         * before first paint, preventing a flash of the wrong theme. Injected
+         * into <head> by Next.js as part of the server HTML
+         * (`beforeInteractive`), which is where an inline script actually runs:
+         * a raw <script> rendered by a React component is never executed on
+         * the client and React warns about it on every render.
+         * See design-system/components/theme-script.ts.
+         */}
+        <Script id="tl-theme" strategy="beforeInteractive" nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {/*
          * The skip link targets #main, which each route group's layout provides
          * on its <main> element. Without it, a keyboard or screen-reader user
@@ -97,6 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         {children}
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

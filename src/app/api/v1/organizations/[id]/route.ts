@@ -16,8 +16,40 @@
  */
 
 import { getOrganization } from '@/platform/organizations/service';
+import { updateOrganizationProfile, updateOrganizationSchema } from '@/platform/organizations/management';
 import { defineRoute } from '@/platform/http/handler';
 import { errors } from '@/platform/kernel/errors';
+import { isAuthenticated } from '@/platform/rbac';
+
+/**
+ * TL-API-ORG-UPDATE-001 — PATCH /api/v1/organizations/:id
+ *
+ * Profile edits by an administrator. Editing the registration number or tax
+ * identifier of a verified organization drops its verification.
+ */
+export const PATCH = defineRoute({
+  id: 'TL-API-ORG-UPDATE-001',
+  permissions: ['tl.core.organization.manage'],
+  authRequired: true,
+  rateLimit: 'authenticated-standard',
+  bodySchema: updateOrganizationSchema,
+  resolveScope: ({ params }) => ({
+    organizationId: typeof params.id === 'string' ? params.id : undefined,
+  }),
+  audit: true,
+  handler: async ({ principal, params, body, requestId }) => {
+    if (!isAuthenticated(principal) || typeof params.id !== 'string') throw errors.unauthenticated();
+    const result = await updateOrganizationProfile(params.id, body, principal.userId, { requestId });
+    return {
+      id: result.organization.id,
+      status: result.organization.status,
+      verificationCleared: result.verificationCleared,
+      ...(result.verificationCleared
+        ? { warning: 'Registration details changed, so the organization must be verified again.' }
+        : {}),
+    };
+  },
+});
 
 export const dynamic = 'force-dynamic';
 

@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: 'Privacy',
   description: 'What Toothlogy collects, why, and what we do with it.',
   robots: { index: true, follow: true },
+  alternates: { canonical: '/privacy' },
 };
 
 export default function PrivacyPage() {
@@ -38,13 +39,38 @@ export default function PrivacyPage() {
       <div className="tl-prose">
         <h2>What we store</h2>
         <p>
-          Today Toothlogy stores account information — your name, and an email address or phone
-          number — along with your language, country and timezone preferences, the organizations
-          you belong to, and the sessions you are signed in with.
+          Toothlogy stores account information — your name, and an email address or phone number —
+          along with your language, country and timezone preferences, the organizations you belong
+          to, and the sessions you are signed in with.
         </p>
+        <p>What else is stored depends on what you use:</p>
+        <ul>
+          <li>
+            <strong>Appointments</strong> you book, and the requests and messages you exchange with a
+            practice you have an appointment with.
+          </li>
+          <li>
+            <strong>Your dental record and prescriptions.</strong> The record is yours: a practice sees
+            it only while you allow it, every time it looks is recorded, and you can see who looked and
+            withdraw access at any time.
+          </li>
+          <li>
+            <strong>Reviews, community posts, help requests, admission enquiries and job
+            applications</strong> you submit, with the résumé you upload for an application.
+          </li>
+          <li>
+            <strong>Marketplace orders</strong>: what you ordered and the delivery name, phone and
+            address you gave, which the seller sees in order to deliver.
+          </li>
+          <li>
+            For organizations: listings, catalogues, equipment and maintenance contracts, leads and the
+            lead wallet&apos;s ledger.
+          </li>
+        </ul>
         <p>
-          Dental records, prescriptions, appointments and payment data are <strong>not</strong>{' '}
-          stored, because those features are not built yet.
+          No card, UPI or bank details are stored: no payment provider is connected. When a seller
+          records a payment it received for an order, only the amount, method, date and the seller&apos;s
+          own reference are kept.
         </p>
 
         <h2>Passwords and tokens</h2>

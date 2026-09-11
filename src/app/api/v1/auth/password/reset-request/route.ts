@@ -12,13 +12,16 @@
  * On `costly` rate limiting (10/hour): each call can dispatch an email, which
  * costs money and, uncapped, makes this a free mail-bombing service pointed at
  * any address an attacker chooses.
+ *
+ * The reset link is sent as transient data: it reaches the email provider and
+ * is never written to the delivery record, so the notification table cannot
+ * leak a working account-takeover link.
  */
 
 import { z } from 'zod';
 import { emailSchema, requestPasswordReset } from '@/platform/auth/service';
-import { getPublicConfig } from '@/platform/config';
 import { defineRoute } from '@/platform/http/handler';
-import { sendNotification } from '@/platform/notifications';
+import { absoluteUrl, notifyUser } from '@/platform/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,16 +38,14 @@ export const POST = defineRoute({
     const result = await requestPasswordReset(body.email, { ipAddress, requestId });
 
     if (result.token && result.userId && result.destination) {
-      const outcome = await sendNotification({
-        notificationId: 'TL-NOTIF-WELCOME-001',
-        recipient: {
-          userId: result.userId,
-          email: result.destination,
-          locale: 'en',
-          timezone: 'Asia/Kolkata',
-        },
-        data: {
-          resetUrl: `${getPublicConfig().NEXT_PUBLIC_APP_URL}/reset-password?token=${result.token}`,
+      const outcome = await notifyUser({
+        userId: result.userId,
+        notificationId: 'TL-NOTIF-PASSWORD-RESET-001',
+        // The address the reset was requested for, verified or not: proving
+        // control of it is exactly what the link does.
+        overrideContact: { email: result.destination },
+        transientData: {
+          resetUrl: absoluteUrl(`/reset-password?token=${encodeURIComponent(result.token)}`),
         },
         requestId,
       });
@@ -54,7 +55,7 @@ export const POST = defineRoute({
         // this address confirms the address exists.
         logger.warn('Password reset email could not be delivered', {
           userId: result.userId,
-          outcomes: outcome.outcomes.map((o) => `${o.channel}:${o.status}`),
+          outcomes: outcome.outcomes.map((o) => `${o.channel}:${o.status}:${o.reason ?? ''}`),
         });
       }
     }

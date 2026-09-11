@@ -25,8 +25,10 @@
  * "forgot to think about it".
  */
 
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import type { ZodType } from 'zod';
+import { API_BY_ID } from '@/registry/apis';
 import { getEnvironment, hasDatabase } from '../config';
 import { AppError, ERROR_CODES, errors, toAppError } from '../kernel/errors';
 import { newRequestId } from '../kernel/ids';
@@ -36,13 +38,16 @@ import { isFlagEnabled } from '../flags';
 import { logger, type Logger, requestLogger } from '../observability/logger';
 import { type Principal, ANONYMOUS, requirePermission } from '../rbac';
 import { SESSION_COOKIE, resolveSession } from '../auth/session';
-import { databaseRateLimitStore } from '../db/stores';
+import { databaseIdempotencyStore, databaseRateLimitStore } from '../db/stores';
 import { errorEnvelope, jsonSafe, successEnvelope } from './envelope';
 import {
+  IDEMPOTENCY_KEY_PATTERN,
+  defaultIdempotencyStore,
   defaultRateLimitStore,
   enforceRateLimit,
   rateLimitKey,
   securityHeaders,
+  type IdempotencyStore,
   type RateLimitStore,
 } from './security';
 
@@ -55,6 +60,43 @@ import {
  */
 function activeRateLimitStore(): RateLimitStore {
   return hasDatabase() ? databaseRateLimitStore : defaultRateLimitStore;
+}
+
+/**
+ * Coalesced, in-process outbox relay after mutations.
+ *
+ * At most one relay runs per process at a time; a mutation arriving while one
+ * is running asks for exactly one more pass afterwards. Skipped in tests,
+ * which relay explicitly so their assertions are deterministic, and without a
+ * database, where there is no outbox.
+ */
+let relayRunning = false;
+let relayPending = false;
+
+function scheduleInlineRelay(): void {
+  if (getEnvironment() === 'test' || !hasDatabase() || process.env.TL_INLINE_RELAY === 'false') return;
+  if (relayRunning) {
+    relayPending = true;
+    return;
+  }
+  relayRunning = true;
+  setImmediate(() => {
+    void import('../jobs')
+      .then(({ runJobs }) => runJobs(['outbox.relay']))
+      .catch((error: unknown) => logger.warn('Inline outbox relay failed', { error }))
+      .finally(() => {
+        relayRunning = false;
+        if (relayPending) {
+          relayPending = false;
+          scheduleInlineRelay();
+        }
+      });
+  });
+}
+
+/** Same reasoning as the rate-limit store: persistent whenever possible. */
+function activeIdempotencyStore(): IdempotencyStore {
+  return hasDatabase() ? databaseIdempotencyStore : defaultIdempotencyStore;
 }
 
 /**
@@ -198,13 +240,18 @@ async function resolvePrincipal(request: Request): Promise<Principal> {
  * `Request`.
  */
 function readSessionCookie(request: Request): string | null {
+  return readCookie(request, SESSION_COOKIE);
+}
+
+/** Read one cookie from the raw Cookie header. */
+export function readCookie(request: Request, name: string): string | null {
   const header = request.headers.get('cookie');
   if (!header) return null;
 
   for (const part of header.split(';')) {
     const separator = part.indexOf('=');
     if (separator === -1) continue;
-    if (part.slice(0, separator).trim() !== SESSION_COOKIE) continue;
+    if (part.slice(0, separator).trim() !== name) continue;
     return decodeURIComponent(part.slice(separator + 1).trim()) || null;
   }
   return null;
@@ -234,7 +281,7 @@ export function defineRoute<TBody = undefined, TResult = unknown>(
   return async function routeHandler(
     request: Request,
     routeContext?: { params?: Promise<RouteParams> | RouteParams },
-  ): Promise<NextResponse> {
+  ): Promise<Response> {
     const requestId = newRequestId();
     const url = new URL(request.url);
     const log = requestLogger(requestId, {
@@ -259,12 +306,14 @@ export function defineRoute<TBody = undefined, TResult = unknown>(
     };
 
     /** Attach queued Set-Cookie headers to a response. */
-    const applyCookies = (response: NextResponse): NextResponse => {
+    const applyCookies = <T extends Response>(response: T): T => {
       for (const cookie of pendingCookies) response.headers.append('Set-Cookie', cookie);
       return response;
     };
 
     let principal: Principal = ANONYMOUS;
+    /** Scoped idempotency key claimed by this request, released if it fails. */
+    let idempotencyKey: string | null = null;
 
     try {
       // 0. Install persistent stores on first request. Idempotent and cheap.
@@ -293,11 +342,55 @@ export function defineRoute<TBody = undefined, TResult = unknown>(
         throw errors.unauthenticated();
       }
 
+      // The raw body is read once, here, because the idempotency fingerprint
+      // and the schema both need it. Routes without a schema (multipart
+      // uploads) keep their body stream untouched for `request.formData()`.
+      const rawBody = definition.bodySchema ? await request.text() : null;
+
+      // 4b. Idempotency. Applied to every mutating route the API registry
+      //     declares idempotent — the registry claim and the behaviour are one
+      //     fact, so a route cannot say "idempotent" and be replay-unsafe. The
+      //     key is scoped to the route and the caller, so one user's key can
+      //     never replay another user's response.
+      if (MUTATING.has(request.method) && API_BY_ID.get(definition.id)?.idempotent) {
+        const header = request.headers.get('idempotency-key');
+        if (header) {
+          if (!IDEMPOTENCY_KEY_PATTERN.test(header)) {
+            throw errors.validation('Idempotency-Key must be 8–128 URL-safe characters.', {
+              field: 'Idempotency-Key',
+            });
+          }
+          const caller =
+            principal.kind === 'user' ? principal.userId : `ip:${clientIp(request) ?? 'unknown'}`;
+          const scopedKey = `${definition.id}:${caller}:${header}`;
+          const fingerprint = createHash('sha256')
+            .update(
+              `${request.method}:${url.pathname}${url.search}:${rawBody ?? request.headers.get('content-length') ?? ''}`,
+            )
+            .digest('hex');
+
+          const claim = await activeIdempotencyStore().claim(scopedKey, fingerprint);
+          if (claim.kind === 'replay') {
+            log.info('Idempotent replay', { status: claim.record.statusCode });
+            return NextResponse.json(claim.record.responseBody, {
+              status: claim.record.statusCode,
+              headers: { ...headers, 'Idempotent-Replayed': 'true' },
+            });
+          }
+          if (claim.kind === 'in_progress') {
+            throw errors.conflict(
+              'A request with this Idempotency-Key is still being processed. Retry shortly.',
+            );
+          }
+          idempotencyKey = scopedKey;
+        }
+      }
+
       // 5. Body validation. Runs before the permission check because a scoped
       //    permission may need an id carried in the body.
       let body = undefined as TBody;
       if (definition.bodySchema) {
-        body = await parseBody(request, definition.bodySchema);
+        body = parseBody(rawBody ?? '', definition.bodySchema);
       }
 
       const params = (await routeContext?.params) ?? {};
@@ -337,16 +430,51 @@ export function defineRoute<TBody = undefined, TResult = unknown>(
         });
       }
 
+      // A handler may return a raw Response — binary downloads are not JSON.
+      // It still gets every protection above (flag, auth, permission, rate
+      // limit, audit) and the security headers; only the envelope is skipped.
+      if (result instanceof Response) {
+        for (const [name, value] of Object.entries(headers)) {
+          if (!result.headers.has(name)) result.headers.set(name, value);
+        }
+        log.info('Request completed', { status: result.status, durationMs: Date.now() - started, raw: true });
+        return applyCookies(result);
+      }
+
       log.info('Request completed', { status: 200, durationMs: Date.now() - started });
 
-      return applyCookies(
-        NextResponse.json(successEnvelope(jsonSafe(result), requestId), {
-          status: 200,
-          headers,
-        }),
-      );
+      // A committed mutation may have written outbox events. Relay them now
+      // rather than waiting for the scheduler, so a welcome message or an
+      // appointment confirmation arrives within seconds. Fire-and-forget: the
+      // response never waits on it, and the scheduled job remains the
+      // guarantee if this process dies first.
+      if (MUTATING.has(request.method)) scheduleInlineRelay();
+
+      const envelope = successEnvelope(jsonSafe(result), requestId);
+      if (idempotencyKey) {
+        // A failure to store the outcome must not turn a completed operation
+        // into an error response: the work is done. The claim then expires as
+        // abandoned, and a retry after that re-runs — which the business layer
+        // (unique constraints, state machines) must also tolerate.
+        await activeIdempotencyStore()
+          .complete(idempotencyKey, 200, envelope)
+          .catch((storeError: unknown) =>
+            log.error('Failed to store idempotent result', { error: storeError }),
+          );
+      }
+
+      return applyCookies(NextResponse.json(envelope, { status: 200, headers }));
     } catch (error) {
       const { envelope, appError } = errorEnvelope(error, requestId);
+
+      // A failed operation releases its key, so the client can retry it. Only
+      // successes are replayed: replaying a transient 503 would turn a blip
+      // into a permanent failure for that key.
+      if (idempotencyKey) {
+        await activeIdempotencyStore()
+          .release(idempotencyKey)
+          .catch(() => {});
+      }
 
       // Client mistakes are warnings; server failures are errors. Logging a 404
       // at error level is how alerting becomes noise nobody reads.
@@ -394,10 +522,10 @@ export function defineRoute<TBody = undefined, TResult = unknown>(
  * error instead of "invalid request". Zod messages are safe to expose — they
  * describe the caller's own input, not our internals.
  */
-async function parseBody<T>(request: Request, schema: ZodType<T>): Promise<T> {
+function parseBody<T>(text: string, schema: ZodType<T>): T {
   let raw: unknown;
   try {
-    raw = await request.json();
+    raw = JSON.parse(text);
   } catch {
     throw new AppError(ERROR_CODES.VALIDATION_FAILED, 'Request body must be valid JSON.');
   }

@@ -20,6 +20,7 @@ export const metadata: Metadata = {
   title: 'Contact',
   description: 'How to reach Toothlogy.',
   robots: { index: true, follow: true },
+  alternates: { canonical: '/contact' },
 };
 
 export default function ContactPage() {

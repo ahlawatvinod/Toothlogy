@@ -18,14 +18,13 @@
  */
 
 import type { NotificationChannel } from '@/registry/types';
-import { NOTIFICATION_BY_ID } from '@/registry/events';
 import { newId } from '../kernel/ids';
 import { db } from '../db/client';
 import { logger } from '../observability/logger';
 import type { ChannelOutcome } from './index';
 
 /** Maps our channel vocabulary to the database enum. */
-const CHANNEL_TO_DB = {
+export const CHANNEL_TO_DB = {
   in_app: 'IN_APP',
   push: 'PUSH',
   email: 'EMAIL',
@@ -62,35 +61,61 @@ export async function recordDelivery(params: {
   readonly channel: NotificationChannel;
   readonly outcome: ChannelOutcome;
   readonly data?: Readonly<Record<string, string | number>>;
+  /** The message carried a single-use secret that was not stored. */
+  readonly transient?: boolean;
+  readonly linkUrl?: string;
+  readonly sourceEventId?: string;
 }): Promise<void> {
   const { notificationId, userId, channel, outcome, data } = params;
 
   try {
     const now = new Date();
-    const attempts = outcome.status === 'skipped' ? 0 : 1;
+    const attempts = outcome.status === 'skipped' || outcome.status === 'deferred' ? 0 : 1;
+
+    // The stored payload is what a retry re-renders from. The link path is
+    // kept (it names a page, not a secret); transient values never are.
+    const stored: Record<string, unknown> = { ...(data ?? {}) };
+    if (params.linkUrl) stored.__linkUrl = params.linkUrl;
+    if (params.transient) stored.__transient = true;
+
+    const status =
+      outcome.status === 'sent'
+        ? outcome.receipt?.status === 'delivered'
+          ? 'DELIVERED'
+          : 'SENT'
+        : outcome.status === 'skipped'
+          ? 'SKIPPED'
+          : outcome.status === 'deferred'
+            ? 'PENDING'
+            : 'FAILED';
 
     await db().notificationRecord.create({
       data: {
-        id: newId('request'),
+        id: newId('notification'),
         notificationId,
         userId,
         channel: CHANNEL_TO_DB[channel],
-        status:
-          outcome.status === 'sent'
-            ? 'SENT'
-            : outcome.status === 'skipped'
-              ? 'SKIPPED'
-              : 'FAILED',
-        data: data ? (data as never) : undefined,
+        status,
+        data: Object.keys(stored).length > 0 ? (stored as never) : undefined,
         attempts,
-        lastError: outcome.reason ?? null,
+        lastError: outcome.status === 'deferred' ? null : (outcome.reason ?? null),
+        sourceEventId: params.sourceEventId ?? null,
         providerMessageId: outcome.receipt?.providerMessageId ?? null,
         sentAt: outcome.status === 'sent' ? now : null,
+        deliveredAt: status === 'DELIVERED' ? now : null,
         failedAt: outcome.status === 'failed' ? now : null,
         // A skipped notification is never retried: no consent and no address on
         // file are not transient conditions, and retrying would be both futile
-        // and, for a marketing message, a consent violation.
-        nextAttemptAt: outcome.status === 'failed' ? nextAttemptAt(attempts) : null,
+        // and, for a marketing message, a consent violation. A deferred one is
+        // scheduled for the end of quiet hours.
+        nextAttemptAt:
+          outcome.status === 'failed'
+            ? params.transient
+              ? null
+              : nextAttemptAt(attempts)
+            : outcome.status === 'deferred'
+              ? (outcome.deferredUntil ?? null)
+              : null,
       },
     });
   } catch (error) {
@@ -117,7 +142,7 @@ export async function deliverInApp(params: {
   readonly body: string;
   readonly linkUrl?: string;
 }): Promise<{ id: string }> {
-  const id = newId('request');
+  const id = newId('notification');
 
   await db().inAppNotification.create({
     data: {
@@ -233,43 +258,4 @@ export async function dueForRetry(limit = 50): Promise<
   }));
 }
 
-/** Render a notification's title and body for the in-app channel. */
-export async function renderInApp(
-  notificationId: string,
-  locale: string,
-  data: Readonly<Record<string, string | number>> = {},
-): Promise<{ title: string; body: string } | null> {
-  const template = await db().notificationTemplate.findFirst({
-    where: { notificationId, channel: 'IN_APP', locale, isActive: true },
-  });
-
-  // Fall back to the default locale before giving up: an untranslated
-  // notification in English beats no notification at all.
-  const fallback =
-    template ??
-    (await db().notificationTemplate.findFirst({
-      where: { notificationId, channel: 'IN_APP', locale: 'en', isActive: true },
-    }));
-
-  if (!fallback) {
-    // No template: use the registry description so the user still learns that
-    // something happened, rather than receiving nothing.
-    const definition = NOTIFICATION_BY_ID.get(notificationId);
-    if (!definition) return null;
-    return { title: definition.name, body: definition.description };
-  }
-
-  return {
-    title: interpolate(fallback.subject ?? '', data),
-    body: interpolate(fallback.body, data),
-  };
-}
-
-function interpolate(
-  template: string,
-  values: Readonly<Record<string, string | number>>,
-): string {
-  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
-    Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match,
-  );
-}
+// Rendering lives in ./templates.ts — one renderer for every channel.

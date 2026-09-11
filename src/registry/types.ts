@@ -247,6 +247,8 @@ export const INTEGRATION_CATEGORIES = [
   'whatsapp',
   'push',
   'payment',
+  'video',
+  'data',
   'storage',
   'maps',
   'search',
@@ -287,11 +289,38 @@ export const NOTIFICATION_CHANNELS = [
 ] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
+/**
+ * Preference category a notification belongs to. Users mute categories per
+ * channel ("no SMS for community activity"), which is far more usable than
+ * one switch per notification type and far kinder than one switch overall.
+ */
+export const NOTIFICATION_CATEGORIES = [
+  'account',
+  'security',
+  'appointments',
+  'messages',
+  'reviews',
+  'leads',
+  'billing',
+  'marketplace',
+  'careers',
+  'community',
+  'marketing',
+] as const;
+export type NotificationCategoryKey = (typeof NOTIFICATION_CATEGORIES)[number];
+
 export interface NotificationDefinition extends RegistryObject {
   readonly channels: readonly NotificationChannel[];
   /** Transactional notifications ignore marketing opt-out; marketing must not. */
   readonly transactional: boolean;
   readonly divisionId: string;
+  readonly category: NotificationCategoryKey;
+  /**
+   * Delivered through quiet hours. Reserved for things that lose their value
+   * if held until morning: a security alert, a cancellation of today's
+   * appointment, a one-time code. Everything else waits.
+   */
+  readonly urgent?: boolean;
 }
 
 // ---------------------------------------------------------------------------

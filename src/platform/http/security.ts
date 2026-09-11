@@ -7,6 +7,7 @@
 
 import { createHash } from 'node:crypto';
 import { AppError, ERROR_CODES, errors } from '../kernel/errors';
+import { STRICT_TRANSPORT_SECURITY } from './csp';
 
 // ---------------------------------------------------------------------------
 // Security headers
@@ -42,41 +43,20 @@ export function securityHeaders(isProduction: boolean): Record<string, string> {
   };
 
   if (isProduction) {
-    headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload';
+    headers['Strict-Transport-Security'] = STRICT_TRANSPORT_SECURITY;
   }
 
   return headers;
 }
 
 /**
- * Content Security Policy.
- *
- * `'unsafe-inline'` is permitted for styles only. Next.js injects inline style
- * attributes during hydration, and blocking them breaks rendering; inline
- * *scripts* remain blocked, which is the half that matters for XSS. Script
- * nonces replace this once there is authenticated, user-generated content to
- * protect — currently there is none.
+ * Content Security Policy — built in ./csp (dependency-free, so the request
+ * proxy can use it) and applied to every HTML page by src/proxy.ts with a
+ * per-request nonce. Now that patients, dentists and staff all author content
+ * (reviews, messages, articles, postings), a nonce-bound policy is what keeps
+ * an injected script from running.
  */
-export function contentSecurityPolicy(isProduction: boolean): string {
-  const directives: Record<string, string[]> = {
-    'default-src': ["'self'"],
-    'script-src': isProduction ? ["'self'"] : ["'self'", "'unsafe-eval'"],
-    'style-src': ["'self'", "'unsafe-inline'"],
-    'img-src': ["'self'", 'data:', 'blob:'],
-    'font-src': ["'self'", 'data:'],
-    'connect-src': ["'self'"],
-    'object-src': ["'none'"],
-    'base-uri': ["'self'"],
-    'form-action': ["'self'"],
-    'frame-ancestors': ["'none'"],
-  };
-
-  if (isProduction) directives['upgrade-insecure-requests'] = [];
-
-  return Object.entries(directives)
-    .map(([key, values]) => (values.length > 0 ? `${key} ${values.join(' ')}` : key))
-    .join('; ');
-}
+export { contentSecurityPolicy } from './csp';
 
 // ---------------------------------------------------------------------------
 // Rate limiting
@@ -102,6 +82,10 @@ export const RATE_LIMIT_POLICIES: Readonly<Record<string, RateLimitPolicy>> = {
   'auth-strict': { name: 'auth-strict', limit: 5, windowSeconds: 60 },
   /** Endpoints that cost money to serve, such as SMS dispatch. */
   'costly': { name: 'costly', limit: 10, windowSeconds: 3600 },
+  /** File uploads: bounded so one account cannot fill the disk. */
+  'uploads': { name: 'uploads', limit: 60, windowSeconds: 3600 },
+  /** Signed downloads are cheap but must not become a scraping channel. */
+  'downloads': { name: 'downloads', limit: 600, windowSeconds: 60 },
 };
 
 export interface RateLimitResult {
@@ -215,6 +199,42 @@ export interface IdempotencyRecord {
 export interface IdempotencyStore {
   get(key: string): Promise<IdempotencyRecord | null>;
   put(record: IdempotencyRecord): Promise<void>;
+  /**
+   * Atomically reserve a key before the operation runs.
+   *
+   * `get` then `put` has a window: two retries arriving together both see no
+   * record, both run, and the booking happens twice. Claiming first closes it —
+   * exactly one caller wins the reservation, and the other is told the
+   * operation is already in flight.
+   */
+  claim(key: string, fingerprint: string): Promise<IdempotencyClaim>;
+  /** Store the outcome of a claimed operation so later retries replay it. */
+  complete(key: string, statusCode: number, responseBody: unknown): Promise<void>;
+  /** Drop a claim whose operation failed, so the client may retry it. */
+  release(key: string): Promise<void>;
+}
+
+export type IdempotencyClaim =
+  | { readonly kind: 'claimed' }
+  | { readonly kind: 'replay'; readonly record: IdempotencyRecord }
+  | { readonly kind: 'in_progress' };
+
+/**
+ * A claim still in progress after this long is treated as abandoned — the
+ * process that held it crashed — and may be taken over. Without a limit, a
+ * crash mid-request would block that key for the full retention period.
+ */
+export const IDEMPOTENCY_CLAIM_STALE_MS = 2 * 60 * 1000;
+
+/** `Idempotency-Key` header grammar: opaque, bounded, URL-safe. */
+export const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_\-:.]{8,128}$/;
+
+export function idempotencyMismatch(key: string): AppError {
+  return new AppError(
+    ERROR_CODES.CONFLICT,
+    'This idempotency key was already used for a different request. Use a new key for a new operation.',
+    { details: { idempotencyKey: key } },
+  );
 }
 
 export function fingerprintRequest(method: string, path: string, body: unknown): string {
@@ -237,18 +257,16 @@ export async function checkIdempotency(
   const existing = await store.get(key);
   if (!existing) return { kind: 'proceed' };
 
-  if (existing.fingerprint !== fingerprint) {
-    throw new AppError(
-      ERROR_CODES.CONFLICT,
-      'This idempotency key was already used for a different request. Use a new key for a new operation.',
-      { details: { idempotencyKey: key } },
-    );
-  }
+  if (existing.fingerprint !== fingerprint) throw idempotencyMismatch(key);
 
   return { kind: 'replay', record: existing };
 }
 
-/** In-memory store for tests and local development. Phase 1 persists to Postgres. */
+/**
+ * In-memory store for tests and a database-less local run. Per-process, so not
+ * a production store — `DatabaseIdempotencyStore` is installed whenever a
+ * database is configured.
+ */
 export class InMemoryIdempotencyStore implements IdempotencyStore {
   private readonly records = new Map<string, IdempotencyRecord>();
 
@@ -260,7 +278,31 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     this.records.set(record.key, record);
   }
 
+  async claim(key: string, fingerprint: string): Promise<IdempotencyClaim> {
+    const existing = this.records.get(key);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw idempotencyMismatch(key);
+      if (existing.statusCode !== 0) return { kind: 'replay', record: existing };
+      if (Date.now() - existing.createdAt.getTime() < IDEMPOTENCY_CLAIM_STALE_MS) {
+        return { kind: 'in_progress' };
+      }
+    }
+    this.records.set(key, { key, fingerprint, statusCode: 0, responseBody: null, createdAt: new Date() });
+    return { kind: 'claimed' };
+  }
+
+  async complete(key: string, statusCode: number, responseBody: unknown): Promise<void> {
+    const existing = this.records.get(key);
+    if (existing) this.records.set(key, { ...existing, statusCode, responseBody });
+  }
+
+  async release(key: string): Promise<void> {
+    this.records.delete(key);
+  }
+
   clear(): void {
     this.records.clear();
   }
 }
+
+export const defaultIdempotencyStore = new InMemoryIdempotencyStore();

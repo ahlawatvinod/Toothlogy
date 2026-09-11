@@ -56,7 +56,7 @@ export default async function AccountPage() {
   if (!user) redirect('/login');
 
   return (
-    <div className="tl-container tl-page">
+    <div className="tl-page">
       <header className="tl-page__header">
         <h1>Welcome, {user.displayName ?? 'there'}</h1>
         <p className="tl-page__lead">
@@ -219,18 +219,21 @@ export default async function AccountPage() {
       </div>
 
       {/*
-       * Stated honestly rather than shown as dead tiles. Constitution P9: a
-       * dashboard that implies working features is the most damaging kind of
-       * false progress, because users plan around it.
+       * Only what genuinely works is listed (Constitution P9): a dashboard that
+       * implies features that do not exist is the most damaging kind of false
+       * progress, because users plan around it.
        */}
-      <Card label="Coming soon">
+      <Card label="Also in your account">
         <CardHeader>
-          <strong>Not available yet</strong>
+          <strong>Also in your account</strong>
         </CardHeader>
         <CardBody>
-          <p className="tl-muted">
-            Appointments, dental records, messaging and the marketplace are not built yet. They
-            arrive in later phases and will appear here when they genuinely work.
+          <p className="tl-muted" style={{ marginTop: 0 }}>
+            <Link href="/account/appointments">Appointments</Link> · <Link href="/account/records">Dental record</Link> · <Link href="/account/messages">Messages</Link> ·{' '}
+            <Link href="/account/reviews">Reviews</Link> · <Link href="/account/orders">Orders</Link> · <Link href="/help">Help</Link>
+          </p>
+          <p className="tl-muted" style={{ marginBottom: 0 }}>
+            Email, SMS and online payment are not connected yet: notices arrive here in your account, and you pay sellers directly.
           </p>
         </CardBody>
       </Card>

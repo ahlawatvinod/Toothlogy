@@ -164,7 +164,10 @@ Consent is already modelled as purpose-scoped and revocable
 | Public locale API | ✅ |
 | Locale-prefixed routing | 🟡 flag `multi_locale_routing`, off |
 | Translation catalogues beyond the foundation | 🔴 Phase 2 |
-| Exchange rates, localized pricing | 🔴 Phase 12 |
+| Country opening console with readiness checks; organization creation honours the database switch | ✅ Phase 12 (`/admin/countries`) |
+| Localized pricing | ✅ lead pricing rules are per country, with the country's tax rate |
+| Exchange rates | ⛔ deliberately not used: totals are reported per currency and never converted; no rate is invented. A rates provider would be a new port. |
+| Enterprise sign-in (OIDC/SAML) | 🟡 port only, NOT_CONFIGURED (`src/platform/auth/sso-ports.ts`) |
 | Tax engine | 🔴 Phase 9 |
 | Local phone/address validation per country | 🔴 Phase 1 |
 | Business hours, holiday calendars | 🔴 Phase 4 |

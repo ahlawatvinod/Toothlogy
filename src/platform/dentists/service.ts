@@ -26,6 +26,7 @@ import { newId } from '../kernel/ids';
 import { errors } from '../kernel/errors';
 import { db, isUniqueConstraintError, transaction } from '../db/client';
 import { recordAuditEvent } from '../audit';
+import { emitInTransaction } from '../events/outbox';
 import { LANGUAGE_BY_CODE } from '@/registry/globalization';
 
 // ---------------------------------------------------------------------------
@@ -404,6 +405,13 @@ export async function recomputeDiscoverability(dentistProfileId: string): Promis
     });
   }
 
+  // The search index follows the flag at once — publishing or withdrawing the
+  // dentist's documents. Imported lazily: the indexer reads clinics and
+  // offerings, which import this module. A failure is logged, never thrown;
+  // the periodic `search.reindex` job repairs anything left stale.
+  const { reindexDentistSafely } = await import('../discovery/indexer');
+  await reindexDentistSafely(dentistProfileId);
+
   return discoverable;
 }
 
@@ -419,20 +427,36 @@ export async function claimPractice(
   locationId: string,
   context: { requestId?: string } = {},
 ): Promise<{ practiceId: string; isConfirmed: boolean }> {
-  const profile = await db().dentistProfile.findUnique({ where: { userId } });
+  const profile = await db().dentistProfile.findUnique({
+    where: { userId },
+    include: { user: { select: { displayName: true } } },
+  });
   if (!profile) throw errors.notFound('Dentist profile');
 
   const location = await db().location.findFirst({
     where: { id: locationId, deletedAt: null },
-    select: { id: true, organizationId: true },
+    select: { id: true, organizationId: true, name: true },
   });
   if (!location) throw errors.notFound('Location');
 
-  const practiceId = newId('request');
+  const practiceId = newId('practice');
 
   try {
-    await db().dentistPractice.create({
-      data: { id: practiceId, dentistProfileId: profile.id, locationId },
+    await transaction(async (tx) => {
+      await tx.dentistPractice.create({
+        data: { id: practiceId, dentistProfileId: profile.id, locationId },
+      });
+      await emitInTransaction(
+        tx,
+        'PRACTICE_CLAIMED',
+        {
+          organizationId: location.organizationId,
+          practiceId,
+          dentistName: profile.user.displayName ?? 'A dentist',
+          locationName: location.name,
+        },
+        { requestId: context.requestId, actor: userId },
+      );
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
@@ -463,13 +487,31 @@ export async function confirmPractice(
   // locations, so a supplied id from another organization is not found.
   const practice = await db().dentistPractice.findFirst({
     where: { id: practiceId, location: { organizationId } },
+    include: {
+      location: { select: { name: true, organization: { select: { name: true } } } },
+      dentistProfile: { select: { userId: true } },
+    },
   });
 
   if (!practice) throw errors.notFound('Practice claim');
 
-  await db().dentistPractice.update({
-    where: { id: practice.id },
-    data: { isConfirmed: true, confirmedAt: new Date() },
+  await transaction(async (tx) => {
+    await tx.dentistPractice.update({
+      where: { id: practice.id },
+      data: { isConfirmed: true, confirmedAt: new Date() },
+    });
+    if (!practice.isConfirmed) {
+      await emitInTransaction(
+        tx,
+        'PRACTICE_CONFIRMED',
+        {
+          dentistUserId: practice.dentistProfile.userId,
+          locationName: practice.location.name,
+          organizationName: practice.location.organization.name,
+        },
+        { actor: actorUserId },
+      );
+    }
   });
 
   await recomputeDiscoverability(practice.dentistProfileId);
@@ -515,6 +557,27 @@ export async function getPublicDentistProfile(slug: string) {
         orderBy: { year: 'desc' },
       },
       specialties: { include: { specialty: true } },
+      // Where to find them: confirmed practices at open branches of clinics
+      // that have a public page. An unconfirmed claim is never shown.
+      practices: {
+        where: {
+          isConfirmed: true,
+          location: {
+            deletedAt: null,
+            status: { not: 'PERMANENTLY_CLOSED' },
+            organization: { deletedAt: null, status: { in: ['ACTIVE', 'PENDING'] } },
+          },
+        },
+        include: {
+          location: {
+            select: {
+              name: true,
+              address: { select: { locality: true } },
+              organization: { select: { name: true, slug: true } },
+            },
+          },
+        },
+      },
     },
   });
 }

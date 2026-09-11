@@ -175,6 +175,8 @@ describeIntegration('authentication (integration)', () => {
       password: VALID_PASSWORD,
     });
 
+    // An account without two-step verification gets a session directly.
+    if (result.kind !== 'session') throw new Error('expected a session, not an MFA challenge');
     const principal = await resolveSession(result.session.token);
     expect(isAuthenticated(principal)).toBe(true);
     if (isAuthenticated(principal)) {
@@ -201,6 +203,14 @@ describeIntegration('authentication (integration)', () => {
 
     // Identical messages. Any difference is an account-enumeration oracle.
     expect(wrongPassword).toBe(unknownAccount);
+
+    // And the same status: 401 UNAUTHENTICATED, not a validation error.
+    const codes = await Promise.all(
+      ['patient@example.test', 'nobody@example.test'].map((identifier) =>
+        login({ identifier, password: 'definitely not the password' }).catch((e: { code?: string }) => e.code),
+      ),
+    );
+    expect(codes).toEqual(['UNAUTHENTICATED', 'UNAUTHENTICATED']);
   });
 
   it('records both successful and failed attempts', async () => {

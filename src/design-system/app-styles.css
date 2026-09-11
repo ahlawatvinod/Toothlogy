@@ -34,6 +34,14 @@
   gap: var(--tl-space-5);
 }
 
+/* A grid item's minimum width defaults to its content's, so a wide table
+   inside a card — even in its own scrolling wrapper — would widen the whole
+   page on a phone. Letting the page's children shrink keeps the scrolling
+   inside the wrapper. */
+.tl-page > * {
+  min-width: 0;
+}
+
 /*
  * The page title is the one piece of furniture every inner page shares, so it
  * is where a type scale change has the most reach: /about, /contact, /privacy,
@@ -290,6 +298,256 @@
   font-weight: var(--tl-weight-medium);
 }
 
+/* --- Account centre -------------------------------------------------------- */
+
+/*
+ * Navigation beside the content on wide screens, above it on narrow ones —
+ * where it becomes a horizontally scrolling strip, so eight destinations do
+ * not push the page content below the fold on a phone.
+ */
+.tl-account-layout {
+  display: grid;
+  /* minmax(0, 1fr), not the implicit `auto` track: with `auto`, the nav's
+   * single nowrap row sizes the column to its full intrinsic width and pushes
+   * every card off the right edge of a phone. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--tl-space-5);
+  padding-block-start: var(--tl-space-5);
+}
+
+.tl-account-layout__nav {
+  min-width: 0;
+}
+
+@media (min-width: 56rem) {
+  .tl-account-layout {
+    grid-template-columns: 14rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--tl-space-7);
+  }
+  .tl-account-layout__nav {
+    position: sticky;
+    top: calc(var(--tl-space-9) + var(--tl-space-2));
+  }
+}
+
+.tl-account-layout__content {
+  min-width: 0;
+}
+
+.tl-account-layout__content > .tl-page {
+  padding-block-start: 0;
+}
+
+.tl-account-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--tl-space-1);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+@media (min-width: 56rem) {
+  .tl-account-nav ul {
+    flex-direction: column;
+    overflow: visible;
+  }
+}
+
+.tl-account-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tl-space-2);
+  min-height: var(--tl-touch-target);
+  padding-inline: var(--tl-space-3);
+  border-radius: var(--tl-radius-md);
+  color: var(--tl-color-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  font-weight: var(--tl-weight-medium);
+}
+
+.tl-account-nav a:hover {
+  background: var(--tl-color-surface-sunken);
+  color: var(--tl-color-text);
+}
+
+.tl-account-nav a[aria-current='page'] {
+  background: var(--tl-color-brand-subtle);
+  color: var(--tl-color-brand-strong);
+}
+
+.tl-account-nav a:focus-visible {
+  outline: none;
+  box-shadow: var(--tl-focus-ring);
+}
+
+.tl-account-stack {
+  display: grid;
+  gap: var(--tl-space-5);
+}
+
+.tl-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tl-space-3);
+}
+
+.tl-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: var(--tl-space-4);
+}
+
+select.tl-input {
+  appearance: auto;
+}
+
+/* Avatar: initials or photo, always a circle, never stretched. */
+.tl-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-color-brand-subtle);
+  color: var(--tl-color-brand-strong);
+  font-weight: var(--tl-weight-semibold);
+  object-fit: cover;
+  flex: none;
+}
+
+.tl-avatar--lg {
+  width: 4.5rem;
+  height: 4.5rem;
+  font-size: var(--tl-text-xl);
+}
+
+.tl-choice--swatch {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--tl-space-2);
+}
+
+.tl-swatch-dot {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--tl-radius-full);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+
+.tl-list li.tl-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tl-space-3);
+  flex-wrap: wrap;
+}
+
+/* Recovery codes: monospace, two columns, easy to copy onto paper. */
+.tl-code-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--tl-space-2);
+  margin: 0;
+  padding: var(--tl-space-4);
+  list-style: none;
+  font-family: var(--tl-font-mono);
+  font-size: var(--tl-text-lg);
+  letter-spacing: 0.04em;
+  background: var(--tl-color-surface-sunken);
+  border-radius: var(--tl-radius-md);
+}
+
+/* Key–value rows for summaries. */
+.tl-kv {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: var(--tl-space-2) var(--tl-space-4);
+  margin: 0;
+}
+.tl-kv dt {
+  color: var(--tl-color-text-muted);
+}
+.tl-kv dd {
+  margin: 0;
+}
+
+/* Notification rows that are links: the whole row is the target. */
+.tl-notification {
+  display: grid;
+  gap: 0.125rem;
+  color: inherit;
+  text-decoration: none;
+}
+.tl-notification:hover strong {
+  text-decoration: underline;
+}
+.tl-notification time {
+  font-size: var(--tl-text-xs);
+  color: var(--tl-color-text-subtle);
+}
+
+/* Header additions: compact search and the notification bell. */
+.tl-header-search {
+  display: none;
+}
+@media (min-width: 64rem) {
+  .tl-header-search {
+    display: flex;
+  }
+}
+.tl-header-search input {
+  width: 13rem;
+  min-height: 2.25rem;
+  padding-inline: var(--tl-space-3);
+  border: 1px solid var(--tl-color-border-strong);
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-color-surface);
+  color: var(--tl-color-text);
+  font: inherit;
+  font-size: var(--tl-text-sm);
+}
+.tl-header-search input:focus-visible {
+  outline: none;
+  box-shadow: var(--tl-focus-ring);
+}
+.tl-bell {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--tl-touch-target);
+  height: var(--tl-touch-target);
+  border-radius: var(--tl-radius-full);
+  color: var(--tl-color-text);
+}
+.tl-bell:hover {
+  background: var(--tl-color-surface-sunken);
+}
+.tl-bell:focus-visible {
+  outline: none;
+  box-shadow: var(--tl-focus-ring);
+}
+.tl-bell__count {
+  position: absolute;
+  inset-block-start: 0.2rem;
+  inset-inline-end: 0.1rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding-inline: 0.25rem;
+  border-radius: var(--tl-radius-full);
+  background: var(--tl-color-danger);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: var(--tl-weight-bold);
+  line-height: 1.15rem;
+  text-align: center;
+}
+
 /* --- Breadcrumb ----------------------------------------------------------- */
 
 .tl-breadcrumb {
@@ -299,4 +557,140 @@
 
 .tl-breadcrumb a {
   color: var(--tl-color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Practice calendar (TL-PAGE-PRACTICE-CALENDAR-001)
+ * A 7-column grid on wide screens; on a phone it becomes a list of days and
+ * quiet days outside the month drop away.
+ * ------------------------------------------------------------------------- */
+.tl-cal__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tl-space-3);
+}
+.tl-cal__title {
+  margin: 0;
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-bold);
+}
+.tl-cal {
+  display: grid;
+  gap: 1px;
+  background: var(--tl-color-border);
+  border: 1px solid var(--tl-color-border);
+  border-radius: var(--tl-radius-md);
+  overflow: hidden;
+}
+.tl-cal--month,
+.tl-cal--week {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.tl-cal--day {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tl-cal__head {
+  background: var(--tl-color-surface-sunken);
+  padding: var(--tl-space-2);
+  font-size: var(--tl-text-sm);
+  font-weight: var(--tl-weight-medium);
+  text-align: center;
+}
+.tl-cal__cell {
+  background: var(--tl-color-surface);
+  min-height: 7.5rem;
+  min-width: 0;
+  padding: var(--tl-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.tl-cal--week .tl-cal__cell,
+.tl-cal--day .tl-cal__cell {
+  min-height: 12rem;
+}
+.tl-cal__cell--outside {
+  background: var(--tl-color-surface-sunken);
+  color: var(--tl-color-text-muted);
+}
+.tl-cal__cell--today {
+  box-shadow: inset 0 0 0 2px var(--tl-color-brand);
+}
+.tl-cal__cell--closed {
+  background: var(--tl-color-warning-subtle);
+}
+.tl-cal__date {
+  font-weight: var(--tl-weight-bold);
+  text-decoration: none;
+  color: inherit;
+}
+.tl-cal__date:focus-visible,
+.tl-cal__appt:focus-visible {
+  outline: var(--tl-focus-ring);
+}
+.tl-cal__weekday {
+  display: none;
+}
+.tl-cal__hours,
+.tl-cal__closed,
+.tl-cal__block,
+.tl-cal__more {
+  font-size: var(--tl-text-sm);
+  color: var(--tl-color-text-muted);
+}
+.tl-cal__closed {
+  color: var(--tl-color-warning);
+  font-weight: var(--tl-weight-medium);
+}
+.tl-cal__block {
+  border-left: 3px solid var(--tl-color-border-strong);
+  padding-left: 0.35rem;
+}
+.tl-cal__appt {
+  display: block;
+  font-size: var(--tl-text-sm);
+  line-height: 1.35;
+  padding: 0.15rem 0.35rem;
+  border-left: 3px solid var(--tl-color-brand);
+  border-radius: 2px;
+  background: var(--tl-color-brand-subtle);
+  color: var(--tl-color-text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tl-cal--week .tl-cal__appt,
+.tl-cal--day .tl-cal__appt {
+  white-space: normal;
+}
+.tl-cal__appt--success { border-left-color: var(--tl-color-success); background: var(--tl-color-success-subtle); }
+.tl-cal__appt--warning { border-left-color: var(--tl-color-warning); background: var(--tl-color-warning-subtle); }
+.tl-cal__appt--danger { border-left-color: var(--tl-color-danger); background: var(--tl-color-danger-subtle); }
+.tl-cal__appt--info { border-left-color: var(--tl-color-info); background: var(--tl-color-info-subtle); }
+.tl-cal__appt--neutral { border-left-color: var(--tl-color-border-strong); background: var(--tl-color-surface-sunken); }
+
+@media (max-width: 720px) {
+  .tl-cal--month,
+  .tl-cal--week {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tl-cal__head {
+    display: none;
+  }
+  .tl-cal__cell,
+  .tl-cal--week .tl-cal__cell {
+    min-height: 0;
+  }
+  .tl-cal__cell--outside,
+  .tl-cal__cell--quiet {
+    display: none;
+  }
+  .tl-cal__weekday {
+    display: inline;
+  }
+  .tl-cal__appt {
+    white-space: normal;
+  }
 }

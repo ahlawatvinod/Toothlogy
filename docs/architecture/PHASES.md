@@ -111,6 +111,50 @@ reminders; payment gateway adapter.
 > The first phase where Toothlogy's core promise — the right dentist, booked
 > with certainty — actually works end to end.
 
+> **Scope moved in (build instruction of 2026-09-10).** The lead engine — the
+> qualified-lead definition, configurable per-lead billing (never hard-coded;
+> since 2026-09-10 each organization's first 30 qualified leads are free, then
+> ₹50 + GST each, with a 20-lead minimum recharge — superseding the launch ₹90
+> rule), the prepaid wallet and double-entry ledger, disputes and refunds —
+> and clearly labelled **Prime** / **Sponsored** placement are delivered with
+> Phase 4 rather than Phase 10, because discovery and booking are what produce
+> leads. Paid placement is a separate, labelled slot: it never alters organic
+> ranking (Constitution P3). Phase 10 keeps campaigns, attribution and growth
+> tooling.
+
+> **Delivered 2026-09-10** (`DELIVERED_THROUGH_PHASE = 4`). "Maps" and the
+> "payment gateway adapter" are delivered as provider-independent ports —
+> geocoding and radius search run on the reference geocoder; map tiles, card/UPI
+> payment and video rooms answer `NOT_CONFIGURED` until a provider is connected.
+> Connecting a provider is configuration plus an adapter, not a new phase, and
+> no provider integration is claimed. See BUILD-STATUS for the evidence.
+
+> **Phases 5–8 delivered 2026-09-11** (`DELIVERED_THROUGH_PHASE = 8`), after the
+> final certification gate recorded in [TEST-CERTIFICATION](../TEST-CERTIFICATION.md).
+> India operations joined Phase 5: districts, extraction and pre-made accounts,
+> outreach, and dental camps. Email, SMS, WhatsApp and push are still ports
+> answering `NOT_CONFIGURED`, so notifications are in-app until a provider is
+> connected.
+>
+> **Phases 9–12 delivered 2026-09-11** (`DELIVERED_THROUGH_PHASE = 12`), after the
+> all-phase certification recorded in [TEST-CERTIFICATION](../TEST-CERTIFICATION.md).
+> As with Phase 4, the provider-dependent parts are ports and are not claimed as
+> connected:
+> - **Phase 9:** buyers pay sellers directly and the seller records the payment;
+>   "pay online" answers `NOT_CONFIGURED`. Tax invoices and credit notes are
+>   issued from the country tax packs.
+> - **Phase 10:** Prime plans are staff configuration, and none is seeded
+>   because price and benefits are a business decision. Individual plans need
+>   the payment provider.
+> - **Phase 11:** AI summary and translation answer `NOT_CONFIGURED` until a
+>   model is connected. Triage routing and recommendations are rule-based.
+>   Triage rules carry **CLINICAL REVIEW REQUIRED** until a clinical reviewer
+>   signs them off.
+> - **Phase 12:** "compliance packs" are tax packs (GST, VAT, sales tax).
+>   Enterprise contracts are signed outside Toothlogy and recorded by staff.
+>   SSO is a port, and data residency is compared with the region the
+>   deployment declares.
+
 ### Phase 5 — Trust + Communication
 
 **Depends on:** 4.
@@ -161,9 +205,9 @@ invoices and tax.
 ### Phase 10 — Prime + Advertising + Growth Engine
 
 **Depends on:** 9.
-**Delivers:** leads (including ₹90 lead pricing, acceptance, quality scoring and
-refunds); Prime membership and entitlements; campaigns, placements and
-attribution; analytics dashboards.
+**Delivers:** leads (delivered early, in Phase 4, with configurable pricing,
+acceptance, quality scoring and refunds); Prime membership and entitlements;
+campaigns, placements and attribution; analytics dashboards.
 **Divisions:** 20, 21, 22, 31.
 
 > Every promoted placement must be labelled in every surface, including API

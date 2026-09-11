@@ -15,7 +15,8 @@
 import Link from 'next/link';
 import { currentPrincipal } from '@/platform/auth/server';
 import { isAuthenticated } from '@/platform/rbac';
-import { ThemeToggle } from '@/design-system';
+import { Icon, ThemeToggle } from '@/design-system';
+import { db } from '@/platform/db/client';
 import { Logo } from '@/components/brand/logo';
 import { SignOutButton } from './sign-out-button';
 import { SiteNav, type NavLink } from './site-nav';
@@ -27,13 +28,47 @@ import { SiteNav, type NavLink } from './site-nav';
  */
 const NAV_LINKS: readonly NavLink[] = [
   { href: '/find', label: 'Find a dentist' },
-  { href: '/knowledge', label: 'Learn' },
+  { href: '/community', label: 'Community' },
   { href: '/for-dentists', label: 'For dentists' },
 ];
+
+async function unreadCount(userId: string): Promise<number> {
+  try {
+    return await db().inAppNotification.count({ where: { userId, readAt: null } });
+  } catch {
+    // The header must render even if the count cannot be read.
+    return 0;
+  }
+}
 
 export async function SiteHeader() {
   const principal = await currentPrincipal();
   const signedIn = isAuthenticated(principal);
+  const unread = signedIn ? await unreadCount(principal.userId) : 0;
+
+  const search = (
+    <form className="tl-header-search" action="/find" role="search">
+      <label className="tl-visually-hidden" htmlFor="tl-header-search">
+        Search dentists, treatments and clinics
+      </label>
+      <input id="tl-header-search" name="q" type="search" placeholder="Search dentists, treatments…" autoComplete="off" />
+    </form>
+  );
+
+  const bell = signedIn ? (
+    <Link
+      className="tl-bell"
+      href="/account/notifications"
+      aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+    >
+      <Icon name="bell" />
+      {unread > 0 ? (
+        <span className="tl-bell__count" aria-hidden="true">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      ) : null}
+    </Link>
+  ) : null;
 
   const brand = (
     <Link href="/" className="tl-header__brand" aria-label="Toothlogy home">
@@ -47,9 +82,11 @@ export async function SiteHeader() {
       brand={brand}
       actions={
         <>
+          {search}
           <ThemeToggle />
           {signedIn ? (
             <>
+              {bell}
               <Link className="tl-button tl-button--ghost tl-button--sm" href="/account">
                 Account
               </Link>

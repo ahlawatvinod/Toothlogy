@@ -51,9 +51,21 @@ import type { LifecycleStatus, Phase } from './types';
  * Phase 1 — Global platform core               ✅ auth, orgs, locations, notifications
  * Phase 2 — Toothlogy experience               ✅ shell, auth UI, account area
  * Phase 3 — Dentist and clinic ecosystem       ✅ profiles, credentials, verification
- * Phase 4+ — not started
+ * Phase 4 — Discovery and appointment engine   ✅ search, booking, leads, billing, Prime
+ *            (maps, payment gateway and video are provider-independent ports
+ *             that answer NOT_CONFIGURED until a provider is connected)
+ * Phase 5 — India operations and trust        ✅ districts, extraction, pre-made
+ *            accounts, outreach, camps, reviews, messaging, support
+ * Phase 6 — Clinical records                  ✅ dental record, access grants,
+ *            prescriptions with public QR check
+ * Phase 7 — Knowledge and community           ✅ reviewed articles, community Q&A,
+ *            researcher and faculty profiles
+ * Phase 8 — Education and careers             ✅ colleges, courses, admissions,
+ *            enrolment, jobs and internships
+ * Phase 9+ — prepared only: marketplace quotes are built, but checkout and orders
+ *            wait on a payment provider; later phases hold ports and partial work
  */
-export const DELIVERED_THROUGH_PHASE: Phase = 3;
+export const DELIVERED_THROUGH_PHASE: Phase = 12;
 
 /**
  * A count of what is registered at each lifecycle status, per registry.

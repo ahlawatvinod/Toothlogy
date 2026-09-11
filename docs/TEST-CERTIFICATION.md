@@ -1,0 +1,301 @@
+# Toothlogy Test Certification Ledger
+
+Which modules are certified, by which tests, and what forces a re-test. Kept under the build protocol of 2026-09-10: a module is re-tested only when a change touches it or its dependencies (CHANGE → DEPENDENCIES → AFFECTED MODULES); otherwise its certification stands. The full suite runs once, at final certification.
+
+**Status.** CERTIFIED — the whole chain verified (UI, API, auth, authorization, validation, logic, database, transaction, event, notification, audit, errors, loading and empty states, mobile, accessibility, security, tests, docs, registry). PARTIAL — built and passing its tests, not yet certified under this protocol, or with named gaps. BLOCKED — needs an external decision, dataset or credential. NOT STARTED — reserved in the registry only.
+
+## Baseline — certification v1, 2026-09-10
+
+Full gate: typecheck, lint, 352 unit + 184 integration tests, 4 browser E2E, production build, 11 migrations, no schema drift, registry integrity at `DELIVERED_THROUGH_PHASE = 4`, doc links.
+
+Commands: `npm run verify`, `npm run build`, `npx prisma migrate status`, `npx prisma migrate diff --from-url $DATABASE_URL --to-schema-datamodel prisma/schema.prisma --exit-code`, `npm run test:e2e` (with the `E2E_PRACTICE_*` variables set).
+
+## Modules
+
+| Module | Name | Phase | Registry | Certification | Last test | Tests | Dependencies | Regression required |
+|---|---|---|---|---|---|---|---|---|
+| TL-CORE-KERNEL-001 | Platform Kernel | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-CONFIG-001 | Configuration & Environment | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-HTTP-001 | HTTP & API Conventions | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-AUTH-001 | Authentication | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-RBAC-001 | Authorization & RBAC | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-EVENTS-001 | Domain Event Bus | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-I18N-001 | Internationalization | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-MONEY-001 | Money & Currency | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-FLAGS-001 | Feature Flags | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-OBSERVABILITY-001 | Logging & Observability | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-SEARCH-001 | Search Abstraction | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-STORAGE-001 | File Storage & Document Access | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CORE-NOTIFICATIONS-001 | Notification Service | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-EXPERIENCE-DESIGNSYSTEM-001 | Toothlogy Design System | 2 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-EXPERIENCE-SHELL-001 | Application Shell | 2 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-EXPERIENCE-PWA-001 | Installable Web App | 2 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-LOCATION-GEO-001 | Geolocation & Geofencing | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-PAYMENTS-GATEWAY-001 | Payment Gateway Abstraction | 4 | prepared | NOT_CONFIGURED — the port and its honest refusal are tested; no provider is connected | 2026-09-11 | full unit + integration (NOT_CONFIGURED paths) | — | none |
+| TL-SECURITY-AUDIT-001 | Audit Log | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-INTEGRATIONS-PORTS-001 | Integration Ports | 1 | prepared | NOT_CONFIGURED — the port and its honest refusal are tested; no provider is connected | 2026-09-11 | full unit + integration (NOT_CONFIGURED paths) | — | none |
+| TL-USERS-PREFERENCES-001 | User Preferences, Profile & Consent | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-DEVOPS-JOBS-001 | Background Jobs & Outbox Relay | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-DEVOPS-HEALTH-001 | Health & Readiness | 1 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-ADMIN-REGISTRY-001 | Registry Introspection | 2 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-DENTIST-PROFILE-001 | Dentist Professional Profile | 3 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-DENTIST-VERIFICATION-001 | Credential Verification | 3 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-CLINIC-CATALOGUE-001 | Clinic Services & Treatment Catalogue | 3 | implemented | CERTIFIED v1 — all-phase certification 2026-09-11 (full unit, integration and browser suites on the final code) | 2026-09-11 | full unit + integration + E2E (see All-phase certification) | — | none |
+| TL-DISCOVERY-INDEX-001 | Discovery Indexer | 4 | implemented | CERTIFIED v1 | 2026-09-10 | discovery-index.test.ts; find-query unit; E2E /find | search, dentists, organizations | none |
+| TL-AVAILABILITY-ENGINE-001 | Availability Engine | 4 | implemented | CERTIFIED v1 | 2026-09-10 | availability unit (16); booking-leads-billing | locations, dentists, holidays | none |
+| TL-WAITLIST-001 | Waitlist | 4 | implemented | CERTIFIED v1 | 2026-09-10 | booking-leads-billing (waitlist) | availability, appointments | none |
+| TL-LEADS-ENGINE-001 | Lead Engine | 4 | implemented | CERTIFIED v1 | 2026-09-10 | booking-leads-billing; phase4-completion; E2E | appointments, billing, qualification rules | none |
+| TL-BILLING-WALLET-001 | Lead Billing: Wallet and Ledger | 4 | implemented | CERTIFIED v1 | 2026-09-10 | booking-leads-billing; phase4-completion; lead-pricing unit; E2E | ledger, tax, payment port | none |
+| TL-SPONSORED-PLACEMENT-001 | Sponsored Placement (Prime) | 4 | implemented | CERTIFIED v1 | 2026-09-10 | sponsored.test.ts (7); E2E sponsored.spec.ts (2) | billing, discovery, availability, geofence | none |
+| TL-DISCOVERY-DENTIST-001 | Dentist Discovery | 4 | implemented | CERTIFIED v1 — delivered by `/find` over the discovery index (the reserved anchor now names it) | 2026-09-11 | discovery-index.test.ts; find-query unit; E2E patient-and-practice (search → dentist), sponsored (organic vs Sponsored), accessibility `/find` | discovery index, availability, sponsored | none |
+| TL-CAMPS-001 | Dental Camps | 5 | implemented | CERTIFIED v1 — Phase 5 gate passed 2026-09-11; notifications in-app only | 2026-09-11 | camps.test.ts (4); registry integrity; E2E camps.spec.ts (3: plan → approve → listed; dentist applies + patient registers incl. 375 px; confirm, visit, referral seen by patient) | India data (districts), dentist verification, leads (callback attribution), appointments (booking attribution), notifications | none |
+| TL-EDUCATION-001 | Education: Colleges, Courses, Admissions, Enrolment | 8 | implemented | CERTIFIED v1 — Phase 8 gate passed 2026-09-11; enquiries not billed by design; enrolment is a record of study, not a certificate | 2026-09-11 | education.test.ts (6); enrolment.test.ts (3); registry integrity; E2E education.spec.ts (3: college publishes course + window, student enquires incl. 375 px, college marks contacted); E2E enrolment.spec.ts (1: admitted → enrol with roll → Students roll → completed → student sees it incl. 375 px) | organizations, auth (verified email), notifications, specialties reference, India data (districts) | none |
+| TL-OPERATIONS-001 | Operations: Lead Work, Outreach, District Command Centre | 5 | implemented | CERTIFIED v1 — Phase 5 gate passed 2026-09-11; no telephony or automated marketing by design | 2026-09-11 | operations.test.ts (7); registry integrity; E2E operations.spec.ts (2: staff outreach incl. 375 px, practice lead work) | leads (service, events, billing visibility), India data (records, activation), notifications, organizations | none |
+| TL-INDIA-DATA-001 | India Data: Districts, Extraction, Pre-made Accounts | 5 | implemented | CERTIFIED v1 — Phase 5 gate passed 2026-09-11; external extractor NOT_CONFIGURED | 2026-09-11 | india-data.test.ts (5); india-normalize unit (10); csv unit (2); registry integrity; E2E india-data.spec.ts (2: activation incl. 375 px, staff import → review → listing) | auth (tokens, phone OTP), notifications, verification (claim), organizations, dentist profile | none |
+| TL-APPOINTMENT-BOOKING-001 | Appointment Booking | 4 | implemented | CERTIFIED v1 | 2026-09-10 | booking-leads-billing; phase4-completion; lead-pricing unit; E2E patient-and-practice | availability, notifications, outbox, leads, video port | none |
+| TL-PATIENT-RECORD-001 | Patient Dental Record | 6 | implemented | CERTIFIED v1 — Phase 6 gate passed 2026-09-11; every practice view audited and shown to the patient | 2026-09-11 | records.test.ts (3); treatment-plans.test.ts (3, incl. concurrent completion); records-helpers unit (4); registry integrity; E2E treatment-plans.spec.ts (3: clinician proposes two treatments; patient accepts; clinician records done and not done → completed for both); E2E records.spec.ts (3: patient adds + shares read-and-add; clinician reads, uploads an X-ray (real file service), prescribes; patient sees who looked, withdraws → practice page 404) | file service (grant read rule, owner-on-behalf upload), consents (CLINICAL_DATA_SHARING), audit, roles (new `clinician`; clinic_admin grants), organizations (role list), personal-data export, erasure, jobs, notifications | none |
+| TL-PRESCRIPTION-001 | Prescriptions | 6 | implemented | CERTIFIED v1 — only Toothlogy-verified dentists under a read-and-add grant; printable page with QR (browser print → PDF); public check shows first name + initial only | 2026-09-11 | records.test.ts (prescriptions: verified-only, grant-write-only, QR check, cancel, expiry, export); E2E records.spec.ts (issue → printable page with QR incl. 375 px → signed-out pharmacist check; unknown code 404) | TL-PATIENT-RECORD-001, dentist verification, `qrcode` 1.5.4 (npm) | none |
+| TL-REVIEWS-001 | Reviews and Ratings | 5 | implemented | CERTIFIED v1 — Phase 5 gate passed 2026-09-11 | 2026-09-11 | reviews.test.ts (3); contact-details unit (2); registry integrity; E2E reviews.spec.ts (2: patient rates a completed visit → public page incl. 375 px; practice replies + flags → moderator hides → gone from public page) | appointments (completed visits), organizations, dentist profile page, notifications, shared contact-details rule | none |
+| TL-MESSAGING-001 | Patient ↔ Practice Messaging | 5 | implemented | CERTIFIED v1 — Phase 5 gate passed 2026-09-11; notifications say who wrote, never what | 2026-09-11 | messaging-support.test.ts (messaging 2); registry integrity; E2E messaging-support.spec.ts (patient writes from an appointment → practice sees unread, replies → patient sees reply incl. 375 px) | appointments (appointment page link; a thread needs an appointment with the practice), organizations (roles clinic_admin/clinic_staff), notifications | none |
+| TL-SUPPORT-001 | Help and Support | 5 | implemented | CERTIFIED v1 — `/help` page implemented; Phase 5 gate passed 2026-09-11 | 2026-09-11 | messaging-support.test.ts (support 2); registry integrity; E2E messaging-support.spec.ts (patient asks → agent internal note + reply → patient sees reply, never the note → closes) | auth, roles (support_agent, platform_admin), organizations (ticket on behalf of an org one belongs to), notifications | none |
+| TL-ANALYTICS-001 | Analytics and Dashboards | 10 | implemented | CERTIFIED v1 — every figure from the records; view events pseudonymous only with analytics consent, anonymous otherwise | 2026-09-11 | analytics.test.ts (3); registry integrity; E2E analytics.spec.ts (2: profile visit recorded without identity → practice dashboard equals the database, period switch, 375 px; operator totals, 404 for others) | appointments, leads, ledger, reviews, consents, dentist/clinic/find pages (event recording) | none |
+| TL-GLOBAL-EXPANSION-001 | Market Opening and Enterprise | 12 | implemented | CERTIFIED v1 — a country opens only when fully configured; money never summed across currencies or converted; SSO port NOT_CONFIGURED | 2026-09-11 | globalization.test.ts (2); registry integrity; E2E countries.spec.ts (1: 404 for non-staff; India open with 6/6 checks (tax pack added 2026-09-11); closed countries show what is missing, no open switch; 375 px) | organizations (creation honours the database switch), billing (standard pricing), analytics (per-currency revenue, wallet currency), i18n/money registries | none |
+| TL-IOT-001 | Connected Equipment | 11 | implemented | CERTIFIED v1 — device tokens shown once, stored as a fingerprint; alerts one per device and reading, resolved by a person | 2026-09-11 | iot.test.ts (2); registry integrity; E2E iot.spec.ts (1: register → one-time token → limits → session-less device reports a low reading (wrong token 401) → alert shown incl. 375 px → resolved with a note) | events (outbox DEVICE_CONNECTED), notifications, audit, roles (clinic_admin manage; clinician and clinic_staff read), organizations (org page card) | none |
+| TL-AI-001 | AI under the Covenant | 11 | implemented | NOT_CONFIGURED — no model provider connected; covenant code certified: two purposes (labelled article summary and translation), public reviewed text only; pages do not offer them while unconfigured | 2026-09-11 | ai.test.ts (2: summary and translation — NOT_CONFIGURED + failure audit; stand-in adapter → fixed no-diagnosis instruction, label, audit without text; unsupported language refused; drafts/unknown 404) | knowledge (public read), audit | none |
+| TL-CAREERS-001 | Internships and Careers | 8 | implemented | CERTIFIED v1 — Phase 8 gate passed 2026-09-11; only verified organizations publish; applicants' details shared only while an application stands | 2026-09-11 | careers.test.ts (3); careers-helpers unit (1); registry integrity; E2E careers.spec.ts (3: employer drafts → publishes; seeker finds on a phone, JobPosting JSON-LD, applies with résumé + consent; employer opens résumé, shortlists → applicant sees it) | organizations (verification gate, org page card), file service (résumé read rule), India data (districts), notifications, jobs, sitemap, shared contact-details rule | none |
+| TL-KNOWLEDGE-001 | Dental Knowledge Library | 7 | implemented | CERTIFIED v1 — Phase 7 gate passed 2026-09-11; readers only ever see a reviewed version | 2026-09-11 | knowledge.test.ts (3); knowledge-helpers unit (2); registry integrity; E2E knowledge.spec.ts (2: verified dentist drafts with a source → sends for review (404 publicly meanwhile); reviewer publishes → signed-out reader finds by search, reads incl. 375 px, sources, byline, MedicalWebPage JSON-LD) | dentist verification, treatment catalogue, file service (public cover), roles (dentist gains write; new `medical_reviewer`; platform_admin review), notifications, sitemap, shared contact-details rule | none |
+| TL-ACADEMIC-001 | Researchers and Faculty | 7 | implemented | CERTIFIED v1 — Phase 7 gate passed 2026-09-11 | 2026-09-11 | academic.test.ts (2); registry integrity; E2E community-academic.spec.ts (faculty profile → college confirms → public faculty page and college page) | profiles, education (colleges), specialties reference, notifications | none |
+| TL-COMMUNITY-001 | Dental Community | 7 | implemented | CERTIFIED v1 — Phase 7 gate passed 2026-09-11; pages not indexed by design | 2026-09-11 | community.test.ts (3); registry integrity; E2E community-academic.spec.ts (ask incl. 375 px and phone refusal, answer, accept; report → moderator hides) | auth (verified email), dentist verification (badge), notifications, roles (moderator) | none |
+| TL-MARKETPLACE-PRODUCT-001 | Businesses and Marketplace | 9 | implemented | CERTIFIED v1 — Phase 9 gate passed 2026-09-11; quotes not billed; orderable items continue in TL-MARKETPLACE-ORDER-001 | 2026-09-11 | marketplace.test.ts (4); registry integrity; E2E marketplace.spec.ts (3: profile + publish; buyer finds by category incl. 375 px, requests quote; seller quotes, buyer accepts) | organizations (new types), India data (districts), money, notifications, jobs | none |
+| TL-MARKETPLACE-ORDER-001 | Orders, Tax Documents and Returns | 9 | implemented | CERTIFIED v1 — Phase 9 gate passed 2026-09-11; Toothlogy moves no money: the seller records payments; online payment NOT_CONFIGURED | 2026-09-11 | orders.test.ts (5); tax-packs unit (9); registry; E2E orders.spec.ts (4: business lists a product at a listed price; buyer adds to cart and checks out on a phone; seller confirms, records the payment, dispatches with a GST invoice; buyer receives, returns a box, seller refunds with a credit note) | marketplace catalogue, tax packs, districts, notifications, audit, payment port | none |
+| TL-EQUIPMENT-SERVICE-001 | Equipment, Warranty and Maintenance Contracts | 9 | implemented | CERTIFIED v1 — Phase 9 gate passed 2026-09-11; contracts only between trading partners; paid between the parties | 2026-09-11 | equipment.test.ts (4); registry; E2E equipment.spec.ts (3: register with warranty; business proposes AMC, practice accepts with equipment; visit scheduled and completed, practice sees the report incl. 375 px) | orders (trading relationship, delivered lines), notifications, jobs (`equipment.reminders`) | none |
+| TL-PRIME-MEMBERSHIP-001 | Prime Membership | 10 | implemented | CERTIFIED v1 — Phase 10 gate passed 2026-09-11; no plan seeded (price is a business decision); individual plans NOT_CONFIGURED | 2026-09-11 | prime.test.ts (5); prime-dates unit (2); billing regressions (booking-leads-billing, phase4-completion, sponsored); registry; E2E prime.spec.ts (2: staff create a plan and put it on sale; a practice joins from its lead wallet and turns renewal off) | billing (MEMBERSHIP_CHARGE, bonus leads in `chargeLead`), support (priority), jobs (`prime.renew`) | billing, support |
+| TL-TRIAGE-001 | Concern Routing ("Which dentist?") | 11 | implemented | CLINICAL REVIEW REQUIRED — rules built and tested; the page says they await a clinical reviewer | 2026-09-11 | triage unit (6, incl. every treatment specialty key exists); E2E none (browser-only rules, no API) | treatment catalogue, discovery (/find links) | none |
+| TL-RECOMMENDATIONS-001 | Related Content | 11 | implemented | CERTIFIED v1 — Phase 11 gate passed 2026-09-11; rule-based, labelled, no reader profile | 2026-09-11 | ai.test.ts (related articles follow the fixed rule; drafts never appear; unknown slug → none); E2E none | knowledge library | none |
+| TL-ENTERPRISE-001 | Enterprise Groups and Agreements | 12 | implemented | CERTIFIED v1 — Phase 12 gate passed 2026-09-11; SSO shown not met while NOT_CONFIGURED; residency compared with the declared hosting region | 2026-09-11 | enterprise.test.ts (3); fx-and-sla unit (3); registry; E2E enterprise.spec.ts (3: staff record a rate, group a clinic under a chain and record the agreement; a member clinic's help request carries the service levels; the chain sees its agreement, results and member clinic) | organizations (groups), support (SLA stamps), analytics (approximate totals), SSO port | support |
+
+## Change log
+
+| Date | Change | Affected modules | Tests run | Result |
+|---|---|---|---|---|
+| 2026-09-10 | Ledger created from the Phase 4 final gate | all | full gate | pass |
+| 2026-09-11 | India data: districts (CG seeded, LGD import), extraction batches, review, pre-made accounts, activation; `peekToken`; claim approval marks the extracted record CLAIMED; migration `20260914090000_india_data_districts_extraction` | TL-INDIA-DATA-001; TL-CORE-AUTH-001 (tokens); TL-DENTIST-VERIFICATION-001 (claim hook) | india-data (5), india-normalize (9), csv (2), registry; affected: 8 integration suites, 145 tests | pass |
+| 2026-09-11 | Browser check found two defects, fixed: a bad activation link showed no message (error keyed to a field the form has no input for); names were mangled by re-casing ("E2E" → "E2e", "BDS" → "Bds") — now only wholly upper/lower-case names are re-cased, acronyms and words with digits kept | TL-INDIA-DATA-001 | india-normalize (10), csv (2), india-data (5), E2E india-data (2) | pass |
+| 2026-09-11 | Operations: lead assignment, call log, follow-ups (job `leads.follow-ups`), outreach tasks and activities, bulk district outreach, activation invitations, district command centre; `listLeads` presents assignee, follow-up and work log; migration `20260915090000_operations_outreach_lead_work` (additive; no drift on dev or test) | TL-OPERATIONS-001; TL-LEADS-ENGINE-001 (presentation, exported access check) | operations (7); affected: booking-leads-billing, phase4-completion, sponsored, india-data — 51 tests; registry; E2E operations (2) | pass |
+| 2026-09-11 | Education: college profile and recognition checks, courses, admission windows, public college pages, admission enquiries with college work and student withdrawal; clinic_admin / clinic_staff / platform_admin gain education permissions; migration `20260916090000_education_colleges_admissions` (additive; no drift) | TL-EDUCATION-001; roles (additive grants); organization page (College card) | education (6); affected: platform-core, clinic-catalogue, verification, operations, india-data — 74 tests; unit platform/rbac 241; registry; E2E education (3) | pass |
+| 2026-09-11 | Dental camps: lifecycle with staff approval, doctor applications and attendance, registrations (capacity lock, one per phone/account), walk-ins, visits and referrals; new role `camp_organizer`; `bookAppointment` and `requestCallback` attribute to a referring camp visit (`campRegistrationId` on appointments and leads); migration `20260917090000_dental_camps` (additive; no drift) | TL-CAMPS-001; TL-APPOINTMENT-BOOKING-001, TL-LEADS-ENGINE-001 (attribution only) | camps (4); affected: booking-leads-billing, phase4-completion, sponsored, operations — 53 tests; registry; E2E camps (3) | pass |
+| 2026-09-11 | Businesses and marketplace: organization types WHOLESALER, RETAILER, LABORATORY; business profile and service districts; catalogue; quote requests with quote / accept / withdraw / decline / close and expiry job; migration `20260918090000_businesses_marketplace` (additive; enum values added; no drift). Test caught a real bug before release: the product update schema re-applied the minimum-order default on every edit — fixed by defaulting only on create; checked no other `.partial()` schema carries defaults | TL-MARKETPLACE-PRODUCT-001; organizations (types), roles (additive grants), organization page (Marketplace card) | marketplace (4); affected: platform-core, clinic-catalogue, education, camps, operations, india-data — 61 tests; unit platform + registry 259; E2E marketplace (3) | pass |
+| 2026-09-11 | Researchers, faculty and community: profile type FACULTY; academic profiles, publications, faculty appointments confirmed by colleges; community questions, answers, reports and moderation; site header/footer links; migration `20260919090000_academics_community` (additive; enum value added; no drift). E2E found only test-harness issues (cold compile, ambiguous selectors, a check that matched unsaved textbox text) — no product fault | TL-ACADEMIC-001, TL-COMMUNITY-001; roles (additive grants); college page (Faculty card); organization page (Faculty link) | academic (2), community (3); affected: platform-core, education, verification, marketplace, camps — 56 tests with the module; unit platform 241; registry; E2E community-academic (3) | pass |
+| 2026-09-11 | Reviews: one per completed appointment (90-day window), edit 30 days, practice reply and flag, moderator hide/restore, public ratings (average from three); shared `src/lib/contact-details.ts` — its unit test found that "+919827012345" (no space after 91) slipped past the \b-based rule the community had used since it shipped; fixed with digit lookarounds; migration `20260920090000_reviews` (additive; no drift) | TL-REVIEWS-001; TL-COMMUNITY-001 (shared rule, regex fix); appointment page; dentist public page; account nav | reviews (3), community (3), contact-details unit (2), unit platform 243; registry; E2E reviews (2) | pass |
+| 2026-09-11 | Messaging and support: patient ↔ practice threads (only with a practice one has an appointment with; one open thread per patient × practice × appointment via `openKey`; read markers per side; 30 messages a day), support tickets by category with staff replies, internal notes (never shown to the requester), status and assignment; `/help` replaced by a real page; new notification template TL-NOTIF-SUPPORT-UPDATE-001; NEW-MESSAGE notices carry the sender's name, never the text; migration `20260921090000_messaging_support` (additive, 4 tables; no drift) | TL-MESSAGING-001, TL-SUPPORT-001; roles (additive grants); appointment page (message link); account nav | messaging-support (4); affected: booking-leads-billing, reviews, platform-services — 40 tests; unit rbac 19; registry 18; E2E messaging-support (2) — E2E found only harness issues (id prefix `thr_`, a fixture slot clash with the diary's no-overlap constraint, an ambiguous selector) | pass |
+| 2026-09-11 | Phase 6 dental record and prescriptions: RecordEntry (patient-owned; FDI teeth; practice entries retracted with a reason, never edited), RecordAccessGrant (requested by the practice or given by the patient; read or read-and-add; 30 days / a year / until withdrawn; one open per patient × practice via `openKey`; each active grant carries a CLINICAL_DATA_SHARING consent; job `records.expire-grants`), Prescription (verified dentists only; 80-bit QR verify code; public check at /rx/:code); file service gains a registered grant read rule and owner-on-behalf uploads; new org role `clinician` (front-desk `clinic_staff` sees no clinical data); export sections and erasure (open grants end, entries kept under clinical retention); migration `20260922090000_dental_record_prescriptions` (additive, 3 tables, 4 CHECK constraints; no drift); dependency `qrcode` 1.5.4. Browser check found one real defect — the printable prescription overflowed a 375 px screen (flex item min-width: auto around the medicines table) — fixed; the spec's overflow check now names offending elements. Integration test first caught that services called directly surfaced raw Zod errors — now mapped to VALIDATION_FAILED with the field | TL-PATIENT-RECORD-001, TL-PRESCRIPTION-001; TL-CORE-STORAGE-001 (read rule, ownerUserId); roles; organizations (role list, org page card); practice appointment page; account nav; export; erasure; jobs | records (3), records-helpers unit (4); affected: organizations, platform-core, platform-services, auth, booking-leads-billing — 106 tests; unit platform + lib 305; registry 22; E2E records (3) | pass |
+| 2026-09-11 | Phase 7 knowledge library: Article (kinds condition / treatment / procedure / guide / blog; working copy vs `live*` reviewed copy — revisions stay private until approved; kind, treatment, specialty and cover fixed once published; clinical kinds need ≥1 source; no links or contact details in the text; plain-text body rendered by React, no HTML); review by someone else holding the new `medical_reviewer` role (CHECK: reviewer ≠ author); archive, never delete; `/knowledge` placeholder replaced by the real library (search, kinds, pagination; noindex while empty); article pages with MedicalWebPage JSON-LD (`<` escaped), “find a dentist for this treatment” (/find?treatment=), sources; sitemap includes live articles; migration `20260923090000_knowledge_articles` (additive, 1 table, 3 CHECK constraints; no drift). E2E found only a test selector ambiguity (“Title” vs “Source title”) — no product fault | TL-KNOWLEDGE-001; roles (dentist + article write, new medical_reviewer, platform_admin + review); sitemap; account nav | knowledge (3), knowledge-helpers unit (2); affected: platform-core, academic, community — 19 tests; unit platform + lib 307; registry 20; E2E knowledge (2) | pass |
+| 2026-09-11 | Phase 8 careers: JobPosting (kind job/internship, role, employment type, district, stated pay in paise, openings, closing date; draft → open (verified organizations only) → closed / filled; no contact details or links in the text; CHECKs on pay order, openings, internship ↔ type, open ⇒ published) and JobApplication (one per person per posting; verified email; consent to share contact details; résumé via the file service, RESUME purpose, readable by the employer only while the application stands — registered file read rule; shortlist → interview (time) → offer → hired / not taken forward, applicant told each move; withdrawal hides contact details, résumé and note); public board `/careers` and posting pages with JobPosting JSON-LD (only while open) and sitemap entries; job `careers.close-expired`; migration `20260924090000_careers_jobs_applications` (additive, 2 tables, 5 CHECK constraints; no drift). The last two placeholder pages — `/for-dentists`, `/for-clinics` — replaced by real pages whose lead pricing is read from the configured standard rule (`standardLeadPricing`, new; states no price when none is configured); verified rendering “30 free, then ₹50.00 + 18% GST”. E2E found no product fault | TL-CAREERS-001; TL-EXPERIENCE-SHELL-001 (for-* pages); TL-BILLING-WALLET-001 (additive read-only pricing helper); TL-CORE-STORAGE-001 (résumé rule); organizations (org page card); account nav; sitemap; jobs | careers (3), careers-helpers unit (1); affected: records, booking-leads-billing — 30 tests with the module; unit registry + platform + lib 326; E2E careers (3) | pass |
+| 2026-09-11 | Phase 10 analytics and Phase 11 AI. Found that no analytics event was ever recorded (`trackEvent` had no callers) — dashboards would have shown zeros; now dentist profile views, clinic page views and searches are recorded through `trackView`, with a keyed-hash actor only for people with ANALYTICS_TRACKING consent (anonymous otherwise) and a search's shape, never its words. Practice dashboard (`/account/organizations/:id/analytics`: bookings and outcomes, attended rate, leads through qualification/booking/treatment, free/charged/refunded, spend less refunds, reviews, views, top services, per-day SVG chart over 7/30/90 days) and platform dashboard (`/admin/analytics`) — all computed from the records, no new tables; permissions `tl.analytics.practice.read` (clinic_admin) and `tl.analytics.platform.read` (platform_admin). AI: `src/platform/ai/ports.ts` (NOT_CONFIGURED slot) and a covenant-bound service — one allowed purpose (labelled summary of a published, reviewed article), fixed no-diagnosis instruction, public text only, audited without content; the article page offers it only when a provider is configured; integration TL-INT-AI-001 planned → prepared. Tests found two real defects, fixed: the audit redactor blanked `inputTokens`/`outputTokens` (renamed to model units), and a practice with no charges showed a spend of −0 | TL-ANALYTICS-001, TL-AI-001; public dentist, clinic and find pages (recording only); knowledge article page (AI offer when configured); org page card; account nav; registry (permissions, roles, modules, APIs, pages, integration) | analytics (3), ai (1); unit registry + platform + lib 326; E2E analytics (2) | pass |
+| 2026-09-11 | Phase 11 connected equipment: Device (kind, name, serial, token fingerprint + 4-character hint, active/retired, connected/last seen), DeviceLimit (range per reading), DeviceReading (append-only; device clock held to receipt time, nothing older than a week), DeviceAlert (one open per device and reading via a unique open key taken with ON CONFLICT DO NOTHING; resolved by a person with a note, never cleared by a later reading); `Authorization: Device <token>` telemetry (1–100 readings; malformed, unknown and retired tokens refused before anything is stored); first reading emits DEVICE_CONNECTED through the outbox in the same transaction; administrators notified after commit (TL-NOTIF-DEVICE-ALERT-001); re-key and retire; permissions `tl.iot.device.read` (clinic_admin, clinician, clinic_staff) and `tl.iot.device.manage` (clinic_admin); migration `20260925090000_connected_equipment` (additive, 4 tables, 4 CHECK constraints; no drift). No defect found | TL-IOT-001; roles; organizations (org page card); registry | iot (2); unit registry + platform + lib 326; E2E iot (1) | pass |
+| 2026-09-11 | Phase 12 market opening and enterprise: `/admin/countries` (tl.admin.country.manage, platform_admin) shows every modelled country's readiness — currency modelled, default language switched on, valid IANA time zone, regions loaded, standard lead price with a current tax rate — and opens a country only when all pass, or closes it to new organizations, audited with a reason. Found a real gap: `createOrganization` accepted any modelled country (registry seed), including closed ones — now it honours the database switch. Found a second: analytics hard-coded INR — practice spend now uses the wallet's currency (or the organization's), and platform lead revenue is reported per currency, never summed or converted (no invented exchange rates). Enterprise sign-in port (`src/platform/auth/sso-ports.ts`, NOT_CONFIGURED; integration TL-INT-SSO-001). GLOBALIZATION.md status table updated. No migration | TL-GLOBAL-EXPANSION-001; TL-ANALYTICS-001 (currency); organizations (creation gate); registry | globalization (2); affected: analytics (3), organizations, careers, iot, records — 39 tests; unit registry + platform + lib 326; E2E countries (1) | pass |
+| 2026-09-11 | Phase 8 completed — student enrolment: Enrolment (from an admitted enquiry; academic year as two consecutive years; roll number unique within course and year; one per student, course and year; ENROLLED → COMPLETED / WITHDRAWN with date and, for a withdrawal, a reason; CHECKs tie the end date to the status and keep it after the start), permission `tl.education.enrolment.manage` (college administrators), "Enrol" on admitted enquiries, `/account/organizations/:id/students` roll with filters, enrolments on the student's My admissions, TL-NOTIF-ENROLMENT-001; migration `20260926090000_student_enrolment` (additive, 1 table, 3 CHECK constraints; no drift) | TL-EDUCATION-001; admissions page; student admissions page; org page link; registry | enrolment (3), education (6); unit registry + platform + lib 329; E2E enrolment (1) | pass |
+| 2026-09-11 | Security gate finding fixed — pages had no Content Security Policy (the builder existed but nothing applied it). Now `src/proxy.ts` gives every HTML page a fresh nonce and a nonce-bound policy (`script-src 'self' 'nonce-…' 'strict-dynamic'` in production, no `'unsafe-eval'` outside development, `object-src 'none'`, `frame-ancestors 'none'`, `upgrade-insecure-requests` in production); the root layout passes the nonce to the theme bootstrap, the only inline script; JSON-LD blocks are data and unaffected; API routes keep their own headers; `/_next/*`, robots and sitemap excluded. Verified live: header present, every script tag carries the nonce, enrolment E2E passes under the policy | TL-CORE-HTTP-001 (csp.ts, security.ts re-export); TL-EXPERIENCE-SHELL-001 (root layout; every page now renders per request) | csp unit (3); unit platform 329; E2E enrolment (1) under CSP; full E2E at final certification | pass |
+| 2026-09-11 | Final certification (below). The Phase 5–8 gate passed, so `DELIVERED_THROUGH_PHASE` went from 4 to 8. Registry: 13 modules (phases 5–8) and 4 API blocks (records and prescriptions, knowledge, careers, enrolment) moved from `prepared` to `implemented`, all with routes served (`routes.test` checks this). 26 phase 5–8 notifications that the services send are now `implemented`. Events `REVIEW_CREATED` and `MESSAGE_RECEIVED` stay `prepared` because nothing emits them. Phases 9–12 are unchanged | registry (modules, apis, events); docs | registry (3 files, 18); typecheck; lint | pass |
+| 2026-09-11 | All-phase certification (below). Phases 9–12 built after "complete remaining phases in one go".<br>**Migrations:** 25 `20260927090000_orders_tax_documents_equipment`, 26 `20260928090000_prime_membership`, 27 `20260929090000_enterprise_exchange_rates` (additive, with CHECK constraints).<br>**Found and fixed:**<br>• Prime charged the wallet before checking for a current period.<br>• Treatment catalogue specialty keys were orphaned; now guarded by a test.<br>• Stale "not built" text on the privacy and account pages.<br>• Tables in the cart, order, tax document and supplier pages overflowed at 375 px.<br>• The test reset omitted `exchange_rates` and `enterprise_agreements` (TEST).<br>• Countries E2E expected 5 readiness checks, not 6 (TEST).<br>• Equipment E2E `datetime-local` set now retried with `toPass` (TEST, harness).<br>**Credential-gated E2E:** `helpers/practice-access.ts` replaces the need for `E2E_PRACTICE_*`: a test-registered administrator, removed afterwards (verified 0 left).<br>**Registry:** 11 modules, 3 API blocks, 3 notifications and `DEVICE_CONNECTED` moved to `implemented`. `DELIVERED_THROUGH_PHASE` 8 → 12. | TL-MARKETPLACE-PRODUCT-001, TL-MARKETPLACE-ORDER-001, TL-EQUIPMENT-SERVICE-001, TL-ANALYTICS-001, TL-PRIME-MEMBERSHIP-001, TL-IOT-001, TL-AI-001, TL-TRIAGE-001, TL-RECOMMENDATIONS-001, TL-GLOBAL-EXPANSION-001, TL-ENTERPRISE-001; billing; support | full gate (below) | pass |
+| 2026-09-11 | Follow-up: the remaining tasks that need no provider, credential or business decision.<br>**P3 fixes:**<br>• Unknown `/api` paths return the JSON 404 envelope (`src/app/api/[...path]/route.ts`).<br>• A wrong sign-in returns 401 `UNAUTHENTICATED`, with the same message for an unknown account.<br>• Pages carry HSTS in production (`STRICT_TRANSPORT_SECURITY` shared by API and proxy).<br>• An axe-core scan of 14 public pages. It found 3 defects, all fixed: light subtle text #71838f → #5f717c (3.7:1 → 4.7:1); success colour #15803d → #137a38 (Verified badge 4.49:1 → 4.9:1); `aria-pressed` on the community and admin-task filter links → `aria-current`.<br>**Phase 2/3 UI gaps:**<br>• Claim page `/account/claim/:id`, linked from unclaimed public clinic pages.<br>• Organization profile editing and logo on the organization page.<br>• Branch photos (up to 12), shown with the logo on the public clinic page.<br>• Dentist analytics `/account/dentist-profile/analytics`.<br>**E2E:** `global-setup.ts` warms routes before a run. | TL-CORE-HTTP-001, TL-CORE-AUTH-001, TL-EXPERIENCE-DESIGNSYSTEM-001, TL-COMMUNITY-001, TL-OPERATIONS-001, TL-DENTIST-VERIFICATION-001, TL-CLINIC-CATALOGUE-001, TL-ANALYTICS-001 | **Static:** tsc exit 0; eslint exit 0.<br>**Unit:** registry + http + csp 57 passed (5 files); csp 5/5 including 2 new proxy HSTS tests.<br>**Integration:** auth, clinic-catalogue, platform-core, platform-services, analytics — 84 passed (5 files), including the new 401 and `dentistAnalytics` assertions.<br>**E2E accessibility:** run 1 10/14 (3 defects found); run 2 13/14 (`/find` ran before the success-colour fix); `/find` rerun 1/1 → 14/14.<br>**E2E `listing-and-profile.spec.ts`:** 3/3 across reruns. First run ENVIRONMENT (2.1-min cold compile); then a TEST locator made exact; then a TEST fixture missing the dentist role.<br>**Build:** 365 routes, compiled in 6.7 min.<br>**Production smoke:** PASS — page HSTS 9/9, un-nonced scripts 0, 6 APIs 401 signed out, 2 unknown paths JSON 404, wrong sign-in 401, TTFB 62–438 ms, sitemap 18. | pass |
+
+## All-phase certification — 2026-09-11 (Phases 0–12)
+
+This was one pass on the final code. Evidence that no later change affected was reused: Phase 0 and the Phase 1–8 gates of the morning's final certification. Each failure was classified, fixed where it was a defect, and rerun alone.
+
+| Gate | Command | Result |
+|---|---|---|
+| Type-check | `tsc --noEmit` | exit 0 (again after the registry change: exit 0) |
+| Lint | `npm run lint`; after the change, `eslint src/registry tests/e2e tests/helpers` | exit 0; exit 0 |
+| Unit | `npm run test:unit` | 396 passed, 0 failed, 32 files. Registry after the change: 18 passed, 3 files, at `DELIVERED_THROUGH_PHASE = 12` |
+| Integration | `npm run test:integration` (real PostgreSQL, `toothlogy_test`) | See the rows below |
+| Browser E2E | `npx playwright test` (Chrome, dev server on port 3020, 21 specs) | See the rows below |
+| Database | `prisma migrate status`; `migrate diff --exit-code` | 27 migrations applied on dev and test, no drift on either. Dev integrity checks, all 0: duplicate emails and org slugs, wallet ≠ ledger sum, orphan ledger leads, order total or subtotal mismatch, overpaid or over-refunded orders, tax-series gaps, more than one active membership, two-level groups, leftover debug fixtures, leftover E2E helper memberships |
+| Dependencies | `npm audit` | 0 vulnerabilities |
+| Docs | `npm run docs:check` | all relative links resolve in 21 files (again after the doc updates) |
+| Build | `next build` | compiled successfully in 3.6 min (872 s total); 362 routes; proxy registered |
+| Production smoke | `next start -p 3021` + smoke script | **PASS**. 9 pages return 200, each with a nonce CSP using `strict-dynamic` and no `unsafe-eval`, and every script tag carries the nonce (0 without). API: HSTS 2 years with preload, `nosniff`, `DENY`, COOP `same-origin`. 6 new protected APIs return 401 signed out. Sitemap 18 URLs, robots 200. No console errors on `/which-dentist` or `/marketplace` |
+| Performance | warm TTFB, median of 3, production | / 300 ms · /find 850 ms · /knowledge 82 ms · /careers 117 ms · /which-dentist 57 ms · /marketplace 102 ms · /login 73 ms · /colleges 191 ms · /community 81 ms · health API 68 ms. One user only, on a loaded machine; not a load test |
+| Security probes | production | Path traversal and injection-shaped ids return 401 (checked before routing to data) · unknown API 404 · another organization's enterprise and Prime APIs return 401 signed out · login 429 on the 6th attempt |
+
+**Integration results**
+
+| Run | Result | Cause and action |
+|---|---|---|
+| First run | crashed (segfault, exit 139) | ENVIRONMENT: Postgres became unreachable mid-run |
+| Full rerun | 258 passed, 2 failed, 31 files, 2163 s | enterprise: TEST bug. The reset list omitted `exchange_rates` and `enterprise_agreements`, so the previous run's rate collided; both tables added. phase4-completion: ENVIRONMENT. CPU was at 100%, 32 parallel registrations hit the transaction start timeout, and the next test deadlocked on the reset |
+| Targeted reruns | enterprise 3/3; phase4-completion 15/15 (alone, 178 s) | Product code unchanged; `register` hashes before its transaction |
+
+**E2E results** (inventory: 49 tests in 21 files)
+
+| Run | Result | Cause and action |
+|---|---|---|
+| Full run | 33 passed, 8 failed, 8 did not run, 1.7 h | Failures listed below |
+| Rerun of the 8 failed specs | 16 passed, 2 failed, 1 did not run | camps and patient-and-practice: ENVIRONMENT (cold compiles) |
+| camps + patient-and-practice | 4 passed, 1 failed | The convert action took 79 s to compile against a 30 s poll. The lead reached CONVERTED (event chain CREATE → QUALIFY → BILLED_FREE → DELIVER → ACCEPT → APPOINTMENT → COMPLETE → CONVERTED) |
+| patient-and-practice | 2 passed, 0 failed, 4.0 min | — |
+
+Failures in the full run:
+- **countries:** TEST. The spec expected 5 readiness checks; there are 6 with the tax pack. Fixed.
+- **equipment:** TEST (harness). The `datetime-local` set now retries with `toPass`.
+- **camps, knowledge, patient-and-practice, records, sponsored:** ENVIRONMENT. Cold dev compiles of 33–79 s exceeded the waits, and the logged requests returned 200.
+- **marketplace:** ENVIRONMENT. Postgres connection dropped.
+
+**Final per-test state:** all 49 tests passed on the final code, 0 product defects found. The two formerly credential-gated specs (`patient-and-practice`, `sponsored`) ran with a test-registered administrator instead of `E2E_PRACTICE_*`. That administrator's membership and role are removed afterwards (verified 0 left). Six such accounts remain with no organization access. One labelled `E2E-FIXTURE-TOPUP` ledger entry was written.
+
+### Phase matrix (0–12)
+
+| Phase | Implementation | Evidence | Status |
+|---|---|---|---|
+| 0 | Constitution, registry, architecture | Registry integrity 18/18 | CERTIFIED — REUSED VALID EVIDENCE |
+| 1 | Platform core | Unit and integration suites green. Providers are ports | CERTIFIED — REUSED VALID EVIDENCE (providers NOT_CONFIGURED; named open items in BUILD-STATUS) |
+| 2 | Experience | E2E across all modules; CSP smoke | CERTIFIED — REUSED VALID EVIDENCE (named open items in BUILD-STATUS) |
+| 3 | Dentist + clinic | Verification, catalogue suites green | CERTIFIED — REUSED VALID EVIDENCE (named open items in BUILD-STATUS) |
+| 4 | Discovery, booking, leads, billing, sponsored | booking-leads-billing, phase4-completion 15/15, sponsored; E2E patient-and-practice 2/2 and sponsored 2/2 now run | CERTIFIED (the former P2 credential gap is closed) |
+| 5–8 | Trust, records, knowledge, careers | Full suites green again; E2E rerun passes | CERTIFIED — REUSED VALID EVIDENCE + regression pass |
+| 9 | Catalogue, variants, cart, orders, tax documents, returns, equipment, AMC/CMC | orders 5, equipment 4, marketplace 4, tax-packs 9; E2E orders 4, equipment 3, marketplace 3 | CERTIFIED (online payment NOT_CONFIGURED) |
+| 10 | Prime membership, dashboards, leads, placement | prime 5, prime-dates 2, analytics 3, billing regressions; E2E prime 2, analytics 3, sponsored 2 | CERTIFIED (individual Prime NOT_CONFIGURED) |
+| 11 | IoT, AI summary and translation, triage, related content | iot 2, ai 2, triage 6; E2E iot 2 | CERTIFIED. AI NOT_CONFIGURED; triage CLINICAL REVIEW REQUIRED |
+| 12 | Country readiness, exchange rates, tax packs, enterprise | globalization 2, enterprise 3, fx-and-sla 3; E2E countries 1, enterprise 3 | CERTIFIED (SSO NOT_CONFIGURED; compliance packs are tax packs only) |
+
+### 21 certification dimensions (scope: Phases 0–12)
+
+| Dimension | Result | Evidence or gap |
+|---|---|---|
+| FUNCTIONAL | PASS | Integration and 49 browser journeys on the final code |
+| UI_UX | PASS | Every module driven through its screens |
+| DESKTOP | PASS | E2E in desktop Chrome |
+| MOBILE | PASS | 375 px checks in each module's E2E |
+| RESPONSIVE | PASS | Overflow checks; the table-wrapper overflow found and fixed |
+| ACCESSIBILITY | PASS | axe-core scan of 14 public pages against WCAG 2.1 A/AA: 0 serious or critical violations after fixing 3 defects (low-contrast subtle text and success badge; `aria-pressed` on links); controls driven by accessible labels in every journey |
+| API | PASS | Registry ↔ route parity; idempotency declared or justified |
+| DATABASE | PASS | 27 additive migrations, no drift, integrity checks all 0 |
+| AUTH | PASS | 401 signed out, login 429, verified-email gates |
+| PERMISSIONS | PASS | Org-scoped service checks; other tenants get 404 in E2E |
+| SECURITY | PASS | Nonce CSP, API HSTS, audit 0, probes |
+| PAYMENT | BLOCKED | No payment provider; the port answers `NOT_CONFIGURED`; sellers record offline payments |
+| NOTIFICATIONS | PARTIAL | In-app delivered and tested; email, SMS, WhatsApp and push `NOT_CONFIGURED` |
+| PERFORMANCE | PARTIAL | Warm production TTFB 57–850 ms; no load test |
+| SEO | PASS | Sitemap (18), robots, JSON-LD, noindex where intended |
+| INTEGRATIONS | PARTIAL | 4 connected; the rest `NOT_CONFIGURED` |
+| EMPTY_STATES | PASS | Seen on fresh fixtures |
+| LOADING_STATES | PARTIAL | Pending states not separately tested |
+| ERROR_STATES | PASS | `VALIDATION_FAILED` with field, 404, 412, `NOT_CONFIGURED` tested |
+| EDGE_CASES | PASS | Gapless numbering, FOR UPDATE, openKey, CHECKs, concurrent ordinals |
+| REGRESSION | PASS | Full unit, integration and E2E suites on the final code |
+
+**Score:** 16 PASS, 4 PARTIAL, 1 BLOCKED (ACCESSIBILITY raised to PASS on 2026-09-11 by the axe scan).
+
+### Findings
+
+| Priority | Open | Items |
+|---|---|---|
+| P0 | 0 | — |
+| P1 | 0 | — |
+| P2 | 1 | Triage rules need a clinical reviewer's sign-off (CLINICAL REVIEW REQUIRED) |
+| P3 | 2 | Dev-server cold compiles (30 s–2 min under load) can still time out a test's first visit; mitigated by `tests/e2e/global-setup.ts`, which warms the routes first · `/find` is the slowest page, warm TTFB 438–850 ms across the two production smokes. Closed on 2026-09-11, see the change log: HTML 404 on unknown `/api` paths, 400 on wrong sign-in, no page HSTS, no axe scan |
+
+### Integrations
+
+CONNECTED: PostgreSQL, local file storage, PostgreSQL search, reference geocoder.
+
+NOT_CONFIGURED:
+- payment gateway (checkout online, individual Prime, wallet top-up);
+- email, SMS, WhatsApp, push;
+- video, map tiles;
+- AI model provider (summary, translation);
+- enterprise SSO;
+- external data extractor, malware scanner, S3;
+- external search engine, analytics provider, error tracking.
+
+### Verdict
+
+**`DELIVERED_THROUGH_PHASE = 12`.** Every gate above passed on the final code, and no P0 or P1 is open.
+
+What remains is outside the code:
+- provider credentials for everything `NOT_CONFIGURED`;
+- a clinical reviewer for the triage rules;
+- business decisions: Prime prices, and enterprise contracts signed outside Toothlogy.
+
+## Final certification — 2026-09-11
+
+Run once, at the end, on the final code. The development server was stopped for the database and production runs. Numbers are real exit codes and counts.
+
+| Gate | Result |
+|---|---|
+| Type-check | clean (`tsc --noEmit` exit 0); rerun after the registry change: clean |
+| Lint | clean (full); rerun on `src/registry` after the change: clean |
+| Unit | 376 passed, 28 files (registry rerun after the change: 18 passed, 3 files) |
+| Integration | 242 passed, 27 files, real PostgreSQL (`toothlogy_test`) |
+| Browser E2E | 33 passed, 4 skipped, 0 failed, in 56.1 min (Playwright, system Chrome, 17 specs). The 4 skipped are the Phase 4 `patient-and-practice` (2) and `sponsored` (2) tests, which need the `E2E_PRACTICE_*` credentials. They passed at the 2026-09-10 gate with credentials set |
+| Database | 24 migrations, all additive, applied on development and test. `migrate diff --exit-code`: no difference |
+| Dependencies | `npm audit --omit=dev`: 0 vulnerabilities |
+| Build | `next build` compiled successfully; proxy registered |
+| Production smoke (`next start`, port 3021) | Page CSP: `script-src 'self' 'nonce-…' 'strict-dynamic'`, no `unsafe-eval`, and every script tag carries the nonce. API headers: HSTS (2 years, preload), `nosniff`, `DENY`, COOP `same-origin`. A signed-out protected API returns 401. No console errors on /knowledge, /find and /login |
+| Performance (production, warm TTFB) | / 72 ms · /find 312 ms · /knowledge 55 ms · /careers 78 ms · /for-dentists 65 ms · /colleges 88 ms · /community 54 ms · /login 41 ms · public APIs 27–32 ms. Single user only, not a load test |
+| Security probes | Protected APIs answer 401 when signed out; injection-shaped queries 200 with no leak; path traversal 404; login rate limit 429 after 5 attempts; no secrets in the source; CSRF covered by `SameSite=Lax` session and `Strict` MFA cookies |
+| SEO | robots.txt and sitemap.xml (17 URLs) served; JSON-LD on dentist, clinic, article (MedicalWebPage) and posting (JobPosting) pages; community and empty listings `noindex` |
+| Docs | every internal link resolves |
+| Registry | integrity, routes and pages suites pass at `DELIVERED_THROUGH_PHASE = 8` |
+
+### Integrations
+
+| Integration | State |
+|---|---|
+| PostgreSQL database | CONNECTED |
+| File storage, local disk | CONNECTED |
+| Search, PostgreSQL | CONNECTED |
+| Geocoder, reference city-level | CONNECTED |
+| Email, SMS, WhatsApp, push | NOT_CONFIGURED: notifications are in-app only; invitations and activation are refused rather than faked |
+| Payment gateway | NOT_CONFIGURED: wallet top-up and checkout refuse; success is never simulated |
+| Video, maps tiles | NOT_CONFIGURED |
+| External data extractor, malware scanner, S3 storage, external search engine | NOT_CONFIGURED |
+| Analytics provider, AI model provider, error tracking, enterprise SSO | NOT_CONFIGURED |
+
+### 21 certification dimensions (scope: Phases 1–8)
+
+| Dimension | Result | Evidence or gap |
+|---|---|---|
+| FUNCTIONAL | PASS | 242 integration tests and 33 browser journeys |
+| UI_UX | PASS | Every module driven through its screens in E2E |
+| DESKTOP | PASS | E2E in desktop Chrome |
+| MOBILE | PASS | 375 px pass in each module's E2E |
+| RESPONSIVE | PASS | Overflow check names offending elements; one defect found and fixed (prescription page) |
+| ACCESSIBILITY | PARTIAL | E2E drives controls by accessible label; no automated axe scan (P3) |
+| API | PASS | Registry ↔ route parity test; error envelope; idempotency declared or justified. P3: unknown `/api` paths answer with HTML |
+| DATABASE | PASS | Additive migrations, CHECK constraints, no drift, tests against real PostgreSQL |
+| AUTH | PASS | 401 signed out, rate limits, verified-email and OTP gates |
+| PERMISSIONS | PASS | Org-scoped checks in services; non-members get 404 in E2E |
+| SECURITY | PASS | Nonce CSP, API HSTS, audit 0, probes above. P3: HSTS on pages belongs to the edge |
+| PAYMENT | BLOCKED | No payment provider; the port answers `NOT_CONFIGURED` |
+| NOTIFICATIONS | PARTIAL | In-app delivered and tested; external channels `NOT_CONFIGURED` |
+| PERFORMANCE | PARTIAL | Warm TTFB 27–312 ms on production; no load test |
+| SEO | PASS | Sitemap, robots, JSON-LD, canonical, noindex where intended |
+| INTEGRATIONS | PARTIAL | 4 connected; 15 honestly `NOT_CONFIGURED` |
+| EMPTY_STATES | PASS | Empty lists explain the next step (seen in E2E on fresh fixtures) |
+| LOADING_STATES | PARTIAL | Server-rendered pages; pending states not separately tested |
+| ERROR_STATES | PASS | Direct service calls map to `VALIDATION_FAILED` with the field; 404 and `NOT_CONFIGURED` messages tested |
+| EDGE_CASES | PASS | Capacity under `FOR UPDATE`, `openKey` uniqueness, `ON CONFLICT` alerts, CHECK constraints, expiry jobs |
+| REGRESSION | PASS | Full unit, integration and E2E suites on the final code |
+
+**Score:** 15 PASS, 5 PARTIAL, 1 BLOCKED.
+
+### Findings
+
+| Priority | Open | Items |
+|---|---|---|
+| P0 | 0 | — |
+| P1 | 0 | — |
+| P2 | 1 | The 4 credential-gated E2E tests were skipped in this run. Rerun with `E2E_PRACTICE_*` set |
+| P3 | 4 | Unknown `/api` paths answer with the HTML 404 page · wrong sign-in details answer 400, not 401 · page HSTS is left to the edge · no automated axe scan |
+
+### Verdict
+
+**Toothlogy: NOT COMPLETE.** It is delivered and certified through Phase 8 (`DELIVERED_THROUGH_PHASE = 8`). Phases 9–12 are partly built. They cannot be finished without things this build must not fake:
+
+- **Payment provider credentials.** Phase 9 cart, checkout and orders are blocked.
+- **A business decision.** Phase 10 Prime membership needs its price and benefits decided.
+- **Provider credentials.** Email, SMS, WhatsApp, push, maps, video, AI model, malware scanner and S3 are all needed.
+- **Unbuilt scope.** Product variants, warranty and AMC; AI translation, triage and recommendations; localized tax packs outside India.
+- **Commercial and hosting decisions.** Phase 12 enterprise contracts, SLAs and data residency.

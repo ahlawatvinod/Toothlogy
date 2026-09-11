@@ -21,6 +21,7 @@ import { useForm } from '@/components/forms/use-form';
 
 const ROLES = [
   { value: 'clinic_staff', label: 'Staff — can view the organization' },
+  { value: 'clinician', label: 'Clinician — sees and adds to shared patient records' },
   { value: 'dentist', label: 'Dentist — practising clinician' },
   { value: 'clinic_admin', label: 'Administrator — full management' },
 ] as const;
