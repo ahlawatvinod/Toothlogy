@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
 
 const AXE = resolve('node_modules/axe-core/axe.min.js');
 
-const PAGES = ['/', '/find?type=dentist', '/which-dentist', '/knowledge', '/careers', '/marketplace', '/colleges', '/community', '/for-dentists', '/for-clinics', '/help', '/login', '/register', '/privacy'];
+const PAGES = ['/', '/about', '/find?type=dentist', '/which-dentist', '/knowledge', '/careers', '/marketplace', '/colleges', '/community', '/for-dentists', '/for-clinics', '/help', '/login', '/register', '/privacy', '/terms', '/terms/interns-volunteers'];
 
 interface AxeResult {
   violations: Array<{
