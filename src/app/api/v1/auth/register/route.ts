@@ -39,7 +39,23 @@ export const POST = defineRoute({
     // the user is signed in; only the verification message is undeliverable.
     let verificationSent = false;
 
+    // Built before sending, and guarded. The account and session already exist
+    // at this point, so an invalid NEXT_PUBLIC_* variable must cost the
+    // verification message, not the registration. Unguarded, it threw
+    // INTERNAL here and told a signed-in user that their account had not been
+    // created — and their retry then failed with "that email cannot be used".
+    // The configuration error is still logged at error level, naming the
+    // variable (never its value).
+    let verifyUrl: string | null = null;
     if (result.verificationDestination) {
+      try {
+        verifyUrl = `${getPublicConfig().NEXT_PUBLIC_APP_URL}/verify?token=${result.verificationToken}`;
+      } catch (error) {
+        logger.error('Verification link not sent: public configuration is invalid', { error });
+      }
+    }
+
+    if (result.verificationDestination && verifyUrl) {
       const outcome = await sendNotification({
         notificationId: 'TL-NOTIF-WELCOME-001',
         recipient: {
@@ -53,9 +69,7 @@ export const POST = defineRoute({
           locale: body.locale ?? 'en',
           timezone: body.timezone ?? 'Asia/Kolkata',
         },
-        data: {
-          verifyUrl: `${getPublicConfig().NEXT_PUBLIC_APP_URL}/verify?token=${result.verificationToken}`,
-        },
+        data: { verifyUrl },
         requestId,
       });
 
