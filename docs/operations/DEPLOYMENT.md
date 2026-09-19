@@ -196,8 +196,15 @@ crosses the public internet. That has four consequences to settle before go-live
    shared host caps connections per user. Keep `connection_limit` small in the
    URL (see `.env.example`); "Too many connections" under load means it is set
    too high or the plan's cap is too low.
-3. **Latency.** Put the Vercel function region and the Hostinger datacenter in
-   the same country. Every request pays the round trip once per query.
+3. **Latency — functions are pinned to Mumbai.** The Hostinger server
+   (`srv1645.hstgr.io`) is in Mumbai, and `vercel.json` sets `"regions":
+   ["bom1"]` so the functions run there too. Without it Vercel runs functions
+   in Washington, D.C. (`iad1`) by default — the page edge being Mumbai does
+   not change that — and every query crossed the planet: about 300 ms per
+   round trip, 10-second logins, and multi-step writes near their transaction
+   limits. If the database ever moves, move this region with it. Check the
+   live region with the `x-vercel-id` response header on any API route: it
+   reads `edge::function-region::id`.
 4. **Recovery.** Shared MySQL hosting generally offers periodic backups, not
    point-in-time recovery. Confirm the backup schedule and test a restore
    before real patient data is stored — the DPDP Act and the clinical-records

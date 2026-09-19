@@ -21,7 +21,7 @@
 
 import { createHash, randomBytes } from 'node:crypto';
 import { newId } from '../kernel/ids';
-import { db } from '../db/client';
+import { db, transaction } from '../db/client';
 
 /** Token lifetimes, chosen per risk rather than one shared constant. */
 export const TOKEN_TTL_MINUTES = {
@@ -73,7 +73,11 @@ export async function issueToken(
   const token = generateToken();
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES[type] * 60 * 1000);
 
-  await db().$transaction(async (tx) => {
+  // Through the platform `transaction()` helper, like every other multi-step
+  // write. A bare `db().$transaction` gets Prisma's defaults instead — a 5s
+  // limit and REPEATABLE READ — which were the only transaction settings in the
+  // codebase not chosen on purpose, and the tightest ones.
+  await transaction(async (tx) => {
     await tx.verificationToken.updateMany({
       where: { userId, type, consumedAt: null },
       data: { consumedAt: new Date() },
