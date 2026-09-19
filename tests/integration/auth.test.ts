@@ -1,7 +1,7 @@
 /**
  * TL-TEST-AUTH-INTEGRATION-001 — Authentication against a real database
  *
- * These tests exercise the real service layer against real PostgreSQL. They
+ * These tests exercise the real service layer against real MySQL. They
  * target the properties that only a real database can prove: unique
  * constraints, transaction atomicity, atomic single-use token consumption, and
  * the session lifecycle.

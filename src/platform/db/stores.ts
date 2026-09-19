@@ -24,7 +24,7 @@ import type {
   RateLimitResult,
   RateLimitStore,
 } from '../http/security';
-import { db } from './client';
+import { db, isWriteConflict } from './client';
 
 // ---------------------------------------------------------------------------
 // Rate limiting
@@ -33,16 +33,22 @@ import { db } from './client';
 /**
  * Database-backed fixed-window rate limiter.
  *
- * The whole operation is one atomic SQL statement. That is the point: a
+ * The increment and the read are one indivisible step. That is the point: a
  * read-then-write would let two concurrent requests both read count=4, both
- * write 5, and both pass a limit of 5. `INSERT … ON CONFLICT DO UPDATE` with a
- * `RETURNING` clause makes the increment and the read a single indivisible step,
- * so the limit holds under concurrency — which is the only condition under
- * which a rate limit matters.
+ * write 5, and both pass a limit of 5.
  *
- * The window resets by comparing `windowEndsAt` inside the same statement: if
- * the stored window has expired, the update starts a fresh one rather than
- * incrementing a stale count.
+ * HOW THAT IS DONE ON MYSQL
+ * MySQL has `INSERT … ON DUPLICATE KEY UPDATE` but no `RETURNING`, so the
+ * single PostgreSQL statement this replaced becomes an upsert and a select
+ * inside one transaction. It is still atomic: the upsert takes an exclusive
+ * lock on the counter row that InnoDB holds until the transaction commits, so
+ * a concurrent request for the same key waits at its own upsert, and the
+ * select — which always sees its own transaction's write — reads exactly the
+ * value this request produced. `tests/integration/rate-limit.test.ts` fires
+ * concurrent hits at one key and asserts the limit holds exactly.
+ *
+ * The window resets inside the same upsert: if the stored window has expired,
+ * it starts a fresh one rather than incrementing a stale count.
  */
 export class DatabaseRateLimitStore implements RateLimitStore {
   async hit(key: string, policy: RateLimitPolicy): Promise<RateLimitResult> {
@@ -50,36 +56,68 @@ export class DatabaseRateLimitStore implements RateLimitStore {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + policy.windowSeconds * 1000);
 
-    const rows = await db().$queryRaw<Array<{ count: number; windowEndsAt: Date }>>`
-      INSERT INTO "rate_limit_counters" ("key", "count", "windowEndsAt")
-      VALUES (${windowKey}, 1, ${windowEnd})
-      ON CONFLICT ("key") DO UPDATE SET
-        "count" = CASE
-          WHEN "rate_limit_counters"."windowEndsAt" <= ${now}
-            THEN 1
-          ELSE "rate_limit_counters"."count" + 1
-        END,
-        "windowEndsAt" = CASE
-          WHEN "rate_limit_counters"."windowEndsAt" <= ${now}
-            THEN ${windowEnd}
-          ELSE "rate_limit_counters"."windowEndsAt"
-        END
-      RETURNING "count", "windowEndsAt"
-    `;
+    let row: { count: number; windowEndsAt: Date } | undefined;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        const [, rows] = await db().$transaction(
+          [
+            // ORDER MATTERS. MySQL evaluates these assignments left to right and
+            // a later one sees the value an earlier one just wrote. `count` must
+            // be decided while `windowEndsAt` still holds the OLD window; swap
+            // them and an expired window is extended before `count` checks it,
+            // so the count never resets and the key stays blocked for good.
+            db().$executeRaw`
+              INSERT INTO \`rate_limit_counters\` (\`key\`, \`count\`, \`windowEndsAt\`)
+              VALUES (${windowKey}, 1, ${windowEnd})
+              ON DUPLICATE KEY UPDATE
+                \`count\` = IF(\`windowEndsAt\` <= ${now}, 1, \`count\` + 1),
+                \`windowEndsAt\` = IF(\`windowEndsAt\` <= ${now}, ${windowEnd}, \`windowEndsAt\`)
+            `,
+            db().$queryRaw<Array<{ count: number; windowEndsAt: Date }>>`
+              SELECT \`count\`, \`windowEndsAt\`
+              FROM \`rate_limit_counters\`
+              WHERE \`key\` = ${windowKey}
+            `,
+          ],
+          // Read committed takes no gap locks, which is what keeps concurrent
+          // first hits on different new keys from deadlocking each other.
+          { isolationLevel: 'ReadCommitted' },
+        );
+        row = rows[0];
+        break;
+      } catch (error) {
+        // Two first hits racing to insert the same new key can deadlock on
+        // MySQL; InnoDB resolves it by rolling one back (P2034). That request
+        // simply goes again and lands on the row the winner created.
+        //
+        // Any OTHER error propagates exactly as it did on PostgreSQL. Only the
+        // deadlock is new with this engine, so only the deadlock gets the
+        // fail-open treatment below — once it has persisted past its retries.
+        if (!isWriteConflict(error)) throw error;
+        if (attempt < 3) continue;
+        logger.error('Rate limit statement kept deadlocking; allowing the request', {
+          key: windowKey,
+          attempts: attempt,
+        });
+        break;
+      }
+    }
 
-    const row = rows[0];
     if (!row) {
-      // Cannot happen with RETURNING, but a rate limiter that throws would take
-      // down every request it protects. Failing open is the correct trade here:
-      // the alternative is an outage caused by the safety mechanism.
-      logger.error('Rate limit statement returned no row', { key: windowKey });
+      // A rate limiter that throws takes down every request it protects.
+      // Failing open is the correct trade here: the alternative is an outage
+      // caused by the safety mechanism.
       return { allowed: true, remaining: policy.limit, retryAfterSeconds: 0 };
     }
 
-    const allowed = row.count <= policy.limit;
+    // `count` is INT, which the driver returns as a number — but coerce anyway,
+    // so a future widening to BIGINT cannot turn this comparison into bigint
+    // arithmetic that throws.
+    const count = Number(row.count);
+    const allowed = count <= policy.limit;
     return {
       allowed,
-      remaining: Math.max(0, policy.limit - row.count),
+      remaining: Math.max(0, policy.limit - count),
       retryAfterSeconds: allowed
         ? 0
         : Math.max(1, Math.ceil((row.windowEndsAt.getTime() - now.getTime()) / 1000)),

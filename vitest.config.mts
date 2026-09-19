@@ -6,7 +6,7 @@
  * Unit and integration tests have incompatible parallelism requirements:
  *
  * - **Unit** tests touch no shared state, so they run in parallel across files.
- * - **Integration** tests share ONE PostgreSQL database and truncate it between
+ * - **Integration** tests share ONE MySQL database and empty it between
  *   tests. Run in parallel, two files truncate each other mid-test and produce
  *   failures that look like real bugs but are pure interference — the worst
  *   kind of flake, because it sends you debugging correct code.
@@ -28,7 +28,7 @@ import { defineConfig } from 'vitest/config';
  * is trivial and this runs before anything else.
  *
  * Existing environment variables win, so CI — which sets `DATABASE_URL` for its
- * postgres service — is never overridden by a developer's local file.
+ * MySQL service — is never overridden by a developer's local file.
  */
 function loadEnvLocal(): Record<string, string> {
   const out: Record<string, string> = {};

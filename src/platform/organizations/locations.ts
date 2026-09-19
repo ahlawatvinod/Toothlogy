@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { newId } from '../kernel/ids';
 import { errors } from '../kernel/errors';
 import { db, isUniqueConstraintError, transaction } from '../db/client';
+import { jsonStringArray } from '../db/json';
 import { recordAuditEvent } from '../audit';
 import { slugSchema } from './service';
 
@@ -294,9 +295,17 @@ export function isOpenAt(
 
 /** Locations for an organization, with hours. */
 export async function listLocations(organizationId: string) {
-  return db().location.findMany({
+  const locations = await db().location.findMany({
     where: { organizationId, deletedAt: null },
     include: { businessHours: { orderBy: [{ dayOfWeek: 'asc' }, { opensAtMinutes: 'asc' }] }, address: true },
     orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }],
   });
+  // `lines` is a JSON column on MySQL; callers get the list they always had.
+  return locations.map((location) => ({
+    ...location,
+    address: location.address && {
+      ...location.address,
+      lines: jsonStringArray(location.address.lines, 'address.lines'),
+    },
+  }));
 }

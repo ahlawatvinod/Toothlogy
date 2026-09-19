@@ -87,7 +87,7 @@ describe('field redaction', () => {
   });
 
   it('redacts registry-declared secret config keys', () => {
-    const result = redact({ DATABASE_URL: 'postgres://u:p@h/db' }) as Record<string, unknown>;
+    const result = redact({ DATABASE_URL: 'mysql://u:p@h/db' }) as Record<string, unknown>;
     expect(result.DATABASE_URL).toBe(REDACTED);
   });
 

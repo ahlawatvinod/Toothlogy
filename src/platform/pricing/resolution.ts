@@ -91,7 +91,7 @@ export function resolvePriceList<T extends ResolvableServicePrice>(
 /**
  * The scope key stored alongside `locationId`.
  *
- * PostgreSQL treats NULLs as distinct in a UNIQUE constraint, so
+ * MySQL treats NULLs as distinct in a UNIQUE constraint, so
  * `UNIQUE (dentist, service, location)` would happily accept unlimited rows
  * whose location is NULL — the global row, which is exactly the one that must
  * be unique. Writing the location id, or the literal below, into a NOT NULL

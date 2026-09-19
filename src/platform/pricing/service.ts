@@ -272,7 +272,19 @@ export async function upsertServicePrice(
   input: ServicePriceInput,
   actor: Actor,
 ): Promise<{ servicePriceId: string; changes: number }> {
-  const parsed = servicePriceInputSchema.parse(input);
+  // `safeParse` and a typed error, as every other service does. A bare
+  // `.parse()` let a raw ZodError escape to any caller that did not go through
+  // an HTTP route, which is how the length-limit test caught it.
+  const result = servicePriceInputSchema.safeParse(input);
+  if (!result.success) {
+    throw errors.validation('The price details are not valid.', {
+      issues: result.error.issues.map((issue) => ({
+        field: issue.path.join('.') || '(root)',
+        message: issue.message,
+      })),
+    });
+  }
+  const parsed = result.data;
   const profile = await requireOwnProfile(userId);
 
   const locationId = parsed.locationId ?? null;

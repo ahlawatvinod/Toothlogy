@@ -521,7 +521,7 @@ export async function completePasswordReset(
    * findFirst-then-write rather than upsert.
    *
    * The unique key is (userId, type, provider) and `provider` is NULL for a
-   * password credential. PostgreSQL treats NULLs as distinct in a unique index,
+   * password credential. MySQL treats NULLs as distinct in a unique index,
    * so that constraint does not actually prevent duplicate password rows and an
    * upsert on it would not reliably match the existing one.
    *

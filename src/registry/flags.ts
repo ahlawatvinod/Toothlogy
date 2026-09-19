@@ -100,7 +100,7 @@ export const CONFIG_ENTRIES: readonly ConfigEntry[] = [
   },
   {
     key: 'DATABASE_URL',
-    description: 'PostgreSQL connection string. Contains credentials.',
+    description: 'MySQL connection string. Contains credentials.',
     secret: true,
     required: false,
     scope: 'server',

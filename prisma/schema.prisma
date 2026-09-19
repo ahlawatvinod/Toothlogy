@@ -22,6 +22,26 @@
 // - Sensitive columns are commented as such, so redaction and export tooling
 //   has a stated target.
 //
+// MYSQL CONVENTIONS — read before adding a column
+//
+// - **Free text is `@db.Text`.** A plain `String` is VARCHAR(191) on MySQL,
+//   not unbounded, and a longer value is rejected outright. Anything a person
+//   types, and anything not bounded by construction, is `@db.Text` (or
+//   `@db.MediumText` for bodies that can pass 64 KB). Plain `String` is for
+//   identifiers, codes, hashes and other values short by construction.
+// - **Email is `@db.VarChar(320)`.** Validation allows 320 characters; the
+//   191 default would reject addresses the app itself accepts.
+// - **Indexed strings stay VARCHAR.** TEXT cannot be a plain index key. Every
+//   composite key must fit InnoDB's 3072-byte limit at 4 bytes a character.
+// - **No array columns.** MySQL has none; lists are `Json` holding a string
+//   array, read through `jsonStringArray()`.
+// - **Collation is `utf8mb4_bin`**, set per table in the migrations. MySQL's
+//   default collations are case- and accent-insensitive: under them two token
+//   hashes differing only in letter case compare equal, and "José" collides
+//   with "Jose" in a unique index. Binary collation keeps the exact
+//   comparison PostgreSQL had. `tests/platform/migrations.test.ts` fails any
+//   migration that creates a table under another collation.
+//
 // SOFT DELETE IS NOT UNIVERSAL. Reference data and append-only logs are
 // hard-deletable or not deletable at all. Applying soft delete everywhere adds
 // a `deletedAt IS NULL` clause to every query — one of which will eventually be
@@ -33,7 +53,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -52,10 +72,10 @@ model User {
 
   /// Nullable because a user may register with a phone number alone, which is
   /// the common path in the Indian market. Requiring email would exclude them.
-  email       String? @unique
+  email       String? @db.VarChar(320) @unique
   /// E.164, e.g. +919876543210. Stored normalised so lookup is exact.
   phone       String? @unique
-  displayName String?
+  displayName String? @db.Text
 
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
@@ -160,7 +180,7 @@ model Session {
   /// Recorded so a user can recognise and revoke a session they do not
   /// recognise — the "signed in on a device you don't own" case.
   ipAddress String?
-  userAgent String?
+  userAgent String? @db.Text
 
   expiresAt DateTime
   revokedAt DateTime?
@@ -212,7 +232,7 @@ model Organization {
   id   String           @id
   type OrganizationType
 
-  name String
+  name String @db.Text
   /// URL-safe identifier for public pages. Unique platform-wide, because it
   /// appears in a URL that must resolve to exactly one organization.
   slug String @unique
@@ -280,7 +300,7 @@ model OrganizationMember {
   /// Role key scoped to this organization.
   roleKey String
 
-  title     String?
+  title     String? @db.Text
   isPrimary Boolean @default(false)
 
   joinedAt DateTime  @default(now())
@@ -308,9 +328,9 @@ model Profile {
   type ProfileType
 
   /// Public-facing name, which may differ from the account's display name.
-  displayName String?
-  headline    String?
-  bio         String?
+  displayName String? @db.Text
+  headline    String? @db.Text
+  bio         String? @db.Text
 
   /// Public profile URL segment. Unique per type, so a dentist and a clinic
   /// may share a slug without colliding.
@@ -457,14 +477,19 @@ model Address {
   id String @id
 
   /// Ordered address lines as the local convention writes them.
-  lines String[]
+  ///
+  /// A JSON array of strings. MySQL has no array column type, and Prisma does
+  /// not support scalar lists there; the value is only ever written and read
+  /// whole, so JSON preserves the behaviour exactly. Read it through
+  /// `jsonStringArray()` in src/platform/db/json.ts, never by casting.
+  lines Json
 
   cityId String?
   city   City?   @relation(fields: [cityId], references: [id])
 
   /// Free-text fallbacks for places not yet in the reference tables.
-  locality   String?
-  regionName String?
+  locality   String? @db.Text
+  regionName String? @db.Text
 
   postalCode  String?
   countryCode String  @db.Char(2)
@@ -519,7 +544,7 @@ model AuditEvent {
   requestId      String?
   organizationId String?
   ipAddress      String?
-  userAgent      String?
+  userAgent      String? @db.Text
 
   /// Structured context, passed through the logger's redactor before writing —
   /// so a careless caller cannot put a secret into a permanent record.
@@ -564,7 +589,7 @@ model OutboxEvent {
   occurredAt  DateTime  @default(now())
   publishedAt DateTime?
   attempts    Int       @default(0)
-  lastError   String?
+  lastError   String? @db.Text
 
   /// Partial index on unpublished rows: the relay polls for `publishedAt IS
   /// NULL`, and without this it would scan the entire event history each time.
@@ -604,7 +629,7 @@ model FeatureFlagOverride {
 
   state String
 
-  reason          String?
+  reason          String? @db.Text
   setByUserId     String?
   expiresAt       DateTime?
 
@@ -623,7 +648,7 @@ model FileObject {
   id String @id
 
   /// Provider-side object key. Not a URL — a URL implies addressability.
-  storageKey String @unique
+  storageKey String @db.VarChar(512) @unique
 
   contentType String
   sizeBytes   Int
@@ -636,7 +661,7 @@ model FileObject {
   /// Set when the file belongs to an organization rather than a person.
   ownerOrganizationId String?
 
-  originalFilename String?
+  originalFilename String? @db.Text
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -715,7 +740,7 @@ model VerificationToken {
 
   /// The email or phone the token was sent to, captured at issue time, so a
   /// token cannot be redeemed after the user changes their address.
-  destination String
+  destination String @db.VarChar(320)
 
   expiresAt DateTime
   /// Set the moment it is redeemed. Single use is enforced by checking this.
@@ -758,10 +783,10 @@ model LoginAttempt {
   success Boolean
   /// Why it failed, for operators. Never returned to the caller: a precise
   /// reason tells an attacker whether the account exists.
-  reason String?
+  reason String? @db.Text
 
   ipAddress String?
-  userAgent String?
+  userAgent String? @db.Text
 
   occurredAt DateTime @default(now())
 
@@ -797,7 +822,7 @@ model Invitation {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  email   String
+  email   String @db.VarChar(320)
   roleKey String
 
   /// SENSITIVE. SHA-256 of the invitation token.
@@ -839,7 +864,7 @@ model Location {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  name String
+  name String @db.Text
   slug String
 
   addressId String?  @unique
@@ -853,7 +878,7 @@ model Location {
 
   timezone String
   phone    String?
-  email    String?
+  email    String? @db.VarChar(320)
 
   isPrimary Boolean        @default(false)
   status    LocationStatus @default(ACTIVE)
@@ -969,7 +994,7 @@ model TranslationKey {
 
   /// Where it appears, so a translator has context. "Book" is a verb or a noun
   /// depending on the screen, and without context it gets translated wrongly.
-  description String?
+  description String? @db.Text
   namespace   String
 
   createdAt DateTime @default(now())
@@ -987,7 +1012,7 @@ model Translation {
   key   TranslationKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
 
   locale String
-  value  String
+  value  String @db.Text
 
   /// Machine translations are marked so they can be reviewed, and are never
   /// mistaken for a human-approved string in clinical content.
@@ -1012,8 +1037,8 @@ model NotificationTemplate {
   locale         String
 
   /// Email subject or push title. Null for SMS, which has no subject.
-  subject String?
-  body    String
+  subject String? @db.Text
+  body    String @db.MediumText
 
   /// Provider-side template ID where the provider renders content: required for
   /// WhatsApp, and for SMS under India's DLT regime.
@@ -1047,7 +1072,7 @@ model NotificationRecord {
   data Json?
 
   attempts  Int     @default(0)
-  lastError String?
+  lastError String? @db.Text
 
   /// Provider's ID, for reconciling delivery webhooks.
   providerMessageId String?
@@ -1085,10 +1110,10 @@ model InAppNotification {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   notificationId String
-  title          String
-  body           String
+  title          String @db.Text
+  body           String @db.Text
   /// Where clicking it should take the user.
-  linkUrl String?
+  linkUrl String? @db.Text
 
   readAt DateTime?
 
@@ -1105,7 +1130,7 @@ model SavedLocation {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  label String
+  label String @db.Text
 
   addressId String?  @unique
   address   Address? @relation(fields: [addressId], references: [id])
@@ -1131,7 +1156,7 @@ model SavedLocation {
 model Geofence {
   id String @id
 
-  name String
+  name String @db.Text
   kind GeofenceKind
 
   /// Radius fences.
@@ -1178,19 +1203,28 @@ enum GeofencePurpose {
 /// code, and a cross-type search - "implant", which is a treatment, an article
 /// and a product - would need a union of hand-written queries.
 ///
-/// `searchVector` is a PostgreSQL tsvector maintained by a trigger created in
-/// the migration. Prisma has no native type for it, so it is Unsupported and
-/// never selected directly.
+/// Full-text matching is MySQL `FULLTEXT` over title, summary and body.
+///
+/// Unlike the PostgreSQL design this replaced — a tsvector column kept current
+/// by a trigger — there is no derived column to maintain: InnoDB updates a
+/// FULLTEXT index as part of the row write itself, so the index cannot fall
+/// out of step with the row it indexes.
+///
+/// Each column also carries its own index so ranking can weight them, title
+/// over summary over body: `MATCH` must name exactly the columns of one
+/// FULLTEXT index, so a per-column score needs a per-column index. That keeps
+/// the old intent — a dentist whose NAME matches outranks one who mentions the
+/// word in a paragraph of bio.
 model SearchDocument {
   id String @id
 
   entityType String
   entityId   String
 
-  title   String
-  summary String?
+  title   String @db.Text
+  summary String? @db.Text
   /// Concatenated searchable text. Indexed, not displayed.
-  body String
+  body String @db.MediumText
 
   /// Facet values, e.g. { specialty: [...], language: [...] }.
   facets Json?
@@ -1206,8 +1240,6 @@ model SearchDocument {
 
   isPublished Boolean @default(true)
 
-  searchVector Unsupported("tsvector")?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1215,6 +1247,10 @@ model SearchDocument {
   @@index([entityType, isPublished])
   @@index([latitude, longitude])
   @@index([qualityScore])
+  @@fulltext([title, summary, body], map: "search_documents_text_ft")
+  @@fulltext([title], map: "search_documents_title_ft")
+  @@fulltext([summary], map: "search_documents_summary_ft")
+  @@fulltext([body], map: "search_documents_body_ft")
   @@map("search_documents")
 }
 
@@ -1230,7 +1266,7 @@ model AccountDeletionRequest {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  reason String?
+  reason String? @db.Text
 
   requestedAt DateTime @default(now())
   /// When erasure runs unless cancelled.
@@ -1277,9 +1313,9 @@ model DentistProfile {
   /// Public URL segment, e.g. /dentists/dr-asha-sharma.
   slug String @unique
 
-  headline String?
+  headline String? @db.Text
   /// Free-text professional biography, shown on the public profile.
-  bio      String?
+  bio      String? @db.Text
 
   /// Year the dentist began practising. Used to derive years of experience,
   /// which is stored nowhere: a derived value would be wrong within a year.
@@ -1288,7 +1324,11 @@ model DentistProfile {
   /// Languages spoken, as BCP 47 codes. A patient who cannot describe their
   /// pain in a shared language cannot be treated well, which makes this a
   /// clinical matter rather than a nicety — and a discovery filter.
-  languages String[]
+  ///
+  /// A JSON array of strings — see `Address.lines` for why it is JSON. As a
+  /// discovery filter this is served by `SearchDocument.facets`, not by
+  /// querying inside this column.
+  languages Json
 
   /// Consultation fee in minor units, with its currency. Money is never a
   /// float (Constitution section 4). Null means "not published".
@@ -1358,15 +1398,15 @@ model Qualification {
   dentistProfile   DentistProfile @relation(fields: [dentistProfileId], references: [id], onDelete: Cascade)
 
   /// e.g. BDS, MDS, PhD.
-  degree      String
-  institution String
+  degree      String @db.Text
+  institution String @db.Text
   /// Year awarded. An int, not a date: certificates carry a year.
   year        Int
 
   /// Registration number with a dental council, where the qualification
   /// carries one. This is the field verification actually checks.
-  registrationNumber String?
-  registrationBody   String?
+  registrationNumber String? @db.Text
+  registrationBody   String? @db.Text
 
   isVerified Boolean   @default(false)
   verifiedAt DateTime?
@@ -1390,7 +1430,7 @@ model Specialty {
   name String
   /// Patient-facing explanation: "endodontics" means nothing to most people,
   /// and a filter nobody understands is a filter nobody uses.
-  description String
+  description String @db.Text
 
   dentists DentistSpecialty[]
 
@@ -1466,8 +1506,8 @@ model VerificationRequest {
   /// shown to the applicant, because a rejection nobody can act on is useless.
   reviewedByUserId String?
   reviewedAt       DateTime?
-  decisionReason   String?
-  reviewerNotes    String?
+  decisionReason   String? @db.Text
+  reviewerNotes    String? @db.Text
 
   /// Verification expires. A credential checked five years ago is not evidence
   /// that the dentist is registered today.
@@ -1476,7 +1516,7 @@ model VerificationRequest {
   /// Revocation is a state, not a deletion.
   revokedAt       DateTime?
   revokedByUserId String?
-  revocationReason String?
+  revocationReason String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1513,8 +1553,8 @@ model ServiceOffering {
 
   /// Reference to the treatment catalogue, once Division 13 exists. Free text
   /// until then, which is honest about what is not yet built.
-  name        String
-  description String?
+  name        String @db.Text
+  description String? @db.Text
 
   /// Price in minor units with currency. Null means "on consultation", which
   /// is a real answer in dentistry and must be distinguishable from zero.
@@ -1583,11 +1623,11 @@ model ServiceCategory {
   name String
   slug String @unique
 
-  description String?
+  description String? @db.Text
   /// Patient-facing one-liner. Separate from `description` because the
   /// clinical framing and the framing a nervous patient should read are
   /// different pieces of writing.
-  patientDescription String?
+  patientDescription String? @db.Text
 
   /// Manual ordering. Alphabetical would put "X-Ray & Diagnostics" before
   /// "Consultation", which is the reverse of the order care happens in.
@@ -1629,13 +1669,13 @@ model CatalogueService {
 
   /// The full clinical-but-readable explanation: what the procedure is, why it
   /// may be needed, and what is generally included.
-  description String?
+  description String? @db.Text
   /// One line, for a table cell or a card. Separate from `description` rather
   /// than truncated from it, because a truncated sentence ends mid-clause and
   /// on a treatment description that can change what it appears to say.
-  shortDescription String?
+  shortDescription String? @db.Text
   /// Plain-language explanation shown to patients.
-  patientDescription String?
+  patientDescription String? @db.Text
 
   /// Default unit for this treatment, e.g. per tooth for a veneer. A dentist
   /// may override it on their own price row.
@@ -1717,8 +1757,8 @@ model ServiceVariant {
   /// A variant's own description supplements the parent service's rather than
   /// repeating it: "a zirconia crown is…" is worth saying, "a crown is…" is
   /// already said one level up.
-  description      String?
-  shortDescription String?
+  description      String? @db.Text
+  shortDescription String? @db.Text
 
   suggestedMinMinor BigInt?
   suggestedMaxMinor BigInt?
@@ -1754,7 +1794,7 @@ model ServiceSynonym {
   serviceId String
   service   CatalogueService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
-  keyword String
+  keyword String @db.Text
 
   /// Lowercased, punctuation-stripped form the search actually matches on.
   /// Stored rather than computed per query so it can be indexed.
@@ -1804,7 +1844,7 @@ model PriceUnit {
 ///
 /// WHY scopeKey EXISTS
 /// The natural key is (dentist, service, location) where a null location means
-/// "global". In PostgreSQL a UNIQUE constraint treats NULLs as distinct, so
+/// "global". In MySQL a UNIQUE constraint treats NULLs as distinct, so
 /// that constraint would permit unlimited duplicate global rows — the exact
 /// case that must be unique. `scopeKey` holds the location id, or the literal
 /// '_global', so one ordinary unique constraint covers both scopes. It is
@@ -1833,7 +1873,7 @@ model DentistServicePrice {
   isPublicVisible Boolean @default(true)
 
   /// Free-text note shown to patients, e.g. "price depends on canal count".
-  note String?
+  note String? @db.Text
 
   /// The clinic's own wording for this treatment, shown to patients in place
   /// of the master description.
@@ -1843,7 +1883,7 @@ model DentistServicePrice {
   /// clinic's phrasing would silently become every clinic's, and the master
   /// text is what the platform stands behind. Null means "use the master
   /// description" — see resolveDescription in platform/pricing/description.ts.
-  customDescription String?
+  customDescription String? @db.Text
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1879,7 +1919,7 @@ model DentistVariantPrice {
 
   /// `variantId`, or '_base'. Same reason as DentistServicePrice.scopeKey:
   /// a null variant must be unique per service row, and NULLs are distinct in
-  /// a PostgreSQL unique constraint.
+  /// a MySQL unique constraint.
   variantKey String
 
   unitId String
@@ -1907,7 +1947,7 @@ model DentistVariantPrice {
 
   /// The clinic's own wording for this variant specifically. The most specific
   /// of the four description sources; see resolveDescription.
-  customDescription String?
+  customDescription String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1930,12 +1970,12 @@ model DentistPackage {
   locationId String?
   location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
-  name String
+  name String @db.Text
   slug String
 
-  description String?
+  description String? @db.Text
   /// What the patient is agreeing to: validity, exclusions, revision policy.
-  terms String?
+  terms String? @db.Text
 
   priceMinor BigInt
   currency   String
@@ -1982,7 +2022,7 @@ model PackageItem {
   /// being read as covering more than it does.
   isIncluded Boolean @default(true)
 
-  note String?
+  note String? @db.Text
 
   sortOrder Int @default(0)
 
@@ -2023,8 +2063,8 @@ model PriceHistory {
   currency      String?
 
   /// Non-monetary changes, e.g. unit or enabled state, recorded as text.
-  previousText String?
-  newText      String?
+  previousText String? @db.Text
+  newText      String? @db.Text
 
   changedAt DateTime @default(now())
 

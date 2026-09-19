@@ -12,7 +12,7 @@
  * Each of those fails silently rather than loudly: nothing errors, a patient is
  * simply shown a price that nobody at the clinic agreed to.
  *
- * These run against a real PostgreSQL database. See tests/helpers/database.ts
+ * These run against a real MySQL database. See tests/helpers/database.ts
  * for why they are not mocked, and why they skip rather than fail without one.
  */
 
@@ -304,7 +304,7 @@ describeIntegration('dentist pricing', () => {
 
   it('saving the same scope twice updates rather than duplicating', async () => {
     // The scopeKey column exists precisely so the global row is unique despite
-    // PostgreSQL treating NULLs as distinct in a unique constraint.
+    // MySQL treating NULLs as distinct in a unique constraint.
     const asha = await makeDentist('asha@example.com', 'dr-asha');
 
     await upsertServicePrice(asha.userId, crown(), { userId: asha.userId });

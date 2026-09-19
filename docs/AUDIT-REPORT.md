@@ -38,7 +38,7 @@ Each row answers the checklist in Prompt 1 §1.2 against the repository **as fou
 | Framework | none | Next.js 15 (App Router) |
 | Frontend | none | React 19 + TypeScript, Tailwind CSS v4 |
 | Backend | none | Next.js Route Handlers under `/api/v1` |
-| Database | none | PostgreSQL |
+| Database | none | PostgreSQL — **superseded 2026-09-19 by MySQL**, see below |
 | ORM | none | Prisma |
 | Authentication | none | Session-based core in `src/platform/auth` |
 | API architecture | none | Versioned REST, shared envelope + error contract |
@@ -63,6 +63,12 @@ brownfield audit would normally carry, and its emptiness here is the finding.
 ---
 
 ## 3. Stack decision and rationale
+
+> **Superseded 2026-09-19.** At the project owner's direction the database was migrated
+> from PostgreSQL to MySQL, for production hosting on Hostinger. The PostgreSQL rationale
+> below is kept as the record of the original decision; `docs/operations/DEPLOYMENT.md` §9
+> describes the current arrangement and its trade-offs. PostGIS was never adopted, so the
+> location foundation is unaffected.
 
 The stack was not discoverable from the repository, so it was **confirmed with the project
 owner** rather than assumed. Selected: **Next.js 15 + TypeScript + Prisma + PostgreSQL**,

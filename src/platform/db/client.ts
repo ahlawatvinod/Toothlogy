@@ -99,11 +99,13 @@ export type TransactionClient = Omit<
  * that also writes an audit event and an outbox row has more work to do than
  * the default assumes.
  *
- * `isolationLevel: 'ReadCommitted'` is PostgreSQL's default and is stated
- * explicitly so the choice is visible: operations needing stronger guarantees
- * (double-booking prevention) get them from a unique constraint rather than
- * from `Serializable`, which would serialise unrelated bookings across the
- * whole platform.
+ * `isolationLevel: 'ReadCommitted'` is stated explicitly because it is NOT
+ * MySQL's default — InnoDB defaults to REPEATABLE READ. Pinning it keeps the
+ * semantics every transaction here was written against, and it takes no gap
+ * locks, which are the main source of InnoDB deadlocks between unrelated
+ * inserts. Operations needing stronger guarantees (double-booking prevention)
+ * get them from a unique constraint rather than from `Serializable`, which
+ * would serialise unrelated bookings across the whole platform.
  */
 export async function transaction<T>(
   fn: (tx: TransactionClient) => Promise<T>,
@@ -160,14 +162,39 @@ function prismaErrorCode(error: unknown): string | null {
   return typeof code === 'string' ? code : null;
 }
 
-/** Which fields collided, for turning a constraint error into a useful message. */
-export function uniqueConstraintFields(error: unknown): string[] {
+/**
+ * Which fields collided, for turning a constraint error into a useful message.
+ *
+ * The shape of `meta.target` depends on the engine. PostgreSQL reports the
+ * field names, `['email']`. MySQL reports the INDEX name as one string,
+ * `'users_email_key'` — so code comparing against a field name would silently
+ * stop matching. Prisma names unique indexes `<table>_<field>_<field>_key`,
+ * which is what lets the fields be recovered here, given the model's fields.
+ */
+export function uniqueConstraintFields(error: unknown, knownFields: readonly string[] = []): string[] {
   if (!isUniqueConstraintError(error)) return [];
   const meta = (error as { meta?: { target?: unknown } }).meta;
   const target = meta?.target;
   if (Array.isArray(target)) return target.map(String);
-  if (typeof target === 'string') return [target];
-  return [];
+  if (typeof target !== 'string') return [];
+  if (!target.endsWith('_key') || knownFields.length === 0) return [target];
+  // Longest names first, so `userId` is not matched inside `organizationUserId`.
+  const inner = target.slice(0, -'_key'.length);
+  const found = [...knownFields]
+    .sort((a, b) => b.length - a.length)
+    .filter((field) => inner.includes(`_${field}`));
+  return found.length > 0 ? found : [target];
+}
+
+/**
+ * Detect a transaction rolled back by a write conflict or deadlock.
+ *
+ * InnoDB resolves a deadlock by aborting one participant, which surfaces as
+ * P2034. The right response is to retry the whole transaction, not to report
+ * a failure — the conflicting write has usually already finished.
+ */
+export function isWriteConflict(error: unknown): boolean {
+  return prismaErrorCode(error) === 'P2034';
 }
 
 /** Detect "record not found" from an update or delete. */

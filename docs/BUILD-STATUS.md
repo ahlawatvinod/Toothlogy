@@ -1,12 +1,12 @@
 # Toothlogy Build Status
 
-**Last verified:** 2026-09-09
+**Last verified:** 2026-09-19
 **Delivered through:** Phase 3 of 12
 **Enforced by:** `DELIVERED_THROUGH_PHASE` in [`src/registry/index.ts`](../src/registry/index.ts),
 asserted by `tests/registry/registry-integrity.test.ts`
 
 > This file states what actually works. Every claim below was exercised against
-> a real PostgreSQL database and a running production build, not inferred from
+> a real MySQL 8.0 database and a running production build, not inferred from
 > the code. Constitution P9 makes overstating progress the most serious process
 > violation in this repository.
 
@@ -180,16 +180,15 @@ overridden it. A dentist's edit cannot reach the master record: the custom text
 is a separate column on their own row, and no dentist-facing path writes to the
 catalogue at all.
 
-> **Not verified against a database.** The migrations
-> `20260909120000_phase_3_treatment_catalogue_pricing` and
-> `20260909180000_price_list_descriptions` have not been applied anywhere, and
-> `tests/integration/pricing.test.ts` (26 tests covering ownership, IDOR,
-> clinic isolation, scope fallback, price history, description ownership and
-> fallback, and pagination) has never executed — it skips without
-> `DATABASE_URL`, and no PostgreSQL was available in the environment it was
-> written in. The 201 domain and UI tests do run. Until someone applies the
-> migrations, seeds, and runs that integration suite green, this feature is 🟠
-> and not 🟢, whatever the code looks like (Constitution P8).
+> **Verified against a database on 2026-09-19** (MySQL 8.0.46). The schema was
+> applied, the catalogue seeded, and `tests/integration/pricing.test.ts` (26
+> tests covering ownership, IDOR, clinic isolation, scope fallback, price
+> history, description ownership and fallback, and pagination) ran green for
+> the first time. Running it surfaced two defects, both fixed: a raw ZodError
+> escaping `upsertServicePrice` instead of a typed validation error, and three
+> catalogue synonyms whose seed IDs collided. The feature stays 🟠 until it is
+> certified across all dimensions (Constitution P8) — a green integration run
+> is an entry condition, not certification.
 
 **Not built:** clinic verification submission UI 🔵 (the model supports
 organizations; only the dentist path has a UI), document upload for
@@ -213,14 +212,24 @@ explicitly marked `planned`.
 ```
 Type-check   clean
 Lint         clean
-Tests        335 passed, 16 suites
-             ├─ unit:        13 suites
-             └─ integration:  3 suites, against real PostgreSQL
+Tests        621 passed, 30 files — against real MySQL 8.0.46, 0 skipped
+             ├─ unit and static:  25 files
+             └─ integration:       5 files (auth, organizations, pricing,
+                                   verification, MySQL semantics)
+             Without a database:  506 passed, 115 integration tests skip
+End to end   28/28 over HTTP against the production build on MySQL:
+             register, sign in/out, profile, clinic, location, pricing,
+             verification review, public profile, password change, rate limit
 Build        succeeded, 0 error log lines
-Migrations   3 applied, 43 tables
-Vulnerabilities  0
+Migrations   1 applied (MySQL baseline), 53 tables, 52 foreign keys
 Doc links    all resolve
 ```
+
+> **CI had never run.** Until 2026-09-19 `.github/workflows/ci.yml` was
+> rejected by GitHub before any job started (`context "env" is not allowed
+> here`), so every run on every branch failed without testing anything. It is
+> fixed and passes `actionlint`, but has not yet run on GitHub — it will on the
+> next push.
 
 Integration tests run against a real database rather than a mocked ORM, because
 a mock cannot verify a unique constraint, a transaction rollback, or the atomic

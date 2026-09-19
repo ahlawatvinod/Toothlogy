@@ -113,7 +113,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     id: 'TL-INT-SEARCH-001',
     name: 'Search Engine',
     description:
-      'External search index for discovery at scale. PostgreSQL full-text search is the interim implementation behind the same port.',
+      'External search index for discovery at scale. MySQL FULLTEXT search is the interim implementation behind the same port.',
     status: 'prepared',
     phase: 4,
     category: 'search',

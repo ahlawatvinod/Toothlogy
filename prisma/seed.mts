@@ -504,7 +504,12 @@ async function seedCatalogue(): Promise<{
         await prisma.serviceSynonym.upsert({
           where: { serviceId_normalized: { serviceId: serviceRow.id, normalized } },
           create: {
-            id: seedId('ssyn', service.slug, normalized),
+            // Spaces become underscores BEFORE `seedId`, which would otherwise
+            // strip them: "check up" and "checkup" are separate synonyms with
+            // separate `normalized` values, and without this they produced the
+            // same primary key. The upsert above looks them up by `normalized`,
+            // misses, and the insert then collided — on any database engine.
+            id: seedId('ssyn', service.slug, normalized.replace(/ /g, '_')),
             serviceId: serviceRow.id,
             keyword,
             normalized,

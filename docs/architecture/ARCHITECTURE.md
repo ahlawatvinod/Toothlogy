@@ -23,7 +23,7 @@ boundaries enforced in code and in the registry.
 └──────────────────────────┬──────────────────────────────────┘
                            │  Prisma
                   ┌────────▼────────┐
-                  │   PostgreSQL    │
+                  │      MySQL      │
                   └─────────────────┘
                            │  ports (no adapters in Phase 0)
    ┌───────────┬───────────┼───────────┬────────────┬─────────┐

@@ -15,7 +15,7 @@
  * because in this product they are not optional refinements: "a great dentist
  * 40 km away who is booked until March" is the wrong answer to "I need a dentist".
  *
- * 🟡 PREPARED. No engine is wired. PostgreSQL full-text search will implement
+ * 🟡 PREPARED. No engine is wired. MySQL FULLTEXT search will implement
  * this port first; an external engine replaces it later without any caller
  * changing.
  */

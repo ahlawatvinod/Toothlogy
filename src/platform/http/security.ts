@@ -248,7 +248,7 @@ export async function checkIdempotency(
   return { kind: 'replay', record: existing };
 }
 
-/** In-memory store for tests and local development. Phase 1 persists to Postgres. */
+/** In-memory store for tests and local development. Phase 1 persists to the database. */
 export class InMemoryIdempotencyStore implements IdempotencyStore {
   private readonly records = new Map<string, IdempotencyRecord>();
 

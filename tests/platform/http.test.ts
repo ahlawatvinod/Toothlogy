@@ -53,10 +53,10 @@ describe('error taxonomy', () => {
   });
 
   it('never exposes an internal error message', () => {
-    const internal = errors.internal('Database connection string is invalid: postgres://u:p@h/db');
+    const internal = errors.internal('Database connection string is invalid: mysql://u:p@h/db');
     expect(internal.expose).toBe(false);
     expect(internal.toPublicJSON().message).toBe('An unexpected error occurred.');
-    expect(JSON.stringify(internal.toPublicJSON())).not.toContain('postgres://');
+    expect(JSON.stringify(internal.toPublicJSON())).not.toContain('mysql://');
   });
 
   it('converts an unexpected throw into a non-exposed internal error', () => {

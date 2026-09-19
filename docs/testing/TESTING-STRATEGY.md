@@ -41,7 +41,7 @@ without benefit.
 | `unit` | One module, no I/O | node |
 | `integration` | Several modules together | node |
 | `api` | Route contracts and conventions | node |
-| `database` | Migrations, constraints, transactions, races | node + **real PostgreSQL** |
+| `database` | Migrations, constraints, transactions, races | node + **real MySQL** |
 | `security` | Authorization, redaction, secrets | node |
 | `ui` / `accessibility` | Components and their ARIA contracts | happy-dom |
 | `performance` | Web Vitals, query shapes | *(Phase 2)* |
@@ -104,16 +104,17 @@ not typed by hand:
 | `tests/integration/organizations.test.ts` | 26 | **database** |
 | `tests/integration/verification.test.ts` | 23 | **database** |
 
-### Integration tests run against real PostgreSQL
+### Integration tests run against real MySQL
 
-The three `database`-level suites use an actual database, not a mocked ORM.
+The `database`-level suites use an actual database, not a mocked ORM.
 A mock verifies that we called the functions we think we called; it cannot
-verify a unique constraint, a transaction rollback, an `ON CONFLICT` clause, or
+verify a unique constraint, a transaction rollback, an `ON DUPLICATE KEY
+UPDATE`, or
 the atomic single-use token consumption that stops two people redeeming one
 password-reset link. Those are exactly where the dangerous bugs live.
 
 They run in a separate Vitest project with `fileParallelism: false`, because
-they share one database and truncate it between tests — run in parallel they
+they share one database and empty it between tests — run in parallel they
 corrupt each other and produce failures that look like real bugs.
 
 ### Defects these tests found

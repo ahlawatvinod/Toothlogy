@@ -18,21 +18,35 @@ new contributor should be able to clone, install and see the app work without
 provisioning anything. Missing infrastructure is reported honestly — the health
 endpoint returns `unhealthy` and names what is absent — rather than faked.
 
-### With PostgreSQL
+### With MySQL
 
-`psql` is not required on the host; Docker is sufficient.
+Any MySQL 8.0+ (or MariaDB 10.6+) you control. With Docker:
 
 ```bash
-docker run --name toothlogy-db -e POSTGRES_PASSWORD=<choose-one> \
-  -e POSTGRES_DB=toothlogy -p 5432:5432 -d postgres:17
+docker run --name toothlogy-db -e MYSQL_ROOT_PASSWORD=<choose-one> \
+  -e MYSQL_DATABASE=toothlogy -p 3306:3306 -d mysql:8.0
 
-# then set DATABASE_URL in .env.local
+# then set DATABASE_URL in .env.local (shape: see .env.example)
 npm run db:generate
-npm run db:migrate
+npm run db:deploy     # apply migrations
+npm run db:seed       # reference data; safe to re-run
 ```
 
 > Pick your own password and put it in `.env.local` only. Never commit it, and
 > never reuse a development password in any other environment.
+
+**`db:deploy` versus `db:migrate`.** `db:deploy` (`prisma migrate deploy`) only
+ever applies pending migrations and is the ONLY migration command to run
+against a database holding real data, including production. `db:migrate`
+(`prisma migrate dev`) is for authoring a new migration against a disposable
+local database: it needs a shadow database — which a Hostinger user cannot
+create — and on drift it offers to reset, which deletes everything. `db:reset`
+deletes everything unconditionally.
+
+**Authoring a migration.** `prisma migrate dev` writes new tables with
+`COLLATE utf8mb4_unicode_ci`. Change it to `utf8mb4_bin` before committing —
+`tests/platform/migrations.test.ts` fails until you do, and the MYSQL
+CONVENTIONS note at the top of `prisma/schema.prisma` explains why.
 
 ---
 
@@ -162,8 +176,42 @@ Required before any real patient data exists:
 
 ## 9. Hosting
 
-🔴 **Not yet decided.** The application is a standard Next.js server build with
-one PostgreSQL dependency and no host-specific APIs, so the choice stays open.
-Requirements to weigh in Phase 1: data residency for the Indian market
-(DPDP Act), managed Postgres with point-in-time recovery, and a path to
-region-local deployment for Phase 12.
+**Application:** Vercel. **Database:** MySQL on Hostinger (decided 2026-09-19).
+🟡 **PREPARED, not live** — the production deployment has no `DATABASE_URL`
+yet, so its health check reports the database `unhealthy`.
+
+### Connecting Vercel to Hostinger MySQL
+
+The application runs on Vercel and the database on Hostinger, so every query
+crosses the public internet. That has four consequences to settle before go-live:
+
+1. **Remote access must be switched on.** Hostinger MySQL accepts connections
+   only from Hostinger's own servers by default. hPanel → Databases → Remote
+   MySQL must allow the connecting host. Vercel functions have no fixed
+   outbound IP on standard plans, so this generally means allowing any host
+   (`%`) — which exposes port 3306 to the internet, protected only by the
+   database password. Use a long random password, a user scoped to this one
+   database, and TLS if Hostinger offers it for remote connections.
+2. **Connection limits.** Each serverless instance opens its own pool and a
+   shared host caps connections per user. Keep `connection_limit` small in the
+   URL (see `.env.example`); "Too many connections" under load means it is set
+   too high or the plan's cap is too low.
+3. **Latency.** Put the Vercel function region and the Hostinger datacenter in
+   the same country. Every request pays the round trip once per query.
+4. **Recovery.** Shared MySQL hosting generally offers periodic backups, not
+   point-in-time recovery. Confirm the backup schedule and test a restore
+   before real patient data is stored — the DPDP Act and the clinical-records
+   phases make this a requirement, not an option.
+
+### First deploy against a new Hostinger database
+
+```bash
+# From a machine allowed by Remote MySQL, with the production URL in the
+# environment for this shell only — never in a file in the repository:
+npx prisma migrate deploy   # creates the schema; non-destructive
+npm run db:seed             # reference data; idempotent
+```
+
+Then set `DATABASE_URL` in Vercel → Settings → Environment Variables
+(Production), redeploy, and confirm `/api/v1/health` reports the database
+`healthy`.

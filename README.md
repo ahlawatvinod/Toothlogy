@@ -53,7 +53,7 @@ npm run verify       # typecheck + lint + test — the CI gate
 |---|---|
 | Framework | Next.js 16 (App Router), React 19 |
 | Language | TypeScript, strict, `noUncheckedIndexedAccess` |
-| Database | PostgreSQL via Prisma *(schema authored; no migration run)* |
+| Database | MySQL 8.0+ via Prisma — production target: Hostinger *(not yet connected)* |
 | Styling | Tailwind CSS v4 + a token-driven design system |
 | Validation | Zod |
 | Testing | Vitest + Testing Library + happy-dom |

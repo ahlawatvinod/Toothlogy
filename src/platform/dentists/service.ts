@@ -25,6 +25,7 @@ import { z } from 'zod';
 import { newId } from '../kernel/ids';
 import { errors } from '../kernel/errors';
 import { db, isUniqueConstraintError, transaction } from '../db/client';
+import { jsonStringArray } from '../db/json';
 import { recordAuditEvent } from '../audit';
 import { LANGUAGE_BY_CODE } from '@/registry/globalization';
 
@@ -485,7 +486,7 @@ export async function confirmPractice(
 
 /** A dentist's own profile, with everything needed to edit it. */
 export async function getOwnDentistProfile(userId: string) {
-  return db().dentistProfile.findUnique({
+  const profile = await db().dentistProfile.findUnique({
     where: { userId },
     include: {
       qualifications: { orderBy: { year: 'desc' } },
@@ -494,6 +495,8 @@ export async function getOwnDentistProfile(userId: string) {
       verifications: { orderBy: { submittedAt: 'desc' }, take: 5 },
     },
   });
+  // `languages` is a JSON column on MySQL; callers get the list they always had.
+  return profile && { ...profile, languages: jsonStringArray(profile.languages, 'dentist.languages') };
 }
 
 /**
@@ -504,7 +507,7 @@ export async function getOwnDentistProfile(userId: string) {
  * a public, unverified professional listing.
  */
 export async function getPublicDentistProfile(slug: string) {
-  return db().dentistProfile.findFirst({
+  const profile = await db().dentistProfile.findFirst({
     where: { slug, isDiscoverable: true, deletedAt: null },
     include: {
       user: { select: { displayName: true } },
@@ -517,4 +520,5 @@ export async function getPublicDentistProfile(slug: string) {
       specialties: { include: { specialty: true } },
     },
   });
+  return profile && { ...profile, languages: jsonStringArray(profile.languages, 'dentist.languages') };
 }

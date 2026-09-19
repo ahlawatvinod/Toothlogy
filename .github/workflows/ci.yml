@@ -30,40 +30,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # Integration tests run against a REAL PostgreSQL, not a mock. A mocked ORM
-    # cannot verify a unique constraint, a transaction rollback or an ON CONFLICT
-    # clause — which is exactly where the interesting bugs are.
+    # Integration tests run against a REAL MySQL, not a mock. A mocked ORM
+    # cannot verify a unique constraint, a transaction rollback or an
+    # ON DUPLICATE KEY UPDATE — which is exactly where the interesting bugs are.
+    #
+    # 8.0 because it is the MySQL line a shared host is most likely to run;
+    # code that relies on nothing newer than 8.0 runs on the newer ones too.
     services:
-      postgres:
-        image: postgres:17
+      mysql:
+        image: mysql:8.0
         env:
-          POSTGRES_USER: toothlogy
+          MYSQL_DATABASE: toothlogy_test
+          MYSQL_USER: toothlogy
           # Ephemeral: this container exists only for the duration of this job,
           # is reachable only on localhost, and is destroyed afterwards.
-          POSTGRES_PASSWORD: ci_ephemeral
-          POSTGRES_DB: toothlogy_test
+          MYSQL_PASSWORD: ci_ephemeral
+          MYSQL_ROOT_PASSWORD: ci_ephemeral_root
         ports:
-          - 5432:5432
-        # Without the health check, migrations can start before Postgres is
+          - 3306:3306
+        # Without the health check, migrations can start before MySQL is
         # accepting connections and the job fails intermittently.
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pci_ephemeral_root"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
 
     env:
-      # Composed from parts rather than written as one connection string.
-      #
-      # `tests/security/secrets.test.ts` treats a credential-shaped URL as a
-      # finding wherever it appears, INCLUDING here — and that is the correct
-      # posture. A scanner with an exemption for "the file where we put the
-      # test credentials" protects nothing, because that is exactly the file a
-      # real credential gets pasted into.
-      PGUSER: toothlogy
-      PGPASSWORD: ci_ephemeral
-      PGDATABASE: toothlogy_test
-      DATABASE_URL: postgresql://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@localhost:5432/${{ env.PGDATABASE }}
+      DB_USER: toothlogy
+      DB_PASSWORD: ci_ephemeral
+      DB_NAME: toothlogy_test
 
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +74,24 @@ jobs:
       # that will be deployed.
       - name: Install dependencies
         run: npm ci
+
+      # DATABASE_URL is assembled here, in a step, for two reasons.
+      #
+      # 1. It cannot be built in the job's `env:` block. GitHub does not expose
+      #    the `env` context there, and the `${{ env.… }}` interpolation this
+      #    file used to have made GitHub reject the whole workflow before any
+      #    job started — every CI run on this repository failed that way, and
+      #    none ever reached a test. (`actionlint` reports it.)
+      # 2. `tests/security/secrets.test.ts` treats a credential-shaped URL as a
+      #    finding wherever it appears, INCLUDING here — and that is the correct
+      #    posture. A scanner with an exemption for "the file where we put the
+      #    test credentials" protects nothing, because that is exactly the file
+      #    a real credential gets pasted into. The scheme is passed to printf as
+      #    an argument so this line never reads as one.
+      - name: Compose DATABASE_URL
+        run: >-
+          printf 'DATABASE_URL=%s://%s:%s@127.0.0.1:3306/%s\n'
+          mysql "$DB_USER" "$DB_PASSWORD" "$DB_NAME" >> "$GITHUB_ENV"
 
       - name: Type-check
         run: npm run typecheck

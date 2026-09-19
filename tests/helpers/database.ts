@@ -1,13 +1,13 @@
 /**
  * TOOTHLOGY INTEGRATION TEST HELPERS
  *
- * Integration tests run against a REAL PostgreSQL database, not a mock.
+ * Integration tests run against a REAL MySQL database, not a mock.
  *
  * WHY NOT MOCK PRISMA
  * A mocked ORM verifies that we called the functions we think we called. It
  * cannot verify a unique constraint, a cascade delete, a transaction rollback,
- * or an `ON CONFLICT` clause — which is precisely where the interesting bugs
- * live. A test suite that mocks the database passes while double-booking is
+ * or an `ON DUPLICATE KEY UPDATE` — which is precisely where the interesting
+ * bugs live. A test suite that mocks the database passes while double-booking is
  * possible.
  *
  * SKIPPING WHEN THERE IS NO DATABASE
@@ -107,15 +107,29 @@ const MUTABLE_TABLES = [
 /**
  * Empty every mutable table.
  *
- * `TRUNCATE … CASCADE` in one statement rather than per-table deletes: it is
- * dramatically faster, and it sidesteps foreign-key ordering entirely, so
- * adding a table to the list above never requires working out where in the
- * dependency graph it belongs.
+ * Foreign-key checks are switched off for the duration, so adding a table to
+ * the list above never requires working out where in the dependency graph it
+ * belongs — the property `TRUNCATE … CASCADE` gave on PostgreSQL.
+ *
+ * `DELETE`, not `TRUNCATE`: on MySQL TRUNCATE is DDL and commits implicitly,
+ * which would end the transaction that pins these statements to one
+ * connection. And they must share one: `FOREIGN_KEY_CHECKS` is a session
+ * variable, so switching it off on one pooled connection and deleting on
+ * another would do nothing at all. The tables hold a handful of test rows, so
+ * DELETE costs nothing measurable.
  */
 export async function resetDatabase(): Promise<void> {
   if (!hasTestDatabase) return;
-  const quoted = MUTABLE_TABLES.map((t) => `"${t}"`).join(', ');
-  await testDb().$executeRawUnsafe(`TRUNCATE TABLE ${quoted} RESTART IDENTITY CASCADE`);
+  await testDb().$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0');
+    try {
+      for (const table of MUTABLE_TABLES) {
+        await tx.$executeRawUnsafe(`DELETE FROM \`${table}\``);
+      }
+    } finally {
+      await tx.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1');
+    }
+  });
 }
 
 /**
